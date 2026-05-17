@@ -15,6 +15,9 @@ interface SimState {
 }
 
 interface FlowStore {
+
+  updateFlowNodeData: (id: string, data: Record<string, unknown>) => void
+  updateSchemaNodeData: (id: string, data: Record<string, unknown>) => void
   // Schema canvas
   schemaNodes: Node[]
   schemaEdges: Edge[]
@@ -46,6 +49,8 @@ interface FlowStore {
   resetSim: () => void
   setProject: (project: ProjectConfig) => void
   setActiveCanvas: (canvas: 'schema' | 'flow') => void
+
+  
 }
 
 export const useFlowStore = create<FlowStore>((set) => ({
@@ -62,6 +67,14 @@ export const useFlowStore = create<FlowStore>((set) => ({
     variables: {},
     currentNodeId: null,
   },
+
+  
+  updateFlowNodeData: (id, data) => set((s) => ({
+  flowNodes: s.flowNodes.map(n => n.id === id ? { ...n, data } : n)
+})),
+updateSchemaNodeData: (id, data) => set((s) => ({
+  schemaNodes: s.schemaNodes.map(n => n.id === id ? { ...n, data } : n)
+})),
 
   setSchemaNodes: (schemaNodes) => set({ schemaNodes }),
   setSchemaEdges: (schemaEdges) => set({ schemaEdges }),

@@ -8,6 +8,9 @@ import TopBar from '@/components/editor/TopBar'
 import SchemaCanvas from '@/components/schema/SchemaCanvas'
 import { useFlowStore } from '@/store/userFlowStore'
 import { useReactFlow, ReactFlowProvider } from '@xyflow/react'
+import PropertiesPanel from '@/components/editor/PropertiesPanel'
+import CodePanel from '@/components/editor/CodePanel'
+import { useState } from 'react'
 
 let nodeCounter = 1
 
@@ -15,6 +18,8 @@ function EditorInner() {
   const { addSchemaNode, addFlowNode, setProject, activeCanvas } = useFlowStore()
   const { screenToFlowPosition } = useReactFlow()
   const router = useRouter()
+  const [codeOpen, setCodeOpen] = useState(false)
+
 
   useEffect(() => {
     const raw = localStorage.getItem('fp_project')
@@ -61,17 +66,19 @@ function EditorInner() {
     e.dataTransfer.dropEffect = 'move'
   }, [])
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh' }}>
-      <TopBar />
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <Sidebar />
-        <div style={{ flex: 1 }} onDrop={onDrop} onDragOver={onDragOver}>
-          {activeCanvas === 'schema' ? <SchemaCanvas /> : <FlowCanvas />}
-        </div>
+return (
+  <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh' }}>
+    <TopBar onCodeOpen={() => setCodeOpen(true)} />
+    <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <Sidebar />
+      <div style={{ flex: 1 }} onDrop={onDrop} onDragOver={onDragOver}>
+        {activeCanvas === 'schema' ? <SchemaCanvas /> : <FlowCanvas />}
       </div>
+      <PropertiesPanel />
     </div>
-  )
+    {codeOpen && <CodePanel onClose={() => setCodeOpen(false)} />}
+  </div>
+)
 }
 
 export default function EditorPage() {

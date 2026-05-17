@@ -2,8 +2,10 @@
 
 import { useFlowStore } from '@/store/userFlowStore'
 
-export default function TopBar() {
+export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
+
   const { simState, setSimState, resetSim, project, activeCanvas, setActiveCanvas } = useFlowStore()
+
 
   return (
     <div style={{
@@ -140,19 +142,20 @@ export default function TopBar() {
 
       {/* Right side */}
       <button
-        style={{
-          background: '#1e2330',
-          border: '1px solid #2a3040',
-          color: '#8a94b0',
-          fontFamily: 'monospace',
-          fontSize: 12,
-          padding: '5px 14px',
-          borderRadius: 6,
-          cursor: 'pointer',
-        }}
-      >
-        {'{ }'} Code
-      </button>
+  onClick={onCodeOpen}
+  style={{
+    background: '#1e2330',
+    border: '1px solid #2a3040',
+    color: '#8a94b0',
+    fontFamily: 'monospace',
+    fontSize: 12,
+    padding: '5px 14px',
+    borderRadius: 6,
+    cursor: 'pointer',
+  }}
+>
+  {'{ }'} Code
+</button>
 
       <button
         onClick={() => { localStorage.removeItem('fp_project'); window.location.href = '/' }}
@@ -169,4 +172,8 @@ export default function TopBar() {
       </button>
     </div>
   )
+
+  
+
+  
 }
