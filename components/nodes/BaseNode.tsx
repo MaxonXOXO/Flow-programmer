@@ -9,7 +9,7 @@ interface BaseNodeData {
   icon?: string
 }
 
-const typeColors: Record<string, string> = {
+const typeColors: Record<string, any> = {
   start:     { bg: '#0d2b1a', border: '#2fd18b', accent: '#2fd18b', badge: '#0a2216' },
   end:       { bg: '#0d1a2b', border: '#3d8bff', accent: '#3d8bff', badge: '#0a1628' },
   condition: { bg: '#2b1f0a', border: '#f5a623', accent: '#f5a623', badge: '#231a08' },
@@ -21,29 +21,83 @@ const typeColors: Record<string, string> = {
   delay:     { bg: '#1a1e2b', border: '#8a94b0', accent: '#8a94b0', badge: '#141720' },
   gpio:      { bg: '#0d1a2b', border: '#3d8bff', accent: '#3d8bff', badge: '#0a1628' },
   api:       { bg: '#2b0d0d', border: '#e85050', accent: '#e85050', badge: '#230a0a' },
-} as any
+  input:     { bg: '#0d1a2b', border: '#3d8bff', accent: '#3d8bff', badge: '#0a1628' },
+}
+
+// Define named ports for each node type
+const NODE_PORTS: Record<string, { ins: string[], outs: string[] }> = {
+  start:     { ins: [],               outs: ['flow'] },
+  end:       { ins: ['flow'],         outs: [] },
+  variable:  { ins: ['flow'],         outs: ['flow'] },
+  print:     { ins: ['flow'],         outs: ['flow'] },
+  delay:     { ins: ['flow'],         outs: ['flow'] },
+  gpio:      { ins: ['flow'],         outs: ['flow'] },
+  sensor:    { ins: ['flow'],         outs: ['flow'] },
+  input:     { ins: ['flow'],         outs: ['flow'] },
+  function:  { ins: ['flow'],         outs: ['flow'] },
+  condition: { ins: ['flow'],         outs: ['true', 'false'] },
+  loop:      { ins: ['flow'],         outs: ['body', 'done'] },
+  api:       { ins: ['flow'],         outs: ['flow'] },
+}
 
 export default function BaseNode({ data, selected }: NodeProps) {
   const nodeData = data as BaseNodeData
   const colors = typeColors[nodeData.nodeType || 'start'] || typeColors.start
   const params = nodeData.params || {}
+  const ports = NODE_PORTS[nodeData.nodeType || 'start'] || { ins: ['flow'], outs: ['flow'] }
+
+  const portColor = (port: string) => {
+    if (port === 'true') return '#2fd18b'
+    if (port === 'false') return '#e85050'
+    if (port === 'body') return '#9b6cff'
+    if (port === 'done') return '#3d8bff'
+    return colors.accent
+  }
 
   return (
     <div style={{
       background: colors.bg,
       border: `1.5px solid ${selected ? colors.accent : colors.border}`,
       borderRadius: 10,
-      minWidth: 180,
+      minWidth: 200,
       fontFamily: 'var(--font-sans, sans-serif)',
       boxShadow: selected ? `0 0 0 2px ${colors.accent}33` : '0 4px 20px rgba(0,0,0,0.4)',
-      transition: 'box-shadow 0.15s',
+      position: 'relative',
     }}>
-      {/* Input handle */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        style={{ background: colors.accent, border: 'none', width: 10, height: 10 }}
-      />
+
+      {/* Input ports — left side */}
+      <div style={{
+        position: 'absolute',
+        left: -1,
+        top: 0,
+        bottom: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        gap: 8,
+        transform: 'translateX(-50%)',
+      }}>
+        {ports.ins.map(port => (
+          <div key={port} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <Handle
+              type="target"
+              position={Position.Left}
+              id={port}
+              style={{
+                position: 'relative',
+                transform: 'none',
+                left: 'auto',
+                top: 'auto',
+                width: 10,
+                height: 10,
+                background: portColor(port),
+                border: 'none',
+                borderRadius: 2,
+              }}
+            />
+          </div>
+        ))}
+      </div>
 
       {/* Header */}
       <div style={{
@@ -51,7 +105,8 @@ export default function BaseNode({ data, selected }: NodeProps) {
         alignItems: 'center',
         gap: 8,
         padding: '9px 12px 8px',
-        borderBottom: `1px solid ${colors.border}22`,
+        borderBottom: Object.keys(params).length > 0 ? `1px solid ${colors.border}22` : 'none',
+        borderRadius: '9px 9px 0 0',
       }}>
         <div style={{
           background: colors.badge,
@@ -87,7 +142,12 @@ export default function BaseNode({ data, selected }: NodeProps) {
         <div style={{ padding: '10px 12px' }}>
           {Object.entries(params).map(([key, val]) => (
             <div key={key} style={{ marginBottom: 6 }}>
-              <div style={{ fontSize: 11, color: '#4a5270', fontFamily: 'monospace', marginBottom: 3 }}>
+              <div style={{
+                fontSize: 11,
+                color: '#4a5270',
+                fontFamily: 'monospace',
+                marginBottom: 3,
+              }}>
                 {key}
               </div>
               <div style={{
@@ -106,12 +166,54 @@ export default function BaseNode({ data, selected }: NodeProps) {
         </div>
       )}
 
-      {/* Output handle */}
-      <Handle
-        type="source"
-        position={Position.Right}
-        style={{ background: colors.accent, border: 'none', width: 10, height: 10 }}
-      />
+      {/* Output ports — right side with labels */}
+      <div style={{
+        position: 'absolute',
+        right: -1,
+        top: 0,
+        bottom: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        gap: 8,
+        transform: 'translateX(50%)',
+      }}>
+        {ports.outs.map(port => (
+          <div key={port} style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            flexDirection: 'row-reverse',
+          }}>
+            <Handle
+              type="source"
+              position={Position.Right}
+              id={port}
+              style={{
+                position: 'relative',
+                transform: 'none',
+                right: 'auto',
+                top: 'auto',
+                width: 10,
+                height: 10,
+                background: portColor(port),
+                border: 'none',
+                borderRadius: 2,
+              }}
+            />
+            {ports.outs.length > 1 && (
+              <span style={{
+                fontSize: 9,
+                color: portColor(port),
+                fontFamily: 'monospace',
+                marginRight: 4,
+              }}>
+                {port}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
