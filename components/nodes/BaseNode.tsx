@@ -4,7 +4,8 @@ import { Handle, Position, NodeProps } from '@xyflow/react'
 import { useFlowStore } from '@/store/userFlowStore'
 import { 
   PlayCircle, StopCircle, GitFork, RotateCw, Timer, 
-  Binary, Braces, Printer, Type, Activity, Zap, Link 
+  Binary, Braces, Printer, Type, Activity, Zap, Link,
+  Eye, Thermometer, Radio, Sun, Wrench, Tv, Monitor
 } from 'lucide-react'
 
 interface BaseNodeData {
@@ -28,6 +29,17 @@ const categoryStyles: Record<string, { headerBg: string, iconColor: string, text
   gpio:      { headerBg: 'rgba(95, 163, 255, 0.15)', iconColor: '#5fa3ff', textColor: '#5fa3ff' },
   api:       { headerBg: 'rgba(255, 95, 158, 0.15)', iconColor: '#ff5f9e', textColor: '#ff5f9e' },
   input:     { headerBg: 'rgba(255, 95, 158, 0.15)', iconColor: '#ff5f9e', textColor: '#ff5f9e' },
+  
+  // Specific sensor templates
+  dht:        { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
+  ultrasonic: { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
+  pir:        { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
+  ldr:        { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
+  
+  // Specific control devices
+  servo:      { headerBg: 'rgba(165, 179, 205, 0.15)', iconColor: '#a5b3cd', textColor: '#a5b3cd' },
+  lcd:        { headerBg: 'rgba(95, 163, 255, 0.15)', iconColor: '#5fa3ff', textColor: '#5fa3ff' },
+  oled:       { headerBg: 'rgba(255, 95, 158, 0.15)', iconColor: '#ff5f9e', textColor: '#ff5f9e' },
 }
 
 // Get vector icons for node headers
@@ -46,6 +58,18 @@ function getNodeHeaderIcon(nodeType: string, color: string, className: string = 
     case 'sensor': return <Activity {...iconProps} />
     case 'gpio': return <Zap {...iconProps} />
     case 'api': return <Link {...iconProps} />
+    
+    // Specific sensor templates
+    case 'dht': return <Thermometer {...iconProps} />
+    case 'ultrasonic': return <Radio {...iconProps} />
+    case 'pir': return <Eye {...iconProps} />
+    case 'ldr': return <Sun {...iconProps} />
+    
+    // Specific control devices
+    case 'servo': return <Wrench {...iconProps} />
+    case 'lcd': return <Tv {...iconProps} />
+    case 'oled': return <Monitor {...iconProps} />
+    
     default: return <PlayCircle {...iconProps} />
   }
 }

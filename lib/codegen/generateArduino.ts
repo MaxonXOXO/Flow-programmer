@@ -1,12 +1,30 @@
 import { Node, Edge } from '@xyflow/react'
+import { generateDHTCode } from './sensors/dht'
+import { generateUltrasonicCode, resetUltrasonicCounter } from './sensors/ultrasonic'
+import { generatePIRCode } from './sensors/pir'
+import { generateLDRCode } from './sensors/ldr'
+import { generateServoCode } from './sensors/servo'
+import { generateLCDCode } from './sensors/lcd'
+import { generateOLEDCode } from './sensors/oled'
 
 // ===== TYPES =====
-interface Connection {
+export interface Connection {
   componentId: string
   componentLabel: string
   componentType: string
   pin: string
   arduinoPin: string
+}
+
+// ===== POWER PIN HELPERS =====
+const POWER_PINS_COMPONENT = ['gnd', 'vcc', 'vdd', 'vss', 'vin', '5v', '3.3v', '3v3', 'cathode', 'neg']
+const POWER_PINS_ARDUINO = ['gnd', '5v', '3.3v', 'vin']
+
+function isPowerPin(conn: Connection): boolean {
+  return (
+    POWER_PINS_COMPONENT.includes(conn.pin.toLowerCase()) ||
+    POWER_PINS_ARDUINO.includes(conn.arduinoPin.toLowerCase())
+  )
 }
 
 // ===== SCHEMA PARSING =====
@@ -38,25 +56,125 @@ function parseConnections(schemaNodes: Node[], schemaEdges: Edge[]): Connection[
   return connections
 }
 
-function pinToNumber(pin: string): string {
+// ===== UTILITY EXPORTS =====
+export function pinToNumber(pin: string): string {
   if (pin.startsWith('D')) return pin.slice(1)
   return pin
 }
 
-function safeVarName(label: string): string {
+export function safeVarName(label: string): string {
   return label.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()
 }
 
+/**
+ * Formats a value for use inside Serial.println / lcd.print / oled.print.
+ * - If the value contains `+` or variable references (no surrounding quotes), treat as C++ expression and pass through.
+ * - If the value is a plain string without quotes, wrap it in double quotes.
+ * - If it already has proper double quotes, return as-is.
+ * - If it uses single quotes, convert to double quotes.
+ */
+export function formatStringLiteral(str: string): string {
+  if (!str) return '""'
+
+  const trimmed = str.trim()
+
+  // Already properly quoted — pass through
+  if (trimmed.startsWith('"') && trimmed.endsWith('"') && !trimmed.includes('+')) return trimmed
+
+  // Contains concatenation operators or variable names → treat as C++ expression
+  // e.g.  "Temp: " + String(temp)   or   distance   or   temp
+  if (trimmed.includes('+') || trimmed.includes('String(') || trimmed.includes('(')) {
+    return trimmed
+  }
+
+  // Single-quoted string → convert to double quotes
+  if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
+    return `"${trimmed.slice(1, -1)}"`
+  }
+
+  // Plain word/identifier — could be a variable name
+  if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(trimmed)) {
+    return trimmed
+  }
+
+  // Otherwise wrap as string literal
+  return `"${trimmed}"`
+}
+
+// ===== VARIABLE TRACKING =====
+/**
+ * Collects all variables that are explicitly declared by 'variable' nodes in the flow.
+ * Used to avoid re-declaring variables that sensor nodes also output.
+ */
+export function getDefinedVariables(flowNodes: Node[]): Set<string> {
+  const vars = new Set<string>()
+  flowNodes.forEach(node => {
+    const d = node.data as any
+    if (d?.nodeType === 'variable' && d?.params?.name) {
+      vars.add(d.params.name)
+    }
+  })
+  return vars
+}
+
+/**
+ * Collects ALL variable names that will be declared anywhere in the flow,
+ * including sensor output variables. Used to prevent duplicate declarations
+ * when the same variable name appears in multiple nodes.
+ */
+function getAllDeclaredVars(flowNodes: Node[]): Set<string> {
+  const vars = new Set<string>()
+  flowNodes.forEach(node => {
+    const d = node.data as any
+    const t = d?.nodeType
+    const p = d?.params || {}
+    if (t === 'variable' && p.name) vars.add(p.name)
+    if (t === 'dht') { vars.add(p.varTemp || 'temp'); vars.add(p.varHum || 'hum') }
+    if (t === 'ultrasonic') vars.add(p.varDist || 'distance')
+    if (t === 'pir') vars.add(p.varMotion || 'motion')
+    if (t === 'ldr') vars.add(p.varLight || 'lightVal')
+    if (t === 'sensor') vars.add(p.var || 'sensorVal')
+  })
+  return vars
+}
+
+// ===== COMPONENT LOOKUP HELPERS =====
+export function getComponentVarName(typeKeyword: string, connections: Connection[], defaultName: string): string {
+  const conn = connections.find(c => c.componentLabel.toLowerCase().includes(typeKeyword.toLowerCase()))
+  if (conn) return safeVarName(conn.componentLabel)
+  return defaultName
+}
+
+export function getComponentPin(typeKeyword: string, connections: Connection[], defaultPin: string): string {
+  const conn = connections.find(c => c.componentLabel.toLowerCase().includes(typeKeyword.toLowerCase()))
+  if (conn) return pinToNumber(conn.arduinoPin)
+  return defaultPin
+}
+
+export function getComponentPinForPort(typeKeyword: string, portName: string, connections: Connection[], defaultPin: string): string {
+  const conn = connections.find(c =>
+    c.componentLabel.toLowerCase().includes(typeKeyword.toLowerCase()) &&
+    c.pin.toLowerCase() === portName.toLowerCase()
+  )
+  if (conn) return pinToNumber(conn.arduinoPin)
+  return defaultPin
+}
+
 // ===== INCLUDES =====
-function generateIncludes(connections: Connection[]): string {
+function generateIncludes(connections: Connection[], flowNodes: Node[]): string {
   const includes = new Set<string>()
   const labels = connections.map(c => c.componentLabel)
 
-  if (labels.some(l => l.includes('DHT')))       { includes.add('#include <DHT.h>') }
-  if (labels.some(l => l.includes('Servo')))      { includes.add('#include <Servo.h>') }
-  if (labels.some(l => l.includes('LCD')))        { includes.add('#include <Wire.h>'); includes.add('#include <LiquidCrystal_I2C.h>') }
-  if (labels.some(l => l.includes('OLED')))       { includes.add('#include <Wire.h>'); includes.add('#include <Adafruit_SSD1306.h>') }
-  if (labels.some(l => l.includes('Bluetooth')))  { includes.add('#include <SoftwareSerial.h>') }
+  const hasSchemaOrFlow = (keyword: string, flowType: string) => {
+    return labels.some(l => l.toLowerCase().includes(keyword.toLowerCase())) ||
+           flowNodes.some(n => (n.data as any)?.nodeType === flowType)
+  }
+
+  if (hasSchemaOrFlow('DHT', 'dht'))             includes.add('#include <DHT.h>')
+  if (hasSchemaOrFlow('Servo', 'servo'))         includes.add('#include <Servo.h>')
+  if (hasSchemaOrFlow('LCD', 'lcd'))             { includes.add('#include <Wire.h>'); includes.add('#include <LiquidCrystal_I2C.h>') }
+  if (hasSchemaOrFlow('OLED', 'oled'))           { includes.add('#include <Wire.h>'); includes.add('#include <Adafruit_SSD1306.h>') }
+  if (hasSchemaOrFlow('Bluetooth', 'bluetooth')) includes.add('#include <SoftwareSerial.h>')
 
   return Array.from(includes).join('\n')
 }
@@ -67,49 +185,75 @@ function generateDefines(connections: Connection[]): string {
   const seen = new Set<string>()
 
   connections.forEach(conn => {
-    // Skip power/ground pins
-    if (['gnd', 'vcc', 'cathode', 'neg', 'gnd'].includes(conn.pin.toLowerCase())) return
-    if (['GND', '5V', '3.3V', 'VIN'].includes(conn.arduinoPin)) return
+    if (isPowerPin(conn)) return
 
     const key = `${conn.componentId}_${conn.pin}`
     if (seen.has(key)) return
     seen.add(key)
 
     const pinNum = pinToNumber(conn.arduinoPin)
-    const name = conn.componentLabel.replace(/\s+/g, '_').toUpperCase()
-    const pinName = conn.pin.toUpperCase()
+    const name = conn.componentLabel.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()
+    const pinName = conn.pin.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()
     lines.push(`#define ${name}_${pinName} ${pinNum}`)
   })
 
   return lines.join('\n')
 }
+
 // ===== GLOBAL DECLARATIONS =====
-function generateGlobals(connections: Connection[]): string {
+function generateGlobals(connections: Connection[], flowNodes: Node[]): string {
   const lines: string[] = []
   const seen = new Set<string>()
 
+  // From schematic connections
   connections.forEach(conn => {
+    if (isPowerPin(conn)) return
+
     const label = conn.componentLabel
     const varName = safeVarName(label)
     if (seen.has(varName)) return
     seen.add(varName)
 
     if (label.includes('DHT22')) {
-      const pin = pinToNumber(conn.arduinoPin)
-      lines.push(`DHT ${varName}(${pin}, DHT22);`)
-    }
-    if (label.includes('DHT11')) {
-      const pin = pinToNumber(conn.arduinoPin)
-      lines.push(`DHT ${varName}(${pin}, DHT11);`)
-    }
-    if (label.includes('Servo')) {
+      lines.push(`DHT ${varName}(${pinToNumber(conn.arduinoPin)}, DHT22);`)
+    } else if (label.includes('DHT11') || (label.includes('DHT') && !label.includes('DHT22'))) {
+      lines.push(`DHT ${varName}(${pinToNumber(conn.arduinoPin)}, DHT11);`)
+    } else if (label.includes('Servo')) {
       lines.push(`Servo ${varName};`)
-    }
-    if (label.includes('LCD')) {
+    } else if (label.includes('LCD')) {
       lines.push(`LiquidCrystal_I2C ${varName}(0x27, 16, 2);`)
-    }
-    if (label.includes('OLED')) {
+    } else if (label.includes('OLED')) {
       lines.push(`Adafruit_SSD1306 ${varName}(128, 64, &Wire, -1);`)
+    }
+  })
+
+  // From flow nodes (fallback when no schematic component exists)
+  flowNodes.forEach(node => {
+    const d = node.data as any
+    const type = d?.nodeType
+    if (type === 'dht' && !seen.has('dht_sensor')) {
+      if (!connections.some(c => c.componentLabel.includes('DHT'))) {
+        lines.push(`DHT dht_sensor(${d?.params?.pin || '2'}, DHT11);`)
+        seen.add('dht_sensor')
+      }
+    }
+    if (type === 'servo' && !seen.has('my_servo')) {
+      if (!connections.some(c => c.componentLabel.includes('Servo'))) {
+        lines.push(`Servo my_servo;`)
+        seen.add('my_servo')
+      }
+    }
+    if (type === 'lcd' && !seen.has('lcd_display')) {
+      if (!connections.some(c => c.componentLabel.includes('LCD'))) {
+        lines.push(`LiquidCrystal_I2C lcd_display(0x27, 16, 2);`)
+        seen.add('lcd_display')
+      }
+    }
+    if (type === 'oled' && !seen.has('oled_display')) {
+      if (!connections.some(c => c.componentLabel.includes('OLED'))) {
+        lines.push(`Adafruit_SSD1306 oled_display(128, 64, &Wire, -1);`)
+        seen.add('oled_display')
+      }
     }
   })
 
@@ -117,12 +261,13 @@ function generateGlobals(connections: Connection[]): string {
 }
 
 // ===== SETUP =====
-function generateSetup(connections: Connection[]): string {
+function generateSetup(connections: Connection[], flowNodes: Node[]): string {
   const lines: string[] = ['  Serial.begin(9600);']
   const seen = new Set<string>()
 
   connections.forEach(conn => {
-    if (conn.pin === 'gnd' || conn.pin === 'vcc') return
+    if (isPowerPin(conn)) return
+
     const label = conn.componentLabel
     const varName = safeVarName(label)
     const pinNum = pinToNumber(conn.arduinoPin)
@@ -130,30 +275,78 @@ function generateSetup(connections: Connection[]): string {
     if (seen.has(key)) return
     seen.add(key)
 
+    const setupKey = `${conn.componentId}_setup`
+
     if (label.includes('LED') || label.includes('Buzzer') || label.includes('Relay')) {
-      if (['GND', '5V', '3.3V', 'VIN'].includes(conn.arduinoPin)) return
       if (['anode', 'pos', 'in', 'signal'].includes(conn.pin)) {
         lines.push(`  pinMode(${pinNum}, OUTPUT); // ${label}`)
       }
-    } else if (label.includes('Button') || label.includes('PIR') || label.includes('LDR')) {
+    } else if (label.includes('Button')) {
+      lines.push(`  pinMode(${pinNum}, INPUT); // ${label}`)
+    } else if (label.includes('PIR')) {
+      lines.push(`  pinMode(${pinNum}, INPUT); // ${label}`)
+    } else if (label.includes('LDR')) {
       lines.push(`  pinMode(${pinNum}, INPUT); // ${label}`)
     } else if (label.includes('Ultrasonic')) {
       if (conn.pin === 'trig') lines.push(`  pinMode(${pinNum}, OUTPUT); // HC-SR04 TRIG`)
       if (conn.pin === 'echo') lines.push(`  pinMode(${pinNum}, INPUT);  // HC-SR04 ECHO`)
     } else if (label.includes('DC Motor')) {
       lines.push(`  pinMode(${pinNum}, OUTPUT); // DC Motor`)
-    } else if (label.includes('Servo')) {
+    } else if (label.includes('Servo') && !seen.has(setupKey)) {
+      seen.add(setupKey)
       lines.push(`  ${varName}.attach(${pinNum});`)
-    } else if (label.includes('DHT')) {
+    } else if (label.includes('DHT') && !seen.has(setupKey)) {
+      seen.add(setupKey)
       lines.push(`  ${varName}.begin();`)
-    } else if (label.includes('LCD')) {
+    } else if (label.includes('LCD') && !seen.has(setupKey)) {
+      seen.add(setupKey)
       lines.push(`  ${varName}.init();`)
       lines.push(`  ${varName}.backlight();`)
-    } else if (label.includes('OLED')) {
+    } else if (label.includes('OLED') && !seen.has(setupKey)) {
+      seen.add(setupKey)
       lines.push(`  ${varName}.begin(SSD1306_SWITCHCAPVCC, 0x3C);`)
       lines.push(`  ${varName}.clearDisplay();`)
     }
-    
+  })
+
+  // Fallback from flow nodes when no schematic component
+  const flowSeen = new Set<string>()
+  flowNodes.forEach(node => {
+    const d = node.data as any
+    const type = d?.nodeType
+    const p = d?.params || {}
+
+    if (type === 'dht' && !flowSeen.has('dht') && !connections.some(c => c.componentLabel.includes('DHT'))) {
+      flowSeen.add('dht')
+      lines.push(`  dht_sensor.begin();`)
+    }
+    if (type === 'servo' && !flowSeen.has('servo') && !connections.some(c => c.componentLabel.includes('Servo'))) {
+      flowSeen.add('servo')
+      lines.push(`  my_servo.attach(${p.pin || '9'});`)
+    }
+    if (type === 'lcd' && !flowSeen.has('lcd') && !connections.some(c => c.componentLabel.includes('LCD'))) {
+      flowSeen.add('lcd')
+      lines.push(`  lcd_display.init();`)
+      lines.push(`  lcd_display.backlight();`)
+    }
+    if (type === 'oled' && !flowSeen.has('oled') && !connections.some(c => c.componentLabel.includes('OLED'))) {
+      flowSeen.add('oled')
+      lines.push(`  oled_display.begin(SSD1306_SWITCHCAPVCC, 0x3C);`)
+      lines.push(`  oled_display.clearDisplay();`)
+    }
+    if (type === 'ultrasonic' && !flowSeen.has('ultrasonic') && !connections.some(c => c.componentLabel.includes('Ultrasonic'))) {
+      flowSeen.add('ultrasonic')
+      lines.push(`  pinMode(${p.trigPin || '9'}, OUTPUT); // Ultrasonic TRIG`)
+      lines.push(`  pinMode(${p.echoPin || '10'}, INPUT);  // Ultrasonic ECHO`)
+    }
+    if (type === 'pir' && !flowSeen.has('pir') && !connections.some(c => c.componentLabel.includes('PIR'))) {
+      flowSeen.add('pir')
+      lines.push(`  pinMode(${p.pin || '3'}, INPUT); // PIR Sensor`)
+    }
+    if (type === 'ldr' && !flowSeen.has('ldr') && !connections.some(c => c.componentLabel.includes('LDR'))) {
+      flowSeen.add('ldr')
+      lines.push(`  pinMode(${p.pin || 'A0'}, INPUT); // LDR Sensor`)
+    }
   })
 
   return lines.join('\n')
@@ -165,7 +358,9 @@ function generateNodeCode(
   flowNodes: Node[],
   flowEdges: Edge[],
   visited: Set<string>,
-  indent: number
+  indent: number,
+  connections: Connection[],
+  declaredVars: Set<string>
 ): string {
   if (visited.has(nodeId)) return ''
   visited.add(nodeId)
@@ -177,65 +372,94 @@ function generateNodeCode(
   const pad = '  '.repeat(indent)
   const lines: string[] = []
 
-  // Helper to follow a specific output port
+  // Follow a specific named output port
   const followPort = (port: string) => {
     const edge = flowEdges.find(e => e.source === nodeId && e.sourceHandle === port)
     if (!edge) return ''
-    return generateNodeCode(edge.target, flowNodes, flowEdges, visited, indent)
+    return generateNodeCode(edge.target, flowNodes, flowEdges, visited, indent, connections, declaredVars)
   }
 
-  // Helper to follow first available output
+  // Follow ALL edges from the 'flow' output handle sequentially
   const followFlow = () => {
-    const edge = flowEdges.find(e => e.source === nodeId)
-    if (!edge) return ''
-    return generateNodeCode(edge.target, flowNodes, flowEdges, visited, indent)
+    const edges = flowEdges.filter(e => e.source === nodeId && e.sourceHandle === 'flow')
+    if (edges.length === 0) return ''
+    const results: string[] = []
+    for (const edge of edges) {
+      const code = generateNodeCode(edge.target, flowNodes, flowEdges, visited, indent, connections, declaredVars)
+      if (code) results.push(code)
+    }
+    return results.join('\n')
   }
 
   switch (data.nodeType) {
     case 'start':
-      lines.push(`${pad}// Program start`)
       lines.push(followFlow())
       break
 
     case 'end':
-      lines.push(`${pad}// Program end`)
       break
 
-    case 'variable':
-      lines.push(`${pad}int ${data.params?.name || 'x'} = ${data.params?.value || '0'};`)
+    case 'variable': {
+      const varName = data.params?.name || 'x'
+      const varValue = data.params?.value || '0'
+      // Detect type: if value looks like a float, declare as float
+      const varType = varValue.includes('.') ? 'float' : 'int'
+      if (declaredVars.has(varName)) {
+        lines.push(`${pad}${varName} = ${varValue};`)
+      } else {
+        lines.push(`${pad}${varType} ${varName} = ${varValue};`)
+        declaredVars.add(varName)
+      }
       lines.push(followFlow())
       break
+    }
 
-    case 'print':
-      lines.push(`${pad}Serial.println(${data.params?.message || '""'});`)
+    case 'print': {
+      const msg = formatStringLiteral(data.params?.message || '')
+      lines.push(`${pad}Serial.println(${msg});`)
       lines.push(followFlow())
       break
+    }
+
+    case 'input': {
+      const varName = data.params?.var || 'val'
+      const prompt = formatStringLiteral(data.params?.prompt || '')
+      lines.push(`${pad}Serial.println(${prompt});`)
+      lines.push(`${pad}while (!Serial.available()) {}`)
+      if (!declaredVars.has(varName)) {
+        lines.push(`${pad}int ${varName} = Serial.parseInt();`)
+        declaredVars.add(varName)
+      } else {
+        lines.push(`${pad}${varName} = Serial.parseInt();`)
+      }
+      lines.push(followFlow())
+      break
+    }
 
     case 'condition': {
-      lines.push(`${pad}if (${data.params?.condition || 'true'}) {`)
+      const cond = data.params?.condition || 'true'
+      lines.push(`${pad}if (${cond}) {`)
 
-      // true branch — recurse with deeper indent
       const trueEdge = flowEdges.find(e => e.source === nodeId && e.sourceHandle === 'true')
       if (trueEdge) {
         const trueVisited = new Set(visited)
-        lines.push(generateNodeCode(trueEdge.target, flowNodes, flowEdges, trueVisited, indent + 1))
+        lines.push(generateNodeCode(trueEdge.target, flowNodes, flowEdges, trueVisited, indent + 1, connections, declaredVars))
       }
 
-      lines.push(`${pad}} else {`)
-
-      // false branch — recurse with deeper indent
+      // Only emit else block if there's a false branch connected
       const falseEdge = flowEdges.find(e => e.source === nodeId && e.sourceHandle === 'false')
       if (falseEdge) {
+        lines.push(`${pad}} else {`)
         const falseVisited = new Set(visited)
-        lines.push(generateNodeCode(falseEdge.target, flowNodes, flowEdges, falseVisited, indent + 1))
+        lines.push(generateNodeCode(falseEdge.target, flowNodes, flowEdges, falseVisited, indent + 1, connections, declaredVars))
       }
 
       lines.push(`${pad}}`)
 
-      // continue after both branches converge
+      // Continue after condition block converges
       const doneEdge = flowEdges.find(e => e.source === nodeId && e.sourceHandle === 'flow')
       if (doneEdge) {
-        lines.push(generateNodeCode(doneEdge.target, flowNodes, flowEdges, visited, indent))
+        lines.push(generateNodeCode(doneEdge.target, flowNodes, flowEdges, visited, indent, connections, declaredVars))
       }
       break
     }
@@ -247,19 +471,17 @@ function generateNodeCode(
       const step = data.params?.step || '1'
       lines.push(`${pad}for (int ${v} = ${from}; ${v} < ${to}; ${v} += ${step}) {`)
 
-      // body branch
       const bodyEdge = flowEdges.find(e => e.source === nodeId && e.sourceHandle === 'body')
       if (bodyEdge) {
         const bodyVisited = new Set(visited)
-        lines.push(generateNodeCode(bodyEdge.target, flowNodes, flowEdges, bodyVisited, indent + 1))
+        lines.push(generateNodeCode(bodyEdge.target, flowNodes, flowEdges, bodyVisited, indent + 1, connections, declaredVars))
       }
 
       lines.push(`${pad}}`)
 
-      // done branch — continues after loop
       const doneEdge = flowEdges.find(e => e.source === nodeId && e.sourceHandle === 'done')
       if (doneEdge) {
-        lines.push(generateNodeCode(doneEdge.target, flowNodes, flowEdges, visited, indent))
+        lines.push(generateNodeCode(doneEdge.target, flowNodes, flowEdges, visited, indent, connections, declaredVars))
       }
       break
     }
@@ -269,18 +491,79 @@ function generateNodeCode(
       lines.push(followFlow())
       break
 
-    case 'gpio':
-      lines.push(`${pad}digitalWrite(${data.params?.pin || '13'}, ${data.params?.value || 'HIGH'});`)
+    case 'gpio': {
+      const gpioPin = data.params?.pin || '13'
+      lines.push(`${pad}digitalWrite(${gpioPin}, ${data.params?.value || 'HIGH'});`)
+      lines.push(followFlow())
+      break
+    }
+
+    case 'sensor': {
+      const sensorVar = data.params?.var || 'sensorVal'
+      const sensorPin = data.params?.pin || 'A0'
+      if (declaredVars.has(sensorVar)) {
+        lines.push(`${pad}${sensorVar} = analogRead(${sensorPin});`)
+      } else {
+        lines.push(`${pad}int ${sensorVar} = analogRead(${sensorPin});`)
+        declaredVars.add(sensorVar)
+      }
+      lines.push(followFlow())
+      break
+    }
+
+    case 'dht': {
+      lines.push(generateDHTCode(data, connections, declaredVars, pad))
+      const dhtVarT = data.params?.varTemp || 'temp'
+      const dhtVarH = data.params?.varHum || 'hum'
+      declaredVars.add(dhtVarT)
+      declaredVars.add(dhtVarH)
+      lines.push(followFlow())
+      break
+    }
+
+    case 'ultrasonic': {
+      lines.push(generateUltrasonicCode(data, nodeId, connections, declaredVars, pad))
+      declaredVars.add(data.params?.varDist || 'distance')
+      lines.push(followFlow())
+      break
+    }
+
+    case 'pir': {
+      lines.push(generatePIRCode(data, connections, declaredVars, pad))
+      declaredVars.add(data.params?.varMotion || 'motion')
+      lines.push(followFlow())
+      break
+    }
+
+    case 'ldr': {
+      lines.push(generateLDRCode(data, connections, declaredVars, pad))
+      declaredVars.add(data.params?.varLight || 'lightVal')
+      lines.push(followFlow())
+      break
+    }
+
+    case 'servo':
+      lines.push(generateServoCode(data, connections, pad))
       lines.push(followFlow())
       break
 
-    case 'sensor':
-      lines.push(`${pad}int ${data.params?.var || 'sensorVal'} = analogRead(${data.params?.pin || 'A0'});`)
+    case 'lcd':
+      lines.push(generateLCDCode(data, connections, pad))
+      lines.push(followFlow())
+      break
+
+    case 'oled':
+      lines.push(generateOLEDCode(data, connections, pad))
       lines.push(followFlow())
       break
 
     case 'function':
       lines.push(`${pad}${data.params?.name || 'myFn'}();`)
+      lines.push(followFlow())
+      break
+
+    case 'api':
+      lines.push(`${pad}// HTTP API: ${data.params?.method || 'GET'} ${data.params?.url || ''}`)
       lines.push(followFlow())
       break
 
@@ -291,12 +574,14 @@ function generateNodeCode(
   return lines.filter(l => l !== '').join('\n')
 }
 
-function generateFlowCode(flowNodes: Node[], flowEdges: Edge[]): string {
+// ===== FLOW ENTRY POINT =====
+function generateFlowCode(flowNodes: Node[], flowEdges: Edge[], connections: Connection[]): string {
   const startNode = flowNodes.find(n => (n.data as any).nodeType === 'start')
   if (!startNode) return '  // No flow defined yet'
 
   const visited = new Set<string>()
-  const code = generateNodeCode(startNode.id, flowNodes, flowEdges, visited, 1)
+  const declaredVars = new Set<string>()
+  const code = generateNodeCode(startNode.id, flowNodes, flowEdges, visited, 1, connections, declaredVars)
   return code || '  // Empty flow'
 }
 
@@ -307,37 +592,52 @@ export function generateArduinoCode(
   flowNodes: Node[],
   flowEdges: Edge[]
 ): string {
+  // Reset module-level counters for clean variable naming
+  resetUltrasonicCounter()
+
   const connections = parseConnections(schemaNodes, schemaEdges)
-  const includes = generateIncludes(connections)
+  const includes = generateIncludes(connections, flowNodes)
   const defines = generateDefines(connections)
-  const globals = generateGlobals(connections)
-  const setupCode = generateSetup(connections)
-  const flowCode = generateFlowCode(flowNodes, flowEdges)
+  const globals = generateGlobals(connections, flowNodes)
+  const setupCode = generateSetup(connections, flowNodes)
+  const flowCode = generateFlowCode(flowNodes, flowEdges, connections)
 
   const componentSummary = [...new Set(connections.map(c => c.componentLabel))]
     .map(l => ` *   - ${l}`)
     .join('\n')
 
-  return [
+  // Build output, skipping empty sections
+  const sections: string[] = [
     `/*`,
     ` * Generated by Flow Programmer`,
     ` * Platform: Arduino Uno`,
     ` * Components:`,
     componentSummary || ` *   (none connected)`,
     ` */`,
-    ``,
-    includes,
-    ``,
-    defines,
-    ``,
-    globals,
-    ``,
+  ]
+
+  if (includes) {
+    sections.push('', includes)
+  }
+
+  if (defines) {
+    sections.push('', `// Pin Definitions`, defines)
+  }
+
+  if (globals) {
+    sections.push('', `// Global Instances`, globals)
+  }
+
+  sections.push(
+    '',
     `void setup() {`,
     setupCode,
     `}`,
-    ``,
+    '',
     `void loop() {`,
     flowCode,
     `}`,
-  ].filter(l => l !== undefined).join('\n')
+  )
+
+  return sections.join('\n')
 }

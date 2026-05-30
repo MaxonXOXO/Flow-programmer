@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { SlidersHorizontal, Info, Hammer, Settings, Move, Link } from 'lucide-react'
 
 export default function PropertiesPanel() {
-  const { selectedNodeId, flowNodes, schemaNodes, updateFlowNodeData, activeCanvas } = useFlowStore()
+  const { selectedNodeId, flowNodes, schemaNodes, updateFlowNodeData, updateSchemaNodeData, activeCanvas } = useFlowStore()
   
   // Track open states for property accordions
   const [openSections, setOpenSections] = useState({
@@ -185,7 +185,8 @@ export default function PropertiesPanel() {
                   <input
                     value={val}
                     onChange={e => {
-                      updateFlowNodeData(node.id, {
+                      const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData
+                      updater(node.id, {
                         ...data,
                         params: { ...params, [key]: e.target.value }
                       })
