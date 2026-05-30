@@ -1,7 +1,14 @@
- 'use client'
+'use client'
 
 import { useFlowStore } from '@/store/userFlowStore'
-import { useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
+import { 
+  Search, ChevronDown, ChevronRight, GripVertical, 
+  Lightbulb, Square, Thermometer, Radio, Eye, Sun, 
+  Settings, Wrench, Volume2, Zap, Tv, Monitor, Wifi, 
+  PlayCircle, HelpCircle, RotateCw, Timer, Binary, 
+  Braces, Printer, Type, Activity, Network
+} from 'lucide-react'
 
 const SCHEMA_COMPONENTS = [
   {
@@ -40,8 +47,6 @@ const SCHEMA_COMPONENTS = [
   },
 ]
 
-
-
 const NODE_TYPES = [
   {
     section: 'Control Flow',
@@ -77,18 +82,68 @@ const NODE_TYPES = [
   },
 ]
 
-const typeAccents: Record<string, string> = {
-  start: '#2fd18b', end: '#3d8bff', condition: '#f5a623',
-  loop: '#9b6cff', delay: '#8a94b0', variable: '#26d4c8',
-  function: '#e85050', print: '#2fd18b', input: '#3d8bff',
-  sensor: '#5effc3', gpio: '#3d8bff', api: '#e85050',
+// Render clean vector icon instead of emojis
+function getLucideIcon(emoji: string, color: string = 'currentColor') {
+  const iconProps = { className: 'w-4 h-4', style: { color } }
+  
+  switch(emoji) {
+    case '💡': return <Lightbulb {...iconProps} style={{ color: '#ffb13d' }} />
+    case '⬛': return <Square {...iconProps} />
+    case '🌡': return <Thermometer {...iconProps} style={{ color: '#ff5f9e' }} />
+    case '📡': return <Radio {...iconProps} style={{ color: '#5fa3ff' }} />
+    case '👁': return <Eye {...iconProps} style={{ color: '#2fd18b' }} />
+    case '☀': return <Sun {...iconProps} style={{ color: '#ffb13d' }} />
+    case '⚙': return <Settings {...iconProps} />
+    case '🔧': return <Wrench {...iconProps} style={{ color: '#a5b3cd' }} />
+    case '🔔': return <Volume2 {...iconProps} style={{ color: '#ffb13d' }} />
+    case '⚡': return <Zap {...iconProps} style={{ color: '#ffb13d' }} />
+    case '📺': return <Tv {...iconProps} style={{ color: '#ff5f9e' }} />
+    case '🖥': return <Monitor {...iconProps} style={{ color: '#5fa3ff' }} />
+    case '📶': return <Wifi {...iconProps} style={{ color: '#2fd18b' }} />
+    
+    // logic flows
+    case '▶': return <PlayCircle {...iconProps} style={{ color: '#2fd18b' }} />
+    case '◇': return <HelpCircle {...iconProps} style={{ color: '#ffb13d' }} />
+    case '↻': return <RotateCw {...iconProps} style={{ color: '#ff5f9e' }} />
+    case '⏱': return <Timer {...iconProps} style={{ color: '#a5b3cd' }} />
+    case 'x=': return <Binary {...iconProps} style={{ color: '#5fa3ff' }} />
+    case 'ƒ()': return <Braces {...iconProps} style={{ color: '#ff5f9e' }} />
+    case '»': return <Printer {...iconProps} style={{ color: '#2fd18b' }} />
+    case '←': return <Type {...iconProps} style={{ color: '#5fa3ff' }} />
+    case '≋': return <Activity {...iconProps} style={{ color: '#2fd18b' }} />
+    case '⇌': return <Network {...iconProps} style={{ color: '#ff5f9e' }} />
+    
+    default: return <GripVertical {...iconProps} />
+  }
 }
 
-let nodeCounter = 10
-
 export default function Sidebar() {
-  const { addNode, activeCanvas } = useFlowStore()
-  const list = activeCanvas === 'schema' ? SCHEMA_COMPONENTS : NODE_TYPES
+  const { activeCanvas } = useFlowStore()
+  const [search, setSearch] = useState('')
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
+
+  const rawList = activeCanvas === 'schema' ? SCHEMA_COMPONENTS : NODE_TYPES
+
+  // Filter list by search query
+  const filteredList = useMemo(() => {
+    if (!search.trim()) return rawList
+    const query = search.toLowerCase()
+    return rawList.map(section => {
+      const matchingNodes = section.nodes.filter(
+        (node: any) => node.label.toLowerCase().includes(query) || 
+                (node.nodeType && node.nodeType.toLowerCase().includes(query)) ||
+                (node.componentType && node.componentType.toLowerCase().includes(query))
+      )
+      return { ...section, nodes: matchingNodes }
+    }).filter(section => section.nodes.length > 0)
+  }, [search, rawList])
+
+  const toggleSection = (sectionName: string) => {
+    setCollapsedSections(prev => ({
+      ...prev,
+      [sectionName]: !prev[sectionName]
+    }))
+  }
 
   const onDragStart = useCallback((e: React.DragEvent, nodeConfig: any) => {
     const type = activeCanvas === 'schema' ? 'schemaComponent' : 'flowNode'
@@ -99,67 +154,162 @@ export default function Sidebar() {
   return (
     <div style={{
       width: 220,
-      height: '100vh',
-      background: '#111318',
-      borderRight: '1px solid #2a3040',
-      overflowY: 'auto',
+      height: '100%',
+      background: 'var(--color-bg-panel)',
+      borderRight: '1px solid var(--color-border)',
+      display: 'flex',
+      flexDirection: 'column',
       flexShrink: 0,
+      userSelect: 'none',
     }}>
+      {/* Search Header */}
       <div style={{
-        padding: '14px 16px',
-        borderBottom: '1px solid #2a3040',
-        fontFamily: 'monospace',
-        fontSize: 13,
-        color: '#4a5270',
+        padding: '10px 12px',
+        borderBottom: '1px solid var(--color-border)',
+        background: 'var(--color-bg-header)',
       }}>
-        {activeCanvas === 'schema' ? '⎔ Components' : '⟳ Flow Nodes'}
+        <div style={{
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+        }}>
+          <Search className="w-3.5 h-3.5 text-[#555] absolute left-2 pointer-events-none" />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder={activeCanvas === 'schema' ? 'Search components...' : 'Search nodes...'}
+            style={{
+              width: '100%',
+              background: 'var(--color-bg-input)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 4,
+              padding: '4px 8px 4px 26px',
+              fontSize: 11,
+              color: 'var(--color-text-bright)',
+              outline: 'none',
+              transition: 'border-color 0.15s',
+            }}
+            onFocus={e => e.target.style.borderColor = 'var(--color-border-focus)'}
+            onBlur={e => e.target.style.borderColor = 'var(--color-border)'}
+          />
+          {search && (
+            <button 
+              onClick={() => setSearch('')}
+              style={{
+                position: 'absolute',
+                right: 8,
+                background: 'transparent',
+                border: 'none',
+                color: '#555',
+                fontSize: 10,
+                cursor: 'pointer',
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = '#888'}
+              onMouseLeave={e => e.currentTarget.style.color = '#555'}
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
-      {list.map((section: any) => (
-        <div key={section.section}>
-          <div style={{
-            padding: '10px 14px 4px',
-            fontSize: 10,
-            fontWeight: 600,
-            letterSpacing: '1.2px',
-            color: '#4a5270',
-            textTransform: 'uppercase',
-            fontFamily: 'monospace',
-          }}>
-            {section.section}
-          </div>
-          {section.nodes.map((node: any) => (
-            <div
-              key={node.label}
-              draggable
-              onDragStart={(e) => onDragStart(e, node)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '7px 12px',
-                margin: '2px 8px',
-                borderRadius: 6,
-                cursor: 'grab',
-                fontSize: 13,
-                color: '#8a94b0',
-                transition: 'all 0.15s',
-              }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLDivElement).style.background = '#1e2330'
-                ;(e.currentTarget as HTMLDivElement).style.color = '#e4e8f4'
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLDivElement).style.background = 'transparent'
-                ;(e.currentTarget as HTMLDivElement).style.color = '#8a94b0'
-              }}
-            >
-              <span style={{ fontSize: 16 }}>{node.icon}</span>
-              <span>{node.label}</span>
+      {/* Nodes list container */}
+      <div style={{
+        flex: 1,
+        overflowY: 'auto',
+        padding: '4px 0 20px',
+      }}>
+        {filteredList.map((section: any) => {
+          const isCollapsed = collapsedSections[section.section]
+          return (
+            <div key={section.section} style={{ marginBottom: 6 }}>
+              {/* Collapsible Section Header */}
+              <div 
+                onClick={() => toggleSection(section.section)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 12px 6px',
+                  cursor: 'pointer',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '1px',
+                  color: 'var(--color-text-dim)',
+                  textTransform: 'uppercase',
+                  fontFamily: 'var(--font-sans)',
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = 'var(--color-text-normal)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'var(--color-text-dim)'}
+              >
+                <span>{section.section}</span>
+                {isCollapsed ? (
+                  <ChevronRight className="w-3.5 h-3.5 text-[#555]" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5 text-[#555]" />
+                )}
+              </div>
+
+              {/* Section Nodes */}
+              {!isCollapsed && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {section.nodes.map((node: any) => (
+                    <div
+                      key={node.label}
+                      draggable
+                      onDragStart={(e) => onDragStart(e, node)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '6px 12px',
+                        margin: '1px 6px',
+                        borderRadius: 4,
+                        cursor: 'grab',
+                        fontSize: 11.5,
+                        color: 'var(--color-text-normal)',
+                        transition: 'all 0.1s ease-in-out',
+                        position: 'relative',
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)'
+                        e.currentTarget.style.color = 'var(--color-text-bright)'
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.background = 'transparent'
+                        e.currentTarget.style.color = 'var(--color-text-normal)'
+                      }}
+                    >
+                      {/* Drag Grip handle */}
+                      <GripVertical className="w-3.5 h-3.5 text-[#444] opacity-40 mr-[-2px] flex-shrink-0" />
+                      
+                      {/* Icon */}
+                      <div className="flex-shrink-0 flex items-center justify-center">
+                        {getLucideIcon(node.icon)}
+                      </div>
+
+                      {/* Node Label */}
+                      <span className="truncate">{node.label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          ))}
-        </div>
-      ))}
+          )
+        })}
+        {filteredList.length === 0 && (
+          <div style={{
+            padding: '24px 12px',
+            fontSize: 11,
+            color: 'var(--color-text-dim)',
+            textAlign: 'center',
+            fontStyle: 'italic',
+          }}>
+            No matches found
+          </div>
+        )}
+      </div>
     </div>
   )
 }

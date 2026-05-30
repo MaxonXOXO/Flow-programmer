@@ -1,6 +1,11 @@
 'use client'
 
 import { Handle, Position, NodeProps } from '@xyflow/react'
+import { useFlowStore } from '@/store/userFlowStore'
+import { 
+  PlayCircle, StopCircle, GitFork, RotateCw, Timer, 
+  Binary, Braces, Printer, Type, Activity, Zap, Link 
+} from 'lucide-react'
 
 interface BaseNodeData {
   label: string
@@ -9,211 +14,338 @@ interface BaseNodeData {
   icon?: string
 }
 
-const typeColors: Record<string, any> = {
-  start:     { bg: '#0d2b1a', border: '#2fd18b', accent: '#2fd18b', badge: '#0a2216' },
-  end:       { bg: '#0d1a2b', border: '#3d8bff', accent: '#3d8bff', badge: '#0a1628' },
-  condition: { bg: '#2b1f0a', border: '#f5a623', accent: '#f5a623', badge: '#231a08' },
-  loop:      { bg: '#1a0d2b', border: '#9b6cff', accent: '#9b6cff', badge: '#150a23' },
-  variable:  { bg: '#0a2b28', border: '#26d4c8', accent: '#26d4c8', badge: '#082320' },
-  function:  { bg: '#2b0d0d', border: '#e85050', accent: '#e85050', badge: '#230a0a' },
-  print:     { bg: '#0d2b1a', border: '#2fd18b', accent: '#2fd18b', badge: '#0a2216' },
-  sensor:    { bg: '#0d2b1a', border: '#5effc3', accent: '#5effc3', badge: '#0a2216' },
-  delay:     { bg: '#1a1e2b', border: '#8a94b0', accent: '#8a94b0', badge: '#141720' },
-  gpio:      { bg: '#0d1a2b', border: '#3d8bff', accent: '#3d8bff', badge: '#0a1628' },
-  api:       { bg: '#2b0d0d', border: '#e85050', accent: '#e85050', badge: '#230a0a' },
-  input:     { bg: '#0d1a2b', border: '#3d8bff', accent: '#3d8bff', badge: '#0a1628' },
+// Category headers matching the neon style colors
+const categoryStyles: Record<string, { headerBg: string, iconColor: string, textColor: string }> = {
+  start:     { headerBg: 'rgba(47, 209, 139, 0.15)', iconColor: '#2fd18b', textColor: '#2fd18b' },
+  end:       { headerBg: 'rgba(255, 95, 158, 0.15)', iconColor: '#ff5f9e', textColor: '#ff5f9e' },
+  condition: { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
+  loop:      { headerBg: 'rgba(255, 95, 158, 0.15)', iconColor: '#ff5f9e', textColor: '#ff5f9e' },
+  variable:  { headerBg: 'rgba(95, 163, 255, 0.15)', iconColor: '#5fa3ff', textColor: '#5fa3ff' },
+  function:  { headerBg: 'rgba(95, 163, 255, 0.15)', iconColor: '#5fa3ff', textColor: '#5fa3ff' },
+  print:     { headerBg: 'rgba(47, 209, 139, 0.15)', iconColor: '#2fd18b', textColor: '#2fd18b' },
+  sensor:    { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
+  delay:     { headerBg: 'rgba(165, 179, 205, 0.15)', iconColor: '#a5b3cd', textColor: '#a5b3cd' },
+  gpio:      { headerBg: 'rgba(95, 163, 255, 0.15)', iconColor: '#5fa3ff', textColor: '#5fa3ff' },
+  api:       { headerBg: 'rgba(255, 95, 158, 0.15)', iconColor: '#ff5f9e', textColor: '#ff5f9e' },
+  input:     { headerBg: 'rgba(255, 95, 158, 0.15)', iconColor: '#ff5f9e', textColor: '#ff5f9e' },
 }
 
-// Define named ports for each node type
-const NODE_PORTS: Record<string, { ins: string[], outs: string[] }> = {
-  start:     { ins: [],               outs: ['flow'] },
-  end:       { ins: ['flow'],         outs: [] },
-  variable:  { ins: ['flow'],         outs: ['flow'] },
-  print:     { ins: ['flow'],         outs: ['flow'] },
-  delay:     { ins: ['flow'],         outs: ['flow'] },
-  gpio:      { ins: ['flow'],         outs: ['flow'] },
-  sensor:    { ins: ['flow'],         outs: ['flow'] },
-  input:     { ins: ['flow'],         outs: ['flow'] },
-  function:  { ins: ['flow'],         outs: ['flow'] },
-  condition: { ins: ['flow'],         outs: ['true', 'false'] },
-  loop:      { ins: ['flow'],         outs: ['body', 'done'] },
-  api:       { ins: ['flow'],         outs: ['flow'] },
-}
-
-export default function BaseNode({ data, selected }: NodeProps) {
-  const nodeData = data as BaseNodeData
-  const colors = typeColors[nodeData.nodeType || 'start'] || typeColors.start
-  const params = nodeData.params || {}
-  const ports = NODE_PORTS[nodeData.nodeType || 'start'] || { ins: ['flow'], outs: ['flow'] }
-
-  const portColor = (port: string) => {
-    if (port === 'true') return '#2fd18b'
-    if (port === 'false') return '#e85050'
-    if (port === 'body') return '#9b6cff'
-    if (port === 'done') return '#3d8bff'
-    return colors.accent
+// Get vector icons for node headers
+function getNodeHeaderIcon(nodeType: string, color: string, className: string = 'w-4 h-4') {
+  const iconProps = { className, style: { color } }
+  switch (nodeType) {
+    case 'start': return <PlayCircle {...iconProps} />
+    case 'end': return <StopCircle {...iconProps} />
+    case 'condition': return <GitFork {...iconProps} />
+    case 'loop': return <RotateCw {...iconProps} />
+    case 'delay': return <Timer {...iconProps} />
+    case 'variable': return <Binary {...iconProps} />
+    case 'function': return <Braces {...iconProps} />
+    case 'print': return <Printer {...iconProps} />
+    case 'input': return <Type {...iconProps} />
+    case 'sensor': return <Activity {...iconProps} />
+    case 'gpio': return <Zap {...iconProps} />
+    case 'api': return <Link {...iconProps} />
+    default: return <PlayCircle {...iconProps} />
   }
+}
+
+export default function BaseNode({ id, data, selected }: NodeProps) {
+  const nodeData = data as unknown as BaseNodeData
+  const type = nodeData.nodeType || 'start'
+  const style = categoryStyles[type] || categoryStyles.start
+  const params = nodeData.params || {}
+  const { simState } = useFlowStore()
+
+  // True if simulation runner is currently executing this specific node block
+  const isActive = simState.running && simState.currentNodeId === id
 
   return (
-    <div style={{
-      background: colors.bg,
-      border: `1.5px solid ${selected ? colors.accent : colors.border}`,
-      borderRadius: 10,
-      minWidth: 200,
-      fontFamily: 'var(--font-sans, sans-serif)',
-      boxShadow: selected ? `0 0 0 2px ${colors.accent}33` : '0 4px 20px rgba(0,0,0,0.4)',
-      position: 'relative',
-    }}>
-
-      {/* Input ports — left side */}
+    <div 
+      className="transition-shadow duration-200"
+      style={{
+        background: 'var(--color-bg-panel)',
+        border: `1px solid ${
+          isActive 
+            ? '#2fd18b' 
+            : selected 
+              ? 'var(--color-accent-blue)' 
+              : 'var(--color-border)'
+        }`,
+        borderRadius: 8,
+        minWidth: 180,
+        fontFamily: 'var(--font-sans)',
+        boxShadow: isActive
+          ? '0 0 20px rgba(47, 209, 139, 0.4), 0 0 0 1px #2fd18b'
+          : selected 
+            ? '0 0 14px rgba(95, 163, 255, 0.35), 0 0 0 1px var(--color-accent-blue)' 
+            : '0 4px 16px rgba(0,0,0,0.5)',
+        position: 'relative',
+        // Removed overflow: hidden so connection handle dots are not clipped!
+      }}
+    >
+      
+      {/* Node Header */}
       <div style={{
-        position: 'absolute',
-        left: -1,
-        top: 0,
-        bottom: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        gap: 8,
-        transform: 'translateX(-50%)',
-      }}>
-        {ports.ins.map(port => (
-          <div key={port} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Handle
-              type="target"
-              position={Position.Left}
-              id={port}
-              style={{
-                position: 'relative',
-                transform: 'none',
-                left: 'auto',
-                top: 'auto',
-                width: 10,
-                height: 10,
-                background: portColor(port),
-                border: 'none',
-                borderRadius: 2,
-              }}
-            />
-          </div>
-        ))}
-      </div>
-
-      {/* Header */}
-      <div style={{
+        background: style.headerBg,
+        padding: '8px 12px',
         display: 'flex',
         alignItems: 'center',
         gap: 8,
-        padding: '9px 12px 8px',
-        borderBottom: Object.keys(params).length > 0 ? `1px solid ${colors.border}22` : 'none',
-        borderRadius: '9px 9px 0 0',
+        borderBottom: '1px solid var(--color-border)',
+        borderRadius: '7px 7px 0 0', // Round header top corners to match card!
       }}>
         <div style={{
-          background: colors.badge,
-          color: colors.accent,
-          borderRadius: 5,
-          width: 22,
-          height: 22,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: 11,
-          fontFamily: 'monospace',
         }}>
-          {nodeData.icon || '●'}
+          {getNodeHeaderIcon(type, style.iconColor)}
         </div>
-        <span style={{ color: '#e4e8f4', fontWeight: 500, fontSize: 13, flex: 1 }}>
+        <span style={{ 
+          flex: 1, 
+          color: 'var(--color-text-bright)', 
+          fontWeight: 700, 
+          fontSize: 11.5,
+          letterSpacing: '0.2px' 
+        }}>
           {nodeData.label}
         </span>
         <span style={{
-          background: colors.badge,
-          color: colors.accent,
-          fontSize: 10,
-          padding: '2px 6px',
-          borderRadius: 4,
-          fontFamily: 'monospace',
+          fontSize: 8,
+          background: 'rgba(255,255,255,0.03)',
+          color: style.textColor,
+          border: `1px solid ${style.textColor}33`,
+          padding: '1px 4px',
+          borderRadius: 3,
+          fontWeight: 700,
+          textTransform: 'uppercase',
+          fontFamily: 'var(--font-mono)',
         }}>
-          {nodeData.nodeType}
+          {type}
         </span>
       </div>
 
-      {/* Params */}
-      {Object.keys(params).length > 0 && (
-        <div style={{ padding: '10px 12px' }}>
-          {Object.entries(params).map(([key, val]) => (
-            <div key={key} style={{ marginBottom: 6 }}>
-              <div style={{
-                fontSize: 11,
-                color: '#4a5270',
-                fontFamily: 'monospace',
-                marginBottom: 3,
-              }}>
-                {key}
-              </div>
-              <div style={{
-                background: '#0a0a0f',
-                border: '1px solid #2a3040',
-                borderRadius: 5,
-                padding: '4px 8px',
-                fontSize: 12,
-                color: '#e4e8f4',
-                fontFamily: 'monospace',
-              }}>
-                {val}
-              </div>
-            </div>
-          ))}
-        </div>
+      {/* Target input handle (Left Side) - centered vertically on Header (19px) */}
+      {type !== 'start' && (
+        <Handle
+          type="target"
+          position={Position.Left}
+          id="flow"
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: '19px',
+            transform: 'translate(-50%, -50%)',
+            width: 10,
+            height: 10,
+            background: '#07090d',
+            border: `2px solid ${style.iconColor}`,
+            borderRadius: '50%',
+            cursor: 'pointer',
+            boxShadow: `0 0 6px ${style.iconColor}55`,
+            zIndex: 20,
+          }}
+        />
       )}
 
-      {/* Output ports — right side with labels */}
-      <div style={{
-        position: 'absolute',
-        right: -1,
-        top: 0,
-        bottom: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        gap: 8,
-        transform: 'translateX(50%)',
-      }}>
-        {ports.outs.map(port => (
-          <div key={port} style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            flexDirection: 'row-reverse',
-          }}>
-            <Handle
-              type="source"
-              position={Position.Right}
-              id={port}
-              style={{
-                position: 'relative',
-                transform: 'none',
-                right: 'auto',
-                top: 'auto',
-                width: 10,
-                height: 10,
-                background: portColor(port),
-                border: 'none',
-                borderRadius: 2,
-              }}
-            />
-            {ports.outs.length > 1 && (
-              <span style={{
-                fontSize: 9,
-                color: portColor(port),
-                fontFamily: 'monospace',
-                marginRight: 4,
-              }}>
-                {port}
-              </span>
-            )}
+      {/* Node Parameters Body Drawer */}
+      <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {Object.entries(params).map(([key, val]) => (
+          <div key={key}>
+            <div style={{
+              fontSize: 8.5,
+              color: 'var(--color-text-dim)',
+              fontFamily: 'var(--font-mono)',
+              textTransform: 'uppercase',
+              marginBottom: 3,
+              fontWeight: 600,
+            }}>
+              {key}
+            </div>
+            <div style={{
+              background: 'var(--color-bg-input)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 4,
+              padding: '4px 8px',
+              fontSize: 11,
+              color: 'var(--color-text-bright)',
+              fontFamily: 'var(--font-mono)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}>
+              {val}
+            </div>
           </div>
         ))}
+
+        {/* Condition Output Handles (TRUE/FALSE) */}
+        {type === 'condition' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4, borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 8 }}>
+            
+            {/* TRUE branch row */}
+            <div style={{
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              height: 20,
+              marginRight: -12,
+              paddingRight: 12,
+            }}>
+              <span style={{ fontSize: 9.5, color: '#2fd18b', fontWeight: 800, letterSpacing: '0.5px' }}>TRUE</span>
+              <Handle
+                type="source"
+                position={Position.Right}
+                id="true"
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: '50%',
+                  transform: 'translate(50%, -50%)',
+                  width: 9,
+                  height: 9,
+                  background: '#07090d',
+                  border: '2.5px solid #2fd18b',
+                  borderRadius: '50%',
+                  cursor: 'pointer',
+                  boxShadow: '0 0 6px rgba(47,209,139,0.5)',
+                  zIndex: 20,
+                }}
+              />
+            </div>
+
+            {/* FALSE branch row */}
+            <div style={{
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              height: 20,
+              marginRight: -12,
+              paddingRight: 12,
+            }}>
+              <span style={{ fontSize: 9.5, color: '#ff5f9e', fontWeight: 800, letterSpacing: '0.5px' }}>FALSE</span>
+              <Handle
+                type="source"
+                position={Position.Right}
+                id="false"
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: '50%',
+                  transform: 'translate(50%, -50%)',
+                  width: 9,
+                  height: 9,
+                  background: '#07090d',
+                  border: '2.5px solid #ff5f9e',
+                  borderRadius: '50%',
+                  cursor: 'pointer',
+                  boxShadow: '0 0 6px rgba(255,95,158,0.5)',
+                  zIndex: 20,
+                }}
+              />
+            </div>
+
+          </div>
+        )}
+
+        {/* Loop Output Handles (BODY/DONE) */}
+        {type === 'loop' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4, borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 8 }}>
+            
+            {/* BODY iteration row */}
+            <div style={{
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              height: 20,
+              marginRight: -12,
+              paddingRight: 12,
+            }}>
+              <span style={{ fontSize: 9.5, color: '#ffb13d', fontWeight: 800, letterSpacing: '0.5px' }}>BODY</span>
+              <Handle
+                type="source"
+                position={Position.Right}
+                id="body"
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: '50%',
+                  transform: 'translate(50%, -50%)',
+                  width: 9,
+                  height: 9,
+                  background: '#07090d',
+                  border: '2.5px solid #ffb13d',
+                  borderRadius: '50%',
+                  cursor: 'pointer',
+                  boxShadow: '0 0 6px rgba(255,177,61,0.5)',
+                  zIndex: 20,
+                }}
+              />
+            </div>
+
+            {/* DONE iteration row */}
+            <div style={{
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              height: 20,
+              marginRight: -12,
+              paddingRight: 12,
+            }}>
+              <span style={{ fontSize: 9.5, color: '#5fa3ff', fontWeight: 800, letterSpacing: '0.5px' }}>DONE</span>
+              <Handle
+                type="source"
+                position={Position.Right}
+                id="done"
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: '50%',
+                  transform: 'translate(50%, -50%)',
+                  width: 9,
+                  height: 9,
+                  background: '#07090d',
+                  border: '2.5px solid #5fa3ff',
+                  borderRadius: '50%',
+                  cursor: 'pointer',
+                  boxShadow: '0 0 6px rgba(95,163,255,0.5)',
+                  zIndex: 20,
+                }}
+              />
+            </div>
+
+          </div>
+        )}
       </div>
+
+      {/* Source output handle (Right Side) - centered vertically on Header (19px) */}
+      {type !== 'end' && type !== 'condition' && type !== 'loop' && (
+        <Handle
+          type="source"
+          position={Position.Right}
+          id="flow"
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: '19px',
+            transform: 'translate(50%, -50%)',
+            width: 10,
+            height: 10,
+            background: '#07090d',
+            border: `2px solid ${style.iconColor}`,
+            borderRadius: '50%',
+            cursor: 'pointer',
+            boxShadow: `0 0 6px ${style.iconColor}55`,
+            zIndex: 20,
+          }}
+        />
+      )}
+
     </div>
   )
 }

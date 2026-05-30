@@ -1,30 +1,62 @@
 'use client'
 
 import { useFlowStore } from '@/store/userFlowStore'
+import { useState } from 'react'
+import { SlidersHorizontal, Info, Hammer, Settings, Move, Link } from 'lucide-react'
 
 export default function PropertiesPanel() {
   const { selectedNodeId, flowNodes, schemaNodes, updateFlowNodeData, activeCanvas } = useFlowStore()
+  
+  // Track open states for property accordions
+  const [openSections, setOpenSections] = useState({
+    identity: true,
+    params: true,
+    pins: true,
+    transform: true,
+  })
 
   const nodes = activeCanvas === 'schema' ? schemaNodes : flowNodes
   const node = nodes.find(n => n.id === selectedNodeId)
+
+  const toggleSection = (sec: keyof typeof openSections) => {
+    setOpenSections(prev => ({ ...prev, [sec]: !prev[sec] }))
+  }
 
   if (!node) {
     return (
       <div style={{
         width: 240,
         height: '100%',
-        background: '#111318',
-        borderLeft: '1px solid #2a3040',
+        background: 'var(--color-bg-panel)',
+        borderLeft: '1px solid var(--color-border)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 8,
-        fontFamily: 'monospace',
+        gap: 12,
+        padding: 24,
       }}>
-        <div style={{ fontSize: 24, opacity: 0.3 }}>◱</div>
-        <div style={{ fontSize: 12, color: '#4a5270', textAlign: 'center', lineHeight: 1.6 }}>
-          Select a node to<br />inspect properties
+        <div style={{
+          width: 48,
+          height: 48,
+          borderRadius: '50%',
+          background: 'rgba(255,255,255,0.02)',
+          border: '1px dashed #3e3e3e',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#555',
+        }}>
+          <SlidersHorizontal className="w-5 h-5" />
+        </div>
+        <div style={{ 
+          fontSize: 11, 
+          color: 'var(--color-text-dim)', 
+          textAlign: 'center', 
+          lineHeight: 1.5,
+          maxWidth: 160,
+        }}>
+          Select a canvas node to inspect properties.
         </div>
       </div>
     )
@@ -33,142 +65,276 @@ export default function PropertiesPanel() {
   const data = node.data as Record<string, any>
   const params = data.params as Record<string, string> || {}
   const pins = data.pins as { id: string, label: string }[] || []
+  const nodeType = data.nodeType || data.componentType || 'node'
 
   return (
     <div style={{
       width: 240,
       height: '100%',
-      background: '#111318',
-      borderLeft: '1px solid #2a3040',
+      background: 'var(--color-bg-panel)',
+      borderLeft: '1px solid var(--color-border)',
       display: 'flex',
       flexDirection: 'column',
-      fontFamily: 'monospace',
+      userSelect: 'none',
       overflowY: 'auto',
     }}>
-      {/* Header */}
+      {/* Panel Main Header */}
       <div style={{
-        padding: '12px 14px',
-        borderBottom: '1px solid #2a3040',
+        padding: '10px 12px',
+        background: '#1b1b1b',
+        borderBottom: '1px solid var(--color-border)',
         display: 'flex',
         alignItems: 'center',
         gap: 8,
       }}>
-        <span style={{ fontSize: 16 }}>{data.icon || '◱'}</span>
-        <div>
-          <div style={{ fontSize: 13, color: '#e4e8f4', fontWeight: 600 }}>{data.label}</div>
-          <div style={{ fontSize: 10, color: '#4a5270', marginTop: 2 }}>
-            {data.nodeType || data.componentType || 'node'}
-          </div>
-        </div>
-      </div>
-
-      {/* Node ID */}
-      <div style={{ padding: '12px 14px', borderBottom: '1px solid #2a3040' }}>
-        <div style={{ fontSize: 10, color: '#4a5270', marginBottom: 4, letterSpacing: '0.8px' }}>
-          NODE ID
-        </div>
         <div style={{
-          fontSize: 11,
-          color: '#26d4c8',
-          background: '#0a2b28',
-          padding: '4px 8px',
+          width: 24,
+          height: 24,
           borderRadius: 4,
+          background: 'rgba(230, 126, 34, 0.08)',
+          border: '1px solid rgba(230, 126, 34, 0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'var(--color-accent)',
+          fontSize: 11,
+          fontWeight: 600,
         }}>
-          {node.id}
+          {node.type === 'unoNode' ? 'U' : 'N'}
+        </div>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-bright)' }}>
+            {data.label}
+          </div>
+          <div style={{ fontSize: 9, color: 'var(--color-text-dim)', textTransform: 'uppercase', marginTop: 1, fontFamily: 'monospace' }}>
+            {nodeType}
+          </div>
         </div>
       </div>
 
-      {/* Params */}
+      {/* Accordion 1: Identity */}
+      <div style={{ borderBottom: '1px solid var(--color-border)' }}>
+        <div 
+          onClick={() => toggleSection('identity')}
+          style={{
+            padding: '8px 12px',
+            background: 'rgba(0,0,0,0.05)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            fontSize: 10,
+            fontWeight: 700,
+            color: 'var(--color-text-normal)',
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Info className="w-3.5 h-3.5 text-[#e67e22]" /> IDENTITY
+          </span>
+          <span style={{ color: '#555', fontSize: 10 }}>{openSections.identity ? '▼' : '▶'}</span>
+        </div>
+        {openSections.identity && (
+          <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div>
+              <div style={{ fontSize: 9, color: 'var(--color-text-dim)', marginBottom: 4 }}>NODE ID</div>
+              <div style={{
+                fontFamily: 'monospace',
+                fontSize: 11,
+                color: 'var(--color-accent-blue)',
+                background: '#1a1a1a',
+                padding: '4px 8px',
+                borderRadius: 4,
+                border: '1px solid var(--color-border)',
+              }}>
+                {node.id}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Accordion 2: Parameters */}
       {Object.keys(params).length > 0 && (
-        <div style={{ padding: '12px 14px', borderBottom: '1px solid #2a3040' }}>
-          <div style={{ fontSize: 10, color: '#4a5270', marginBottom: 10, letterSpacing: '0.8px' }}>
-            PARAMETERS
-          </div>
-          {Object.entries(params).map(([key, val]) => (
-            <div key={key} style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 10, color: '#4a5270', marginBottom: 4 }}>{key}</div>
-              <input
-                value={val}
-                onChange={e => {
-                  updateFlowNodeData(node.id, {
-                    ...data,
-                    params: { ...params, [key]: e.target.value }
-                  })
-                }}
-                style={{
-                  width: '100%',
-                  background: '#0b0d11',
-                  border: '1px solid #2a3040',
-                  borderRadius: 5,
-                  padding: '6px 8px',
-                  color: '#e4e8f4',
-                  fontSize: 12,
-                  fontFamily: 'monospace',
-                  outline: 'none',
-                }}
-                onFocus={e => e.target.style.borderColor = '#3d8bff'}
-                onBlur={e => e.target.style.borderColor = '#2a3040'}
-              />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Pins (schema nodes) */}
-      {pins.length > 0 && (
-        <div style={{ padding: '12px 14px', borderBottom: '1px solid #2a3040' }}>
-          <div style={{ fontSize: 10, color: '#4a5270', marginBottom: 10, letterSpacing: '0.8px' }}>
-            PINS
-          </div>
-          {pins.map(pin => (
-            <div key={pin.id} style={{
+        <div style={{ borderBottom: '1px solid var(--color-border)' }}>
+          <div 
+            onClick={() => toggleSection('params')}
+            style={{
+              padding: '8px 12px',
+              background: 'rgba(0,0,0,0.05)',
               display: 'flex',
+              alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '4px 0',
-              fontSize: 11,
-              color: '#8a94b0',
-              borderBottom: '1px solid #1e2330',
-            }}>
-              <span style={{ color: '#4a5270' }}>{pin.id}</span>
-              <span>{pin.label}</span>
+              cursor: 'pointer',
+              fontSize: 10,
+              fontWeight: 700,
+              color: 'var(--color-text-normal)',
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Settings className="w-3.5 h-3.5 text-[#3d8bff]" /> PARAMETERS
+            </span>
+            <span style={{ color: '#555', fontSize: 10 }}>{openSections.params ? '▼' : '▶'}</span>
+          </div>
+          {openSections.params && (
+            <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {Object.entries(params).map(([key, val]) => (
+                <div key={key}>
+                  <div style={{ fontSize: 10, color: 'var(--color-text-dim)', marginBottom: 4, textTransform: 'capitalize' }}>
+                    {key}
+                  </div>
+                  <input
+                    value={val}
+                    onChange={e => {
+                      updateFlowNodeData(node.id, {
+                        ...data,
+                        params: { ...params, [key]: e.target.value }
+                      })
+                    }}
+                    style={{
+                      width: '100%',
+                      background: 'var(--color-bg-input)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 4,
+                      padding: '4px 8px',
+                      color: 'var(--color-text-bright)',
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                      outline: 'none',
+                      transition: 'border-color 0.1s',
+                    }}
+                    onFocus={e => e.target.style.borderColor = 'var(--color-border-focus)'}
+                    onBlur={e => e.target.style.borderColor = 'var(--color-border)'}
+                  />
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       )}
 
-      {/* Position */}
-      <div style={{ padding: '12px 14px' }}>
-        <div style={{ fontSize: 10, color: '#4a5270', marginBottom: 8, letterSpacing: '0.8px' }}>
-          POSITION
+      {/* Accordion 3: Pins (Schema view only) */}
+      {pins.length > 0 && (
+        <div style={{ borderBottom: '1px solid var(--color-border)' }}>
+          <div 
+            onClick={() => toggleSection('pins')}
+            style={{
+              padding: '8px 12px',
+              background: 'rgba(0,0,0,0.05)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+              fontSize: 10,
+              fontWeight: 700,
+              color: 'var(--color-text-normal)',
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Link className="w-3.5 h-3.5 text-[#2ecc71]" /> CONNECTORS
+            </span>
+            <span style={{ color: '#555', fontSize: 10 }}>{openSections.pins ? '▼' : '▶'}</span>
+          </div>
+          {openSections.pins && (
+            <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {pins.map(pin => (
+                <div key={pin.id} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '4px 6px',
+                  fontSize: 10.5,
+                  borderRadius: 3,
+                  background: 'rgba(255,255,255,0.01)',
+                  borderBottom: '1px solid rgba(255,255,255,0.02)',
+                }}>
+                  <span style={{ fontFamily: 'monospace', color: 'var(--color-text-dim)' }}>
+                    {pin.id}
+                  </span>
+                  <span style={{ color: 'var(--color-text-normal)', fontWeight: 600 }}>
+                    {pin.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 9, color: '#4a5270', marginBottom: 3 }}>X</div>
-            <div style={{
-              background: '#0b0d11',
-              border: '1px solid #2a3040',
-              borderRadius: 4,
-              padding: '4px 8px',
-              fontSize: 11,
-              color: '#8a94b0',
-            }}>
-              {Math.round(node.position.x)}
+      )}
+
+      {/* Accordion 4: Position (Transform) */}
+      <div style={{ borderBottom: '1px solid var(--color-border)' }}>
+        <div 
+          onClick={() => toggleSection('transform')}
+          style={{
+            padding: '8px 12px',
+            background: 'rgba(0,0,0,0.05)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            fontSize: 10,
+            fontWeight: 700,
+            color: 'var(--color-text-normal)',
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Move className="w-3.5 h-3.5 text-[#e74c3c]" /> TRANSFORM
+          </span>
+          <span style={{ color: '#555', fontSize: 10 }}>{openSections.transform ? '▼' : '▶'}</span>
+        </div>
+        {openSections.transform && (
+          <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                  <span style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 2,
+                    background: '#e74c3c',
+                    display: 'inline-block',
+                  }} />
+                  <span style={{ fontSize: 9, color: 'var(--color-text-dim)', fontWeight: 600 }}>LOC X</span>
+                </div>
+                <div style={{
+                  fontFamily: 'monospace',
+                  fontSize: 11,
+                  color: 'var(--color-text-bright)',
+                  background: 'var(--color-bg-input)',
+                  padding: '4px 8px',
+                  borderRadius: 4,
+                  border: '1px solid var(--color-border)',
+                  textAlign: 'center',
+                }}>
+                  {Math.round(node.position.x)}
+                </div>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                  <span style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 2,
+                    background: '#2ecc71',
+                    display: 'inline-block',
+                  }} />
+                  <span style={{ fontSize: 9, color: 'var(--color-text-dim)', fontWeight: 600 }}>LOC Y</span>
+                </div>
+                <div style={{
+                  fontFamily: 'monospace',
+                  fontSize: 11,
+                  color: 'var(--color-text-bright)',
+                  background: 'var(--color-bg-input)',
+                  padding: '4px 8px',
+                  borderRadius: 4,
+                  border: '1px solid var(--color-border)',
+                  textAlign: 'center',
+                }}>
+                  {Math.round(node.position.y)}
+                </div>
+              </div>
             </div>
           </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 9, color: '#4a5270', marginBottom: 3 }}>Y</div>
-            <div style={{
-              background: '#0b0d11',
-              border: '1px solid #2a3040',
-              borderRadius: 4,
-              padding: '4px 8px',
-              fontSize: 11,
-              color: '#8a94b0',
-            }}>
-              {Math.round(node.position.y)}
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   )

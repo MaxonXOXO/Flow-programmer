@@ -1,90 +1,102 @@
 'use client'
 
-import { useCallback, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import FlowCanvas from '@/components/editor/FlowCanvas'
 import Sidebar from '@/components/editor/Sidebar'
 import TopBar from '@/components/editor/TopBar'
 import SchemaCanvas from '@/components/schema/SchemaCanvas'
 import { useFlowStore } from '@/store/userFlowStore'
-import { useReactFlow, ReactFlowProvider } from '@xyflow/react'
 import PropertiesPanel from '@/components/editor/PropertiesPanel'
 import CodePanel from '@/components/editor/CodePanel'
-import { useState } from 'react'
 
-let nodeCounter = 1
-
-function EditorInner() {
-  const { addSchemaNode, addFlowNode, setProject, activeCanvas } = useFlowStore()
-  const { screenToFlowPosition } = useReactFlow()
+export default function EditorPage() {
+  const { setProject } = useFlowStore()
   const router = useRouter()
   const [codeOpen, setCodeOpen] = useState(false)
-
 
   useEffect(() => {
     const raw = localStorage.getItem('fp_project')
     if (!raw) { router.push('/'); return }
     setProject(JSON.parse(raw))
-  }, [])
+  }, [router, setProject])
 
-  const onDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    const raw = e.dataTransfer.getData('application/flownode')
-    if (!raw) return
-    const nodeConfig = JSON.parse(raw)
-    const position = screenToFlowPosition({ x: e.clientX, y: e.clientY })
+  const { selectedNodeId, simState, project, activeCanvas } = useFlowStore()
 
-    if (activeCanvas === 'schema') {
-      addSchemaNode({
-        id: `comp-${++nodeCounter}`,
-        type: 'componentNode',
-        position,
-        data: {
-          label: nodeConfig.label,
-          componentType: nodeConfig.componentType,
-          pins: nodeConfig.pins,
-          icon: nodeConfig.icon,
-        },
-      })
-    } else {
-      addFlowNode({
-        id: `node-${++nodeCounter}`,
-        type: 'baseNode',
-        position,
-        data: {
-          label: nodeConfig.label,
-          nodeType: nodeConfig.nodeType,
-          icon: nodeConfig.icon,
-          params: nodeConfig.params,
-        },
-      })
-    }
-  }, [screenToFlowPosition, addSchemaNode, addFlowNode, activeCanvas])
-
-  const onDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-  }, [])
-
-return (
-  <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh' }}>
-    <TopBar onCodeOpen={() => setCodeOpen(true)} />
-    <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-      <Sidebar />
-      <div style={{ flex: 1 }} onDrop={onDrop} onDragOver={onDragOver}>
-        {activeCanvas === 'schema' ? <SchemaCanvas /> : <FlowCanvas />}
-      </div>
-      <PropertiesPanel />
-    </div>
-    {codeOpen && <CodePanel onClose={() => setCodeOpen(false)} />}
-  </div>
-)
-}
-
-export default function EditorPage() {
   return (
-    <ReactFlowProvider>
-      <EditorInner />
-    </ReactFlowProvider>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', background: 'var(--color-bg-base)' }}>
+      <TopBar onCodeOpen={() => setCodeOpen(true)} />
+      
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        <Sidebar />
+        <div style={{ flex: 1 }}>
+          {activeCanvas === 'schema' ? <SchemaCanvas /> : <FlowCanvas />}
+        </div>
+        <PropertiesPanel />
+      </div>
+      
+      {/* Bottom Status Bar (Blender/Photoshop Style) */}
+      <div style={{
+        height: 22,
+        background: '#151515',
+        borderTop: '1px solid var(--color-border)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 10px',
+        fontSize: 10,
+        color: 'var(--color-text-dim)',
+        userSelect: 'none',
+        zIndex: 50,
+      }}>
+        {/* Left: Selection status */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{
+            background: selectedNodeId ? 'var(--color-accent)' : '#2b2b2b',
+            color: selectedNodeId ? '#151515' : 'var(--color-text-dim)',
+            padding: '1px 5px',
+            borderRadius: 3,
+            fontWeight: 700,
+            fontSize: 9,
+            transition: 'all 0.15s',
+          }}>
+            {selectedNodeId ? 'SELECT' : 'READY'}
+          </span>
+          <span style={{ fontFamily: 'monospace' }}>
+            {selectedNodeId ? `Active Node: ${selectedNodeId}` : 'No node selected'}
+          </span>
+        </div>
+
+        {/* Center: System specs */}
+        <div>
+          Workspace: <span style={{ color: 'var(--color-text-normal)', fontWeight: 600 }}>{project?.name || 'Loading'}</span>
+          <span style={{ margin: '0 6px' }}>|</span>
+          Target: <span style={{ color: 'var(--color-text-normal)', fontWeight: 600 }}>{project?.platform.toUpperCase() || 'Arduino'}</span>
+          <span style={{ margin: '0 6px' }}>|</span>
+          View: <span style={{ color: 'var(--color-text-normal)', fontWeight: 600 }}>{activeCanvas.toUpperCase()}</span>
+        </div>
+
+        {/* Right: Simulation State & Help Tip */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontStyle: 'italic' }}>
+            Tip: Drag components to canvas & connect solder joint handles
+          </span>
+          <span style={{
+            background: simState.running ? 'rgba(46, 204, 113, 0.1)' : 'rgba(255,255,255,0.02)',
+            border: `1px solid ${simState.running ? '#2ecc71' : '#333'}`,
+            color: simState.running ? '#2ecc71' : 'var(--color-text-dim)',
+            padding: '0 6px',
+            borderRadius: 3,
+            fontFamily: 'monospace',
+            fontWeight: 700,
+            fontSize: 9,
+          }}>
+            SIM: {simState.running ? 'ACTIVE' : 'IDLE'}
+          </span>
+        </div>
+      </div>
+
+      {codeOpen && <CodePanel onClose={() => setCodeOpen(false)} />}
+    </div>
   )
 }
