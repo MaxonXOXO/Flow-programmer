@@ -30,6 +30,47 @@ interface QuickEditState {
   params: Record<string, string>
 }
 
+interface ConnectionInfo {
+  componentId: string
+  componentLabel: string
+  componentType: string
+  pin: string
+  arduinoPin: string
+}
+
+function parseConnections(nodes: any[], edges: any[]): ConnectionInfo[] {
+  const connections: ConnectionInfo[] = []
+
+  edges.forEach(edge => {
+    const sourceNode = nodes.find(n => n.id === edge.source)
+    const targetNode = nodes.find(n => n.id === edge.target)
+    if (!sourceNode || !targetNode) return
+
+    const isSourceUno = sourceNode.id === 'arduino-uno'
+    const unoPin = isSourceUno ? edge.sourceHandle : edge.targetHandle
+    const compNode = isSourceUno ? targetNode : sourceNode
+    const compPin = isSourceUno ? edge.targetHandle : edge.sourceHandle
+
+    if (!unoPin || !compNode || !compPin) return
+    const data = compNode.data as any
+
+    connections.push({
+      componentId: compNode.id,
+      componentLabel: data.label,
+      componentType: data.componentType,
+      pin: compPin,
+      arduinoPin: unoPin,
+    })
+  })
+
+  return connections
+}
+
+const pinToNumber = (pin: string): string => {
+  if (pin.startsWith('D')) return pin.slice(1)
+  return pin
+}
+
 function FlowCanvasInner() {
   const { 
     flowNodes, 
@@ -41,13 +82,23 @@ function FlowCanvasInner() {
     addFlowNode, 
     deleteFlowNode, 
     updateFlowNodeData,
-    simState 
+    simState,
+    schemaNodes,
+    schemaEdges
   } = useFlowStore()
 
   const { screenToFlowPosition } = useReactFlow()
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const [quickEdit, setQuickEdit] = useState<QuickEditState | null>(null)
   const quickEditRef = useRef<HTMLDivElement>(null)
+  const [notification, setNotification] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 4000)
+      return () => clearTimeout(timer)
+    }
+  }, [notification])
 
   const nodeTypes = useMemo(() => ({
     baseNode: BaseNode,
@@ -68,6 +119,138 @@ function FlowCanvasInner() {
     // Convert screen pixel position to flow coordinates using local canvas bounds
     const position = screenToFlowPosition({ x: e.clientX, y: e.clientY })
 
+    const conns = parseConnections(schemaNodes, schemaEdges)
+    const params = { ...nodeConfig.params }
+    let msg = ''
+
+    if (nodeConfig.nodeType === 'ultrasonic') {
+      const usedTrigPins = flowNodes
+        .filter(n => (n.data as any)?.nodeType === 'ultrasonic')
+        .map(n => (n.data as any)?.params?.trigPin)
+      const usedEchoPins = flowNodes
+        .filter(n => (n.data as any)?.nodeType === 'ultrasonic')
+        .map(n => (n.data as any)?.params?.echoPin)
+
+      const ultrasonicCompIds = [...new Set(conns.filter(c => c.componentLabel.toLowerCase().includes('ultrasonic')).map(c => c.componentId))]
+      let targetId = ultrasonicCompIds.find(id => {
+        const trig = conns.find(c => c.componentId === id && c.pin === 'trig')?.arduinoPin
+        const echo = conns.find(c => c.componentId === id && c.pin === 'echo')?.arduinoPin
+        return !usedTrigPins.includes(trig ? pinToNumber(trig) : null) && !usedEchoPins.includes(echo ? pinToNumber(echo) : null)
+      })
+      if (!targetId && ultrasonicCompIds.length > 0) targetId = ultrasonicCompIds[0]
+
+      if (targetId) {
+        const trig = conns.find(c => c.componentId === targetId && c.pin === 'trig')
+        const echo = conns.find(c => c.componentId === targetId && c.pin === 'echo')
+        if (trig) params.trigPin = pinToNumber(trig.arduinoPin)
+        if (echo) params.echoPin = pinToNumber(echo.arduinoPin)
+        
+        const compLabel = conns.find(c => c.componentId === targetId)?.componentLabel || 'Ultrasonic Sensor'
+        if (trig && echo) {
+          msg = `Auto-mapped ${compLabel} pins: TRIG = ${trig.arduinoPin}, ECHO = ${echo.arduinoPin}`
+        } else if (trig) {
+          msg = `Auto-mapped ${compLabel} pin: TRIG = ${trig.arduinoPin}`
+        } else if (echo) {
+          msg = `Auto-mapped ${compLabel} pin: ECHO = ${echo.arduinoPin}`
+        }
+      }
+    } else if (nodeConfig.nodeType === 'dht') {
+      const usedPins = flowNodes.filter(n => (n.data as any)?.nodeType === 'dht').map(n => (n.data as any)?.params?.pin)
+      const compIds = [...new Set(conns.filter(c => c.componentLabel.toLowerCase().includes('dht')).map(c => c.componentId))]
+      let targetId = compIds.find(id => {
+        const dataPin = conns.find(c => c.componentId === id && c.pin === 'data')?.arduinoPin
+        return !usedPins.includes(dataPin ? pinToNumber(dataPin) : null)
+      })
+      if (!targetId && compIds.length > 0) targetId = compIds[0]
+
+      if (targetId) {
+        const dataPin = conns.find(c => c.componentId === targetId && c.pin === 'data')
+        if (dataPin) {
+          params.pin = pinToNumber(dataPin.arduinoPin)
+          const compLabel = conns.find(c => c.componentId === targetId)?.componentLabel || 'DHT Sensor'
+          msg = `Auto-mapped ${compLabel} to Pin ${dataPin.arduinoPin}`
+        }
+      }
+    } else if (nodeConfig.nodeType === 'pir') {
+      const usedPins = flowNodes.filter(n => (n.data as any)?.nodeType === 'pir').map(n => (n.data as any)?.params?.pin)
+      const compIds = [...new Set(conns.filter(c => c.componentLabel.toLowerCase().includes('pir')).map(c => c.componentId))]
+      let targetId = compIds.find(id => {
+        const outPin = conns.find(c => c.componentId === id && c.pin === 'out')?.arduinoPin
+        return !usedPins.includes(outPin ? pinToNumber(outPin) : null)
+      })
+      if (!targetId && compIds.length > 0) targetId = compIds[0]
+
+      if (targetId) {
+        const outPin = conns.find(c => c.componentId === targetId && c.pin === 'out')
+        if (outPin) {
+          params.pin = pinToNumber(outPin.arduinoPin)
+          const compLabel = conns.find(c => c.componentId === targetId)?.componentLabel || 'PIR Sensor'
+          msg = `Auto-mapped ${compLabel} to Pin ${outPin.arduinoPin}`
+        }
+      }
+    } else if (nodeConfig.nodeType === 'ldr') {
+      const usedPins = flowNodes.filter(n => (n.data as any)?.nodeType === 'ldr').map(n => (n.data as any)?.params?.pin)
+      const compIds = [...new Set(conns.filter(c => c.componentLabel.toLowerCase().includes('ldr')).map(c => c.componentId))]
+      let targetId = compIds.find(id => {
+        const ldrPin = conns.find(c => c.componentId === id && !['vcc', 'gnd', '5v', '3.3v'].includes(c.arduinoPin.toLowerCase()))?.arduinoPin
+        return !usedPins.includes(ldrPin ? pinToNumber(ldrPin) : null)
+      })
+      if (!targetId && compIds.length > 0) targetId = compIds[0]
+
+      if (targetId) {
+        const ldrPin = conns.find(c => c.componentId === targetId && !['vcc', 'gnd', '5v', '3.3v'].includes(c.arduinoPin.toLowerCase()))
+        if (ldrPin) {
+          params.pin = pinToNumber(ldrPin.arduinoPin)
+          const compLabel = conns.find(c => c.componentId === targetId)?.componentLabel || 'LDR Sensor'
+          msg = `Auto-mapped ${compLabel} to Pin ${ldrPin.arduinoPin}`
+        }
+      }
+    } else if (nodeConfig.nodeType === 'servo') {
+      const usedPins = flowNodes.filter(n => (n.data as any)?.nodeType === 'servo').map(n => (n.data as any)?.params?.pin)
+      const compIds = [...new Set(conns.filter(c => c.componentLabel.toLowerCase().includes('servo')).map(c => c.componentId))]
+      let targetId = compIds.find(id => {
+        const sigPin = conns.find(c => c.componentId === id && c.pin === 'signal')?.arduinoPin
+        return !usedPins.includes(sigPin ? pinToNumber(sigPin) : null)
+      })
+      if (!targetId && compIds.length > 0) targetId = compIds[0]
+
+      if (targetId) {
+        const sigPin = conns.find(c => c.componentId === targetId && c.pin === 'signal')
+        if (sigPin) {
+          params.pin = pinToNumber(sigPin.arduinoPin)
+          const compLabel = conns.find(c => c.componentId === targetId)?.componentLabel || 'Servo Motor'
+          msg = `Auto-mapped ${compLabel} to Pin ${sigPin.arduinoPin}`
+        }
+      }
+    } else if (nodeConfig.nodeType === 'sensor') {
+      const usedPins = flowNodes.filter(n => (n.data as any)?.nodeType === 'sensor').map(n => (n.data as any)?.params?.pin)
+      const sensorConns = conns.filter(c => c.componentType === 'sensor' && !['vcc', 'gnd', '5v', '3.3v'].includes(c.arduinoPin.toLowerCase()))
+      let targetConn = sensorConns.find(c => !usedPins.includes(pinToNumber(c.arduinoPin)))
+      if (!targetConn && sensorConns.length > 0) targetConn = sensorConns[0]
+
+      if (targetConn) {
+        params.pin = pinToNumber(targetConn.arduinoPin)
+        msg = `Auto-mapped ${targetConn.componentLabel} to Pin ${targetConn.arduinoPin}`
+      }
+    } else if (nodeConfig.nodeType === 'gpio') {
+      const usedPins = flowNodes.filter(n => (n.data as any)?.nodeType === 'gpio').map(n => (n.data as any)?.params?.pin)
+      const actuatorConns = conns.filter(c => 
+        (c.componentType === 'actuator' || c.componentLabel.toLowerCase().includes('led') || c.componentLabel.toLowerCase().includes('buzzer') || c.componentLabel.toLowerCase().includes('relay')) && 
+        !['vcc', 'gnd', '5v', '3.3v'].includes(c.arduinoPin.toLowerCase())
+      )
+      let targetConn = actuatorConns.find(c => !usedPins.includes(pinToNumber(c.arduinoPin)))
+      if (!targetConn && actuatorConns.length > 0) targetConn = actuatorConns[0]
+
+      if (targetConn) {
+        params.pin = pinToNumber(targetConn.arduinoPin)
+        msg = `Auto-mapped ${targetConn.componentLabel} to Pin ${targetConn.arduinoPin}`
+      }
+    }
+
+    if (msg) {
+      setNotification(msg)
+    }
+
     addFlowNode({
       id: `node-${Date.now()}`,
       type: 'baseNode',
@@ -76,10 +259,10 @@ function FlowCanvasInner() {
         label: nodeConfig.label,
         nodeType: nodeConfig.nodeType,
         icon: nodeConfig.icon,
-        params: nodeConfig.params,
+        params,
       },
     })
-  }, [screenToFlowPosition, addFlowNode])
+  }, [screenToFlowPosition, addFlowNode, schemaNodes, schemaEdges, flowNodes])
 
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -547,6 +730,38 @@ function FlowCanvasInner() {
               ))
             )}
           </div>
+        </div>
+      )}
+
+      {notification && (
+        <div style={{
+          position: 'absolute',
+          bottom: 16,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(21, 23, 30, 0.95)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(47, 209, 139, 0.4)',
+          borderRadius: 6,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 15px rgba(47,209,139,0.15)',
+          padding: '10px 16px',
+          zIndex: 10002,
+          pointerEvents: 'auto',
+          fontFamily: 'var(--font-sans)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+        }}>
+          <div style={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            background: '#2fd18b',
+            boxShadow: '0 0 8px #2fd18b',
+          }} />
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#f0f4fc' }}>
+            {notification}
+          </span>
         </div>
       )}
     </div>

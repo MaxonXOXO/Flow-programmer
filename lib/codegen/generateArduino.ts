@@ -167,13 +167,13 @@ function generateIncludes(connections: Connection[], flowNodes: Node[]): string 
 
   const hasSchemaOrFlow = (keyword: string, flowType: string) => {
     return labels.some(l => l.toLowerCase().includes(keyword.toLowerCase())) ||
-           flowNodes.some(n => (n.data as any)?.nodeType === flowType)
+      flowNodes.some(n => (n.data as any)?.nodeType === flowType)
   }
 
-  if (hasSchemaOrFlow('DHT', 'dht'))             includes.add('#include <DHT.h>')
-  if (hasSchemaOrFlow('Servo', 'servo'))         includes.add('#include <Servo.h>')
-  if (hasSchemaOrFlow('LCD', 'lcd'))             { includes.add('#include <Wire.h>'); includes.add('#include <LiquidCrystal_I2C.h>') }
-  if (hasSchemaOrFlow('OLED', 'oled'))           { includes.add('#include <Wire.h>'); includes.add('#include <Adafruit_SSD1306.h>') }
+  if (hasSchemaOrFlow('DHT', 'dht')) includes.add('#include <DHT.h>')
+  if (hasSchemaOrFlow('Servo', 'servo')) includes.add('#include <Servo.h>')
+  if (hasSchemaOrFlow('LCD', 'lcd')) { includes.add('#include <Wire.h>'); includes.add('#include <LiquidCrystal_I2C.h>') }
+  if (hasSchemaOrFlow('OLED', 'oled')) { includes.add('#include <Wire.h>'); includes.add('#include <Adafruit_SSD1306.h>') }
   if (hasSchemaOrFlow('Bluetooth', 'bluetooth')) includes.add('#include <SoftwareSerial.h>')
 
   return Array.from(includes).join('\n')
