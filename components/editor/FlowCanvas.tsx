@@ -84,7 +84,9 @@ function FlowCanvasInner() {
     updateFlowNodeData,
     simState,
     schemaNodes,
-    schemaEdges
+    schemaEdges,
+    showGrid,
+    showMinimap
   } = useFlowStore()
 
   const { screenToFlowPosition } = useReactFlow()
@@ -372,9 +374,9 @@ function FlowCanvasInner() {
         fitView
         style={{ background: 'var(--color-bg-base)' }}
       >
-        <Background variant={BackgroundVariant.Lines} gap={20} size={1} color="#1b202e" />
+        {showGrid && <Background variant={BackgroundVariant.Lines} gap={20} size={1} color="var(--color-border)" />}
         <Controls style={{ background: 'var(--color-bg-panel)', border: '1px solid var(--color-border)', color: 'var(--color-text-normal)' }} />
-        <MiniMap style={{ background: 'var(--color-bg-panel)', border: '1px solid var(--color-border)' }} nodeColor="#2fd18b" />
+        {showMinimap && <MiniMap style={{ background: 'var(--color-bg-panel)', border: '1px solid var(--color-border)' }} nodeColor="var(--color-accent)" />}
       </ReactFlow>
 
       {/* Floating Neon Context Menu */}

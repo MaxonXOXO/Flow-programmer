@@ -1,8 +1,8 @@
 'use client'
 
 import { useFlowStore } from '@/store/userFlowStore'
-import { Play, Square, Code, LogOut, Cpu, CheckCircle2 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { Play, Square, Code, LogOut, Cpu } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
 
 const evalCondition = (cond: string, vars: Record<string, any>): boolean => {
   try {
@@ -27,9 +27,68 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
     activeCanvas, 
     setActiveCanvas,
     flowNodes,
-    flowEdges 
+    flowEdges,
+    schemaNodes,
+    schemaEdges,
+    showSidebar,
+    showGrid,
+    showMinimap,
+    showProperties,
+    toggleSidebar,
+    toggleGrid,
+    toggleMinimap,
+    toggleProperties,
+    loadProjectState
   } = useFlowStore()
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleSaveProject = () => {
+    if (!project) return
+    const projectState = {
+      version: "1.3",
+      project,
+      schemaNodes,
+      schemaEdges,
+      flowNodes,
+      flowEdges
+    }
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projectState, null, 2))
+    const downloadAnchorNode = document.createElement('a')
+    downloadAnchorNode.setAttribute("href", dataStr)
+    downloadAnchorNode.setAttribute("download", `${project.name || 'project'}_flow.json`)
+    document.body.appendChild(downloadAnchorNode)
+    downloadAnchorNode.click()
+    downloadAnchorNode.remove()
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target?.result as string)
+        if (parsed && parsed.project && parsed.schemaNodes && parsed.flowNodes) {
+          loadProjectState({
+            project: parsed.project,
+            schemaNodes: parsed.schemaNodes,
+            schemaEdges: parsed.schemaEdges || [],
+            flowNodes: parsed.flowNodes,
+            flowEdges: parsed.flowEdges || [],
+          })
+          localStorage.setItem('fp_project', JSON.stringify(parsed.project))
+        } else {
+          alert("Invalid project file structure.")
+        }
+      } catch (err) {
+        alert("Failed to parse project file.")
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout | null = null
@@ -154,20 +213,32 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
   const menus = {
     File: ['New Project', 'Open...', 'Save Project', 'Export Arduino C++', 'Preferences'],
     Edit: ['Undo', 'Redo', 'Cut', 'Copy', 'Paste', 'Delete Node'],
-    Board: ['Change Platform...', 'Pin Configuration', 'Verify Connection', 'Flash Firmware'],
-    View: ['Show Sidebar', 'Show Grid', 'Toggle Console', 'Reset Zoom'],
+    Board: ['Change Platform...', 'Pin Configuration', 'Flash Firmware'],
+    View: ['Toggle Sidebar', 'Toggle Grid', 'Toggle Minimap', 'Toggle Properties', 'Reset Zoom'],
     Help: ['Getting Started', 'Keyboard Shortcuts', 'API Reference', 'About Flow Coder']
   }
 
   const handleMenuAction = (menu: string, action: string) => {
     setActiveMenu(null)
-    if (action === 'Export Arduino C++' || action === 'Verify Connection') {
+    if (action === 'Export Arduino C++') {
       onCodeOpen()
     } else if (action === 'Preferences') {
       alert('Preferences Panel: Coming soon!')
     } else if (action === 'New Project') {
       localStorage.removeItem('fp_project')
       window.location.href = '/'
+    } else if (action === 'Save Project') {
+      handleSaveProject()
+    } else if (action === 'Open...') {
+      fileInputRef.current?.click()
+    } else if (action === 'Toggle Sidebar') {
+      toggleSidebar()
+    } else if (action === 'Toggle Grid') {
+      toggleGrid()
+    } else if (action === 'Toggle Minimap') {
+      toggleMinimap()
+    } else if (action === 'Toggle Properties') {
+      toggleProperties()
     }
   }
 
@@ -184,6 +255,13 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
       flexShrink: 0,
       userSelect: 'none',
     }}>
+      <input
+        type="file"
+        ref={fileInputRef}
+        style={{ display: 'none' }}
+        accept=".json"
+        onChange={handleFileChange}
+      />
       {/* Brand App Icon & Logo */}
       <div 
         onClick={() => window.location.href = '/'}
@@ -215,7 +293,7 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
           color: 'var(--color-text-bright)',
           letterSpacing: '0.5px',
         }}>
-          FlowCoder
+          FLOW-IDE
         </div>
       </div>
 
@@ -257,35 +335,54 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
                   zIndex: 20,
                   padding: '4px 0',
                 }}>
-                  {items.map(item => (
-                    <button
-                      key={item}
-                      onClick={() => handleMenuAction(menuName, item)}
-                      style={{
-                        width: '100%',
-                        textAlign: 'left',
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'var(--color-text-normal)',
-                        fontSize: 11,
-                        padding: '6px 12px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                      }}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.background = 'var(--color-accent)'
-                        e.currentTarget.style.color = '#151515'
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.background = 'transparent'
-                        e.currentTarget.style.color = 'var(--color-text-normal)'
-                      }}
-                    >
-                      {item}
-                    </button>
-                  ))}
+                  {items.map(item => {
+                    const isChecked = 
+                      (menuName === 'View' && item === 'Toggle Sidebar' && showSidebar) ||
+                      (menuName === 'View' && item === 'Toggle Grid' && showGrid) ||
+                      (menuName === 'View' && item === 'Toggle Minimap' && showMinimap) ||
+                      (menuName === 'View' && item === 'Toggle Properties' && showProperties)
+
+                    return (
+                      <button
+                        key={item}
+                        onClick={() => handleMenuAction(menuName, item)}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'var(--color-text-normal)',
+                          fontSize: 11,
+                          padding: '6px 12px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.background = 'var(--color-accent)'
+                          e.currentTarget.style.color = '#ffffff'
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.background = 'transparent'
+                          e.currentTarget.style.color = 'var(--color-text-normal)'
+                        }}
+                      >
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ 
+                            width: 10, 
+                            display: 'inline-block', 
+                            color: 'var(--color-accent)', 
+                            fontWeight: 'bold',
+                            fontSize: 10
+                          }}>
+                            {isChecked ? '✓' : ''}
+                          </span>
+                          {item}
+                        </span>
+                      </button>
+                    )
+                  })}
                 </div>
               </>
             )}
@@ -433,12 +530,6 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
             </span>
           </div>
         )}
-
-        {/* Live Build Success Icon */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#45b872', fontSize: 10, background: '#1c2e24', border: '1px solid #2d4c38', padding: '3px 6px', borderRadius: 4 }}>
-          <CheckCircle2 className="w-3 h-3 text-[#45b872]" />
-          <span>VERIFIED</span>
-        </div>
 
         <button
           onClick={onCodeOpen}

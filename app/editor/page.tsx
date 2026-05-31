@@ -21,18 +21,18 @@ export default function EditorPage() {
     setProject(JSON.parse(raw))
   }, [router, setProject])
 
-  const { selectedNodeId, simState, project, activeCanvas } = useFlowStore()
+  const { selectedNodeId, simState, project, activeCanvas, showSidebar, showProperties } = useFlowStore()
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', background: 'var(--color-bg-base)' }}>
       <TopBar onCodeOpen={() => setCodeOpen(true)} />
       
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <Sidebar />
+        {showSidebar && <Sidebar />}
         <div style={{ flex: 1 }}>
           {activeCanvas === 'schema' ? <SchemaCanvas /> : <FlowCanvas />}
         </div>
-        <PropertiesPanel />
+        {showProperties && <PropertiesPanel />}
       </div>
       
       {/* Bottom Status Bar (Blender/Photoshop Style) */}

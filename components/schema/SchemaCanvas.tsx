@@ -33,7 +33,8 @@ function SchemaCanvasInner() {
     setSchemaEdges,
     setSelectedNode,
     addSchemaNode,
-    deleteSchemaNode
+    deleteSchemaNode,
+    showGrid
   } = useFlowStore()
 
   const { screenToFlowPosition } = useReactFlow()
@@ -133,7 +134,7 @@ function SchemaCanvasInner() {
         fitView
         style={{ background: 'var(--color-bg-base)' }}
       >
-        <Background variant={BackgroundVariant.Lines} gap={20} size={1} color="#1b202e" />
+        {showGrid && <Background variant={BackgroundVariant.Lines} gap={20} size={1} color="var(--color-border)" />}
         <Controls style={{ background: 'var(--color-bg-panel)', border: '1px solid var(--color-border)', color: 'var(--color-text-normal)' }} />
       </ReactFlow>
 

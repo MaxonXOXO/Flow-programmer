@@ -11,10 +11,10 @@
   --color-text-normal: #a5b3cd;
   --color-text-bright: #f0f4fc;
   --color-text-dim: #546484;
-  --color-accent: #2fd18b;        /* Neon Green */
-  --color-accent-blue: #5fa3ff;   /* Neon Blue */
-  --color-accent-pink: #ff5f9e;   /* Neon Pink */
-  --color-accent-orange: #ffb13d; /* Neon Orange */
+  --color-accent: #e66e19;         /* Keep orange accent as requested */
+  --color-accent-blue: #3d8bff;    /* Blender active blue */
+  --color-accent-pink: #ef5f5f;    /* Blender active red */
+  --color-accent-orange: #e66e19;  /* Blender active orange */
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", monospace;
 }
@@ -57,7 +57,7 @@ body {
 }
 
 /* React Flow customisations to look like Blender/Blueprints */
-.react-flow__pane {
+.react-flow {
   background-color: var(--color-bg-base) !important;
 }
 

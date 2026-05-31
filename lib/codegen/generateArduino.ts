@@ -79,11 +79,7 @@ export function formatStringLiteral(str: string): string {
   const trimmed = str.trim()
 
   // Already properly quoted — pass through
-  if (trimmed.startsWith('"') && trimmed.endsWith('"') && !trimmed.includes('+')) return trimmed
-
-  // Contains concatenation operators or variable names → treat as C++ expression
-  // e.g.  "Temp: " + String(temp)   or   distance   or   temp
-  if (trimmed.includes('+') || trimmed.includes('String(') || trimmed.includes('(')) {
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
     return trimmed
   }
 
@@ -92,13 +88,74 @@ export function formatStringLiteral(str: string): string {
     return `"${trimmed.slice(1, -1)}"`
   }
 
-  // Plain word/identifier — could be a variable name
+  // Check if it's a numeric literal (int or float)
+  if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
+    return trimmed
+  }
+
+  // Check if it's a boolean literal
+  if (trimmed === 'true' || trimmed === 'false') {
+    return trimmed
+  }
+
+  // Plain word/identifier (variable reference)
   if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(trimmed)) {
     return trimmed
   }
 
-  // Otherwise wrap as string literal
+  // Contains operators, parentheses or member access (treat as expression)
+  // e.g. temp + 5, analogRead(A0), String(val)
+  if (/[\+\-\*\/\(\)\.]/.test(trimmed)) {
+    return trimmed
+  }
+
+  // Default fallback: wrap string literals in double quotes
   return `"${trimmed}"`
+}
+
+export function parsePrintArguments(str: string): string[] {
+  if (!str) return []
+  const parts: string[] = []
+  let current = ''
+  let inQuotes = false
+  let quoteChar = ''
+
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i]
+    if ((char === '"' || char === "'") && (i === 0 || str[i-1] !== '\\')) {
+      if (!inQuotes) {
+        inQuotes = true
+        quoteChar = char
+      } else if (char === quoteChar) {
+        inQuotes = false
+        quoteChar = ''
+      }
+      current += char
+    } else if (char === ',' && !inQuotes) {
+      parts.push(current.trim())
+      current = ''
+    } else {
+      current += char
+    }
+  }
+  if (current.trim()) {
+    parts.push(current.trim())
+  }
+  return parts.filter(p => p !== '')
+}
+
+export function generateSerialPrintLines(rawString: string, pad: string): string[] {
+  const args = parsePrintArguments(rawString)
+  if (args.length === 0) return [`${pad}Serial.println("");`]
+  if (args.length === 1) return [`${pad}Serial.println(${formatStringLiteral(args[0])});`]
+
+  const lines: string[] = []
+  for (let i = 0; i < args.length; i++) {
+    const formatted = formatStringLiteral(args[i])
+    const method = i === args.length - 1 ? 'println' : 'print'
+    lines.push(`${pad}Serial.${method}(${formatted});`)
+  }
+  return lines
 }
 
 // ===== VARIABLE TRACKING =====
@@ -415,16 +472,16 @@ function generateNodeCode(
     }
 
     case 'print': {
-      const msg = formatStringLiteral(data.params?.message || '')
-      lines.push(`${pad}Serial.println(${msg});`)
+      const printLines = generateSerialPrintLines(data.params?.message || '', pad)
+      lines.push(...printLines)
       lines.push(followFlow())
       break
     }
 
     case 'input': {
       const varName = data.params?.var || 'val'
-      const prompt = formatStringLiteral(data.params?.prompt || '')
-      lines.push(`${pad}Serial.println(${prompt});`)
+      const promptLines = generateSerialPrintLines(data.params?.prompt || '', pad)
+      lines.push(...promptLines)
       lines.push(`${pad}while (!Serial.available()) {}`)
       if (!declaredVars.has(varName)) {
         lines.push(`${pad}int ${varName} = Serial.parseInt();`)

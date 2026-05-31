@@ -61,6 +61,24 @@ interface FlowStore {
   resetSim: () => void
   setProject: (project: ProjectConfig) => void
   setActiveCanvas: (canvas: 'schema' | 'flow') => void
+  loadProjectState: (state: {
+    project: ProjectConfig
+    flowNodes: Node[]
+    flowEdges: Edge[]
+    schemaNodes: Node[]
+    schemaEdges: Edge[]
+  }) => void
+
+  // Layout states
+  showSidebar: boolean
+  showGrid: boolean
+  showMinimap: boolean
+  showProperties: boolean
+
+  toggleSidebar: () => void
+  toggleGrid: () => void
+  toggleMinimap: () => void
+  toggleProperties: () => void
 }
 
 export const useFlowStore = create<FlowStore>((set) => ({
@@ -85,6 +103,15 @@ export const useFlowStore = create<FlowStore>((set) => ({
     variables: {},
     currentNodeId: null,
   },
+  showSidebar: true,
+  showGrid: true,
+  showMinimap: true,
+  showProperties: true,
+
+  toggleSidebar: () => set((s) => ({ showSidebar: !s.showSidebar })),
+  toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
+  toggleMinimap: () => set((s) => ({ showMinimap: !s.showMinimap })),
+  toggleProperties: () => set((s) => ({ showProperties: !s.showProperties })),
 
   updateFlowNodeData: (id, data) => set((s) => ({
     flowNodes: s.flowNodes.map(n => n.id === id ? { ...n, data } : n)
@@ -133,4 +160,11 @@ export const useFlowStore = create<FlowStore>((set) => ({
   })),
   setProject: (project) => set({ project }),
   setActiveCanvas: (canvas) => set({ activeCanvas: canvas }),
+  loadProjectState: (state) => set({
+    project: state.project,
+    flowNodes: state.flowNodes,
+    flowEdges: state.flowEdges,
+    schemaNodes: state.schemaNodes,
+    schemaEdges: state.schemaEdges,
+  }),
 }))
