@@ -182,30 +182,108 @@ export default function PropertiesPanel() {
                   <div style={{ fontSize: 10, color: 'var(--color-text-dim)', marginBottom: 4, textTransform: 'capitalize' }}>
                     {key}
                   </div>
-                  <input
-                    value={val}
-                    onChange={e => {
-                      const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData
-                      updater(node.id, {
-                        ...data,
-                        params: { ...params, [key]: e.target.value }
-                      })
-                    }}
-                    style={{
-                      width: '100%',
-                      background: 'var(--color-bg-input)',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: 4,
-                      padding: '4px 8px',
-                      color: 'var(--color-text-bright)',
-                      fontSize: 11,
-                      fontFamily: 'monospace',
-                      outline: 'none',
-                      transition: 'border-color 0.1s',
-                    }}
-                    onFocus={e => e.target.style.borderColor = 'var(--color-border-focus)'}
-                    onBlur={e => e.target.style.borderColor = 'var(--color-border)'}
-                  />
+                  {key === 'variant' ? (
+                    <select
+                      value={val}
+                      onChange={e => {
+                        const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData
+                        updater(node.id, {
+                          ...data,
+                          params: { ...params, [key]: e.target.value }
+                        })
+                      }}
+                      style={{
+                        width: '100%',
+                        background: 'var(--color-bg-input)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 4,
+                        padding: '4px 8px',
+                        color: 'var(--color-text-bright)',
+                        fontSize: 11,
+                        outline: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <option value="Active Low">Active Low</option>
+                      <option value="Active High">Active High</option>
+                    </select>
+                  ) : key === 'motor' ? (
+                    <select
+                      value={val}
+                      onChange={e => {
+                        const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData
+                        updater(node.id, {
+                          ...data,
+                          params: { ...params, [key]: e.target.value }
+                        })
+                      }}
+                      style={{
+                        width: '100%',
+                        background: 'var(--color-bg-input)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 4,
+                        padding: '4px 8px',
+                        color: 'var(--color-text-bright)',
+                        fontSize: 11,
+                        outline: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <option value="Motor A">Motor A</option>
+                      <option value="Motor B">Motor B</option>
+                    </select>
+                  ) : key === 'direction' ? (
+                    <select
+                      value={val}
+                      onChange={e => {
+                        const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData
+                        updater(node.id, {
+                          ...data,
+                          params: { ...params, [key]: e.target.value }
+                        })
+                      }}
+                      style={{
+                        width: '100%',
+                        background: 'var(--color-bg-input)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 4,
+                        padding: '4px 8px',
+                        color: 'var(--color-text-bright)',
+                        fontSize: 11,
+                        outline: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <option value="Forward">Forward</option>
+                      <option value="Backward">Backward</option>
+                      <option value="Stop">Stop</option>
+                    </select>
+                  ) : (
+                    <input
+                      value={val}
+                      onChange={e => {
+                        const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData
+                        updater(node.id, {
+                          ...data,
+                          params: { ...params, [key]: e.target.value }
+                        })
+                      }}
+                      style={{
+                        width: '100%',
+                        background: 'var(--color-bg-input)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 4,
+                        padding: '4px 8px',
+                        color: 'var(--color-text-bright)',
+                        fontSize: 11,
+                        fontFamily: 'monospace',
+                        outline: 'none',
+                        transition: 'border-color 0.1s',
+                      }}
+                      onFocus={e => e.target.style.borderColor = 'var(--color-border-focus)'}
+                      onBlur={e => e.target.style.borderColor = 'var(--color-border)'}
+                    />
+                  )}
                 </div>
               ))}
             </div>

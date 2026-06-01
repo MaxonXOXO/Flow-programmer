@@ -6,6 +6,14 @@ import { generateLDRCode } from './sensors/ldr'
 import { generateServoCode } from './sensors/servo'
 import { generateLCDCode } from './sensors/lcd'
 import { generateOLEDCode } from './sensors/oled'
+import { generateIRCode } from './sensors/ir'
+import { generateFlameCode } from './sensors/flame'
+import { generateSoilMoistureCode } from './sensors/soilMoisture'
+import { generateWaterLevelCode } from './sensors/waterLevel'
+import { generateMQGasCode } from './sensors/mqGas'
+import { generateVibrationCode } from './sensors/vibration'
+import { generateL298NCode } from './sensors/l298n'
+import { generateL293DCode } from './sensors/l293d'
 
 // ===== TYPES =====
 export interface Connection {
@@ -191,6 +199,12 @@ function getAllDeclaredVars(flowNodes: Node[]): Set<string> {
     if (t === 'pir') vars.add(p.varMotion || 'motion')
     if (t === 'ldr') vars.add(p.varLight || 'lightVal')
     if (t === 'sensor') vars.add(p.var || 'sensorVal')
+    if (t === 'ir') vars.add(p.varObstacle || 'obstacle')
+    if (t === 'flame') vars.add(p.varFlame || 'flameVal')
+    if (t === 'soilMoisture') vars.add(p.varMoisture || 'moisture')
+    if (t === 'waterLevel') vars.add(p.varLevel || 'waterLevel')
+    if (t === 'mqGas') vars.add(p.varGas || 'gasVal')
+    if (t === 'vibration') vars.add(p.varVib || 'vibration')
   })
   return vars
 }
@@ -344,6 +358,12 @@ function generateSetup(connections: Connection[], flowNodes: Node[]): string {
       lines.push(`  pinMode(${pinNum}, INPUT); // ${label}`)
     } else if (label.includes('LDR')) {
       lines.push(`  pinMode(${pinNum}, INPUT); // ${label}`)
+    } else if (label.includes('IR') || label.includes('Flame') || label.includes('Soil') || label.includes('Water') || label.includes('Gas') || label.includes('Vibration')) {
+      if (['out', 'do', 'ao', 'digital', 'analog', 'signal', 'pin1', 'pin2'].includes(conn.pin.toLowerCase())) {
+        lines.push(`  pinMode(${pinNum}, INPUT); // ${label}`)
+      }
+    } else if ((label.includes('L298N') || label.includes('L293D')) && !['gnd', 'vcc', '5v', 'vcc1', 'vcc2', 'out1', 'out2', 'out3', 'out4'].includes(conn.pin.toLowerCase())) {
+      lines.push(`  pinMode(${pinNum}, OUTPUT); // ${label} ${conn.pin.toUpperCase()}`)
     } else if (label.includes('Ultrasonic')) {
       if (conn.pin === 'trig') lines.push(`  pinMode(${pinNum}, OUTPUT); // HC-SR04 TRIG`)
       if (conn.pin === 'echo') lines.push(`  pinMode(${pinNum}, INPUT);  // HC-SR04 ECHO`)
@@ -403,6 +423,48 @@ function generateSetup(connections: Connection[], flowNodes: Node[]): string {
     if (type === 'ldr' && !flowSeen.has('ldr') && !connections.some(c => c.componentLabel.includes('LDR'))) {
       flowSeen.add('ldr')
       lines.push(`  pinMode(${p.pin || 'A0'}, INPUT); // LDR Sensor`)
+    }
+    if (type === 'ir' && !flowSeen.has('ir') && !connections.some(c => c.componentLabel.includes('IR'))) {
+      flowSeen.add('ir')
+      lines.push(`  pinMode(${p.pin || '3'}, INPUT); // IR Sensor`)
+    }
+    if (type === 'flame' && !flowSeen.has('flame') && !connections.some(c => c.componentLabel.includes('Flame'))) {
+      flowSeen.add('flame')
+      lines.push(`  pinMode(${p.pin || '4'}, INPUT); // Flame Sensor`)
+    }
+    if (type === 'soilMoisture' && !flowSeen.has('soilMoisture') && !connections.some(c => c.componentLabel.includes('Soil'))) {
+      flowSeen.add('soilMoisture')
+      lines.push(`  pinMode(${p.pin || 'A1'}, INPUT); // Soil Moisture Sensor`)
+    }
+    if (type === 'waterLevel' && !flowSeen.has('waterLevel') && !connections.some(c => c.componentLabel.includes('Water'))) {
+      flowSeen.add('waterLevel')
+      lines.push(`  pinMode(${p.pin || 'A2'}, INPUT); // Water Level Sensor`)
+    }
+    if (type === 'mqGas' && !flowSeen.has('mqGas') && !connections.some(c => c.componentLabel.includes('Gas'))) {
+      flowSeen.add('mqGas')
+      lines.push(`  pinMode(${p.pin || 'A3'}, INPUT); // MQ Gas Sensor`)
+    }
+    if (type === 'vibration' && !flowSeen.has('vibration') && !connections.some(c => c.componentLabel.includes('Vibration'))) {
+      flowSeen.add('vibration')
+      lines.push(`  pinMode(${p.pin || '5'}, INPUT); // Vibration Sensor`)
+    }
+    if (type === 'l298n' && !flowSeen.has('l298n') && !connections.some(c => c.componentLabel.includes('L298N'))) {
+      flowSeen.add('l298n')
+      lines.push(`  pinMode(9, OUTPUT);  // L298N ENA`)
+      lines.push(`  pinMode(8, OUTPUT);  // L298N IN1`)
+      lines.push(`  pinMode(7, OUTPUT);  // L298N IN2`)
+      lines.push(`  pinMode(10, OUTPUT); // L298N ENB`)
+      lines.push(`  pinMode(5, OUTPUT);  // L298N IN3`)
+      lines.push(`  pinMode(6, OUTPUT);  // L298N IN4`)
+    }
+    if (type === 'l293d' && !flowSeen.has('l293d') && !connections.some(c => c.componentLabel.includes('L293D'))) {
+      flowSeen.add('l293d')
+      lines.push(`  pinMode(9, OUTPUT);  // L293D EN1`)
+      lines.push(`  pinMode(8, OUTPUT);  // L293D IN1`)
+      lines.push(`  pinMode(7, OUTPUT);  // L293D IN2`)
+      lines.push(`  pinMode(10, OUTPUT); // L293D EN2`)
+      lines.push(`  pinMode(5, OUTPUT);  // L293D IN3`)
+      lines.push(`  pinMode(6, OUTPUT);  // L293D IN4`)
     }
   })
 
@@ -595,6 +657,60 @@ function generateNodeCode(
     case 'ldr': {
       lines.push(generateLDRCode(data, connections, declaredVars, pad))
       declaredVars.add(data.params?.varLight || 'lightVal')
+      lines.push(followFlow())
+      break
+    }
+
+    case 'ir': {
+      lines.push(generateIRCode(data, connections, declaredVars, pad))
+      declaredVars.add(data.params?.varObstacle || 'obstacle')
+      lines.push(followFlow())
+      break
+    }
+
+    case 'flame': {
+      lines.push(generateFlameCode(data, connections, declaredVars, pad))
+      declaredVars.add(data.params?.varFlame || 'flameVal')
+      lines.push(followFlow())
+      break
+    }
+
+    case 'soilMoisture': {
+      lines.push(generateSoilMoistureCode(data, connections, declaredVars, pad))
+      declaredVars.add(data.params?.varMoisture || 'moisture')
+      lines.push(followFlow())
+      break
+    }
+
+    case 'waterLevel': {
+      lines.push(generateWaterLevelCode(data, connections, declaredVars, pad))
+      declaredVars.add(data.params?.varLevel || 'waterLevel')
+      lines.push(followFlow())
+      break
+    }
+
+    case 'mqGas': {
+      lines.push(generateMQGasCode(data, connections, declaredVars, pad))
+      declaredVars.add(data.params?.varGas || 'gasVal')
+      lines.push(followFlow())
+      break
+    }
+
+    case 'vibration': {
+      lines.push(generateVibrationCode(data, connections, declaredVars, pad))
+      declaredVars.add(data.params?.varVib || 'vibration')
+      lines.push(followFlow())
+      break
+    }
+
+    case 'l298n': {
+      lines.push(generateL298NCode(data, connections, pad))
+      lines.push(followFlow())
+      break
+    }
+
+    case 'l293d': {
+      lines.push(generateL293DCode(data, connections, pad))
       lines.push(followFlow())
       break
     }

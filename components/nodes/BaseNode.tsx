@@ -5,7 +5,8 @@ import { useFlowStore } from '@/store/userFlowStore'
 import { 
   PlayCircle, StopCircle, GitFork, RotateCw, Timer, 
   Binary, Braces, Printer, Type, Activity, Zap, Link,
-  Eye, Thermometer, Radio, Sun, Wrench, Tv, Monitor
+  Eye, Thermometer, Radio, Sun, Wrench, Tv, Monitor,
+  Flame, Droplets, Waves, Wind, Cpu
 } from 'lucide-react'
 
 interface BaseNodeData {
@@ -31,15 +32,23 @@ const categoryStyles: Record<string, { headerBg: string, iconColor: string, text
   input:     { headerBg: 'rgba(255, 95, 158, 0.15)', iconColor: '#ff5f9e', textColor: '#ff5f9e' },
   
   // Specific sensor templates
-  dht:        { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
-  ultrasonic: { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
-  pir:        { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
-  ldr:        { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
+  dht:          { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
+  ultrasonic:   { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
+  pir:          { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
+  ldr:          { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
+  ir:           { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
+  flame:        { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
+  soilMoisture: { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
+  waterLevel:   { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
+  mqGas:        { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
+  vibration:    { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
   
   // Specific control devices
-  servo:      { headerBg: 'rgba(165, 179, 205, 0.15)', iconColor: '#a5b3cd', textColor: '#a5b3cd' },
-  lcd:        { headerBg: 'rgba(95, 163, 255, 0.15)', iconColor: '#5fa3ff', textColor: '#5fa3ff' },
-  oled:       { headerBg: 'rgba(255, 95, 158, 0.15)', iconColor: '#ff5f9e', textColor: '#ff5f9e' },
+  servo:        { headerBg: 'rgba(165, 179, 205, 0.15)', iconColor: '#a5b3cd', textColor: '#a5b3cd' },
+  lcd:          { headerBg: 'rgba(95, 163, 255, 0.15)', iconColor: '#5fa3ff', textColor: '#5fa3ff' },
+  oled:         { headerBg: 'rgba(255, 95, 158, 0.15)', iconColor: '#ff5f9e', textColor: '#ff5f9e' },
+  l298n:        { headerBg: 'rgba(165, 179, 205, 0.15)', iconColor: '#a5b3cd', textColor: '#a5b3cd' },
+  l293d:        { headerBg: 'rgba(165, 179, 205, 0.15)', iconColor: '#a5b3cd', textColor: '#a5b3cd' },
 }
 
 // Get vector icons for node headers
@@ -64,11 +73,19 @@ function getNodeHeaderIcon(nodeType: string, color: string, className: string = 
     case 'ultrasonic': return <Radio {...iconProps} />
     case 'pir': return <Eye {...iconProps} />
     case 'ldr': return <Sun {...iconProps} />
+    case 'ir': return <Eye {...iconProps} />
+    case 'flame': return <Flame {...iconProps} />
+    case 'soilMoisture': return <Droplets {...iconProps} />
+    case 'waterLevel': return <Waves {...iconProps} />
+    case 'mqGas': return <Wind {...iconProps} />
+    case 'vibration': return <Activity {...iconProps} />
     
     // Specific control devices
     case 'servo': return <Wrench {...iconProps} />
     case 'lcd': return <Tv {...iconProps} />
     case 'oled': return <Monitor {...iconProps} />
+    case 'l298n': return <Cpu {...iconProps} />
+    case 'l293d': return <Cpu {...iconProps} />
     
     default: return <PlayCircle {...iconProps} />
   }

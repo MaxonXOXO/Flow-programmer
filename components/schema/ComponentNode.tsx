@@ -1,9 +1,11 @@
 'use client'
 
 import { Handle, Position, NodeProps } from '@xyflow/react'
+import { useFlowStore } from '@/store/userFlowStore'
 import { 
-  Lightbulb, Square, Thermometer, Radio, Eye, Sun, 
-  Settings, Wrench, Volume2, Zap, Tv, Monitor, Wifi, GripHorizontal
+   Lightbulb, Square, Thermometer, Radio, Eye, Sun, 
+   Settings, Wrench, Volume2, Zap, Tv, Monitor, Wifi, GripHorizontal,
+   Flame, Droplets, Waves, Wind, Cpu, Activity
 } from 'lucide-react'
 
 // Neon category style mappings
@@ -31,16 +33,24 @@ function getComponentVectorIcon(emoji: string, color: string) {
     case '📺': return <Tv {...iconProps} />
     case '🖥': return <Monitor {...iconProps} />
     case '📶': return <Wifi {...iconProps} />
+    case '🔥': return <Flame {...iconProps} />
+    case '🌱': return <Droplets {...iconProps} />
+    case '💧': return <Waves {...iconProps} />
+    case '💨': return <Wind {...iconProps} />
+    case '📳': return <Activity {...iconProps} />
+    case '🔌': return <Cpu {...iconProps} />
     default: return <GripHorizontal {...iconProps} />
   }
 }
 
-export default function ComponentNode({ data, selected }: NodeProps) {
+export default function ComponentNode({ id, data, selected }: NodeProps) {
+  const { updateSchemaNodeData } = useFlowStore()
   const d = data as {
     label: string
     componentType: string
     pins: { id: string, label: string }[]
     icon: string
+    params?: Record<string, string>
   }
 
   const styles = categoryStyles[d.componentType] || categoryStyles.sensor
@@ -115,6 +125,44 @@ export default function ComponentNode({ data, selected }: NodeProps) {
           </div>
         ))}
       </div>
+
+      {/* Parameters / Variant section */}
+      {d.params && d.params.variant !== undefined && (
+        <div style={{
+          padding: '4px 10px 8px',
+          borderTop: '1px solid rgba(255,255,255,0.03)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4,
+        }}>
+          <span style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontWeight: 600 }}>
+            VARIANT / MODE
+          </span>
+          <select
+            value={d.params.variant}
+            onChange={(e) => {
+              updateSchemaNodeData(id, {
+                ...d,
+                params: { ...d.params, variant: e.target.value }
+              })
+            }}
+            style={{
+              width: '100%',
+              background: 'var(--color-bg-input)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 3,
+              padding: '2px 4px',
+              fontSize: 10,
+              color: 'var(--color-text-bright)',
+              outline: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="Active Low">Active Low</option>
+            <option value="Active High">Active High</option>
+          </select>
+        </div>
+      )}
       
     </div>
   )

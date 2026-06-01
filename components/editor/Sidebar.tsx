@@ -7,7 +7,8 @@ import {
   Lightbulb, Square, Thermometer, Radio, Eye, Sun, 
   Settings, Wrench, Volume2, Zap, Tv, Monitor, Wifi, 
   PlayCircle, HelpCircle, RotateCw, Timer, Binary, 
-  Braces, Printer, Type, Activity, Network
+  Braces, Printer, Type, Activity, Network,
+  Flame, Droplets, Waves, Wind, Cpu
 } from 'lucide-react'
 
 const SCHEMA_COMPONENTS = [
@@ -20,6 +21,12 @@ const SCHEMA_COMPONENTS = [
       { label: 'Ultrasonic HC-SR04', icon: '📡', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'trig', label: 'TRIG' }, { id: 'echo', label: 'ECHO' }, { id: 'gnd', label: 'GND' }] },
       { label: 'PIR Sensor', icon: '👁', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'out', label: 'OUT' }, { id: 'gnd', label: 'GND' }] },
       { label: 'LDR', icon: '☀', componentType: 'sensor', pins: [{ id: 'pin1', label: 'Pin 1' }, { id: 'pin2', label: 'Pin 2' }] },
+      { label: 'IR Sensor', icon: '👁', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'out', label: 'OUT' }, { id: 'gnd', label: 'GND' }], params: { variant: 'Active Low' } },
+      { label: 'Flame Sensor', icon: '🔥', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'do', label: 'D0' }, { id: 'ao', label: 'A0' }, { id: 'gnd', label: 'GND' }], params: { variant: 'Active Low' } },
+      { label: 'Soil Moisture', icon: '🌱', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'do', label: 'D0' }, { id: 'ao', label: 'A0' }, { id: 'gnd', label: 'GND' }], params: { variant: 'Active Low' } },
+      { label: 'Water Level', icon: '💧', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'out', label: 'OUT' }, { id: 'gnd', label: 'GND' }], params: { variant: 'Active High' } },
+      { label: 'MQ Gas Sensor', icon: '💨', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'do', label: 'D0' }, { id: 'ao', label: 'A0' }, { id: 'gnd', label: 'GND' }], params: { variant: 'Active Low' } },
+      { label: 'Vibration Sensor', icon: '📳', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'do', label: 'D0' }, { id: 'gnd', label: 'GND' }], params: { variant: 'Active Low' } },
     ]
   },
   {
@@ -29,6 +36,51 @@ const SCHEMA_COMPONENTS = [
       { label: 'Servo Motor', icon: '🔧', componentType: 'actuator', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'signal', label: 'Signal' }, { id: 'gnd', label: 'GND' }] },
       { label: 'Buzzer', icon: '🔔', componentType: 'actuator', pins: [{ id: 'pos', label: '+' }, { id: 'neg', label: '−' }] },
       { label: 'Relay', icon: '⚡', componentType: 'actuator', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'in', label: 'IN' }, { id: 'gnd', label: 'GND' }] },
+    ]
+  },
+  {
+    section: 'Motor Drivers',
+    nodes: [
+      {
+        label: 'L298N Motor Driver',
+        icon: '⚙',
+        componentType: 'actuator',
+        pins: [
+          { id: 'vcc', label: 'VCC (12V)' },
+          { id: 'gnd', label: 'GND' },
+          { id: '5v', label: '5V Out' },
+          { id: 'ena', label: 'ENA' },
+          { id: 'in1', label: 'IN1' },
+          { id: 'in2', label: 'IN2' },
+          { id: 'in3', label: 'IN3' },
+          { id: 'in4', label: 'IN4' },
+          { id: 'enb', label: 'ENB' },
+          { id: 'out1', label: 'OUT1' },
+          { id: 'out2', label: 'OUT2' },
+          { id: 'out3', label: 'OUT3' },
+          { id: 'out4', label: 'OUT4' }
+        ]
+      },
+      {
+        label: 'L293D Motor Driver',
+        icon: '⚙',
+        componentType: 'actuator',
+        pins: [
+          { id: 'vcc1', label: 'VCC1 (5V)' },
+          { id: 'gnd', label: 'GND' },
+          { id: 'vcc2', label: 'VCC2 (Motor)' },
+          { id: 'en1', label: 'EN1' },
+          { id: 'in1', label: 'IN1' },
+          { id: 'in2', label: 'IN2' },
+          { id: 'in3', label: 'IN3' },
+          { id: 'in4', label: 'IN4' },
+          { id: 'en2', label: 'EN2' },
+          { id: 'out1', label: 'OUT1' },
+          { id: 'out2', label: 'OUT2' },
+          { id: 'out3', label: 'OUT3' },
+          { id: 'out4', label: 'OUT4' }
+        ]
+      }
     ]
   },
   {
@@ -87,6 +139,12 @@ const NODE_TYPES = [
       { type: 'ultrasonic', label: 'Ultrasonic Read', icon: '📡',  nodeType: 'ultrasonic', params: { varDist: 'distance', trigPin: '9', echoPin: '10' } },
       { type: 'pir',        label: 'PIR Motion',      icon: '👁',  nodeType: 'pir',        params: { varMotion: 'motion', pin: '3' } },
       { type: 'ldr',        label: 'LDR Light',       icon: '☀',  nodeType: 'ldr',        params: { varLight: 'lightVal', pin: 'A0' } },
+      { type: 'ir',         label: 'IR Obstacle',     icon: '👁',  nodeType: 'ir',         params: { varObstacle: 'obstacle', pin: '3', variant: 'Active Low' } },
+      { type: 'flame',      label: 'Flame Sensor',    icon: '🔥',  nodeType: 'flame',      params: { varFlame: 'flameVal', pin: '4', variant: 'Active Low' } },
+      { type: 'soilMoisture', label: 'Soil Moisture', icon: '🌱',  nodeType: 'soilMoisture', params: { varMoisture: 'moisture', pin: 'A1', variant: 'Active Low' } },
+      { type: 'waterLevel', label: 'Water Level',     icon: '💧',  nodeType: 'waterLevel',  params: { varLevel: 'waterLevel', pin: 'A2', variant: 'Active High' } },
+      { type: 'mqGas',      label: 'MQ Gas Sensor',   icon: '💨',  nodeType: 'mqGas',      params: { varGas: 'gasVal', pin: 'A3', variant: 'Active Low' } },
+      { type: 'vibration',  label: 'Vibration Sensor', icon: '📳',  nodeType: 'vibration',  params: { varVib: 'vibration', pin: '5', variant: 'Active Low' } },
     ]
   },
   {
@@ -95,6 +153,8 @@ const NODE_TYPES = [
       { type: 'servo',      label: 'Servo Motor',     icon: '🔧',  nodeType: 'servo',      params: { pin: '9', angle: '90' } },
       { type: 'lcd',        label: 'LCD 16x2 Text',   icon: '📺',  nodeType: 'lcd',        params: { text: '"Temp: " + String(temp)', row: '0', col: '0' } },
       { type: 'oled',       label: 'OLED Text',       icon: '🖥',  nodeType: 'oled',       params: { text: '"Distance: " + String(distance)', x: '0', y: '0', size: '1' } },
+      { type: 'l298n',      label: 'L298N Motor Control', icon: '🔌', nodeType: 'l298n',   params: { motor: 'Motor A', direction: 'Forward', speed: '255' } },
+      { type: 'l293d',      label: 'L293D Motor Control', icon: '🔌', nodeType: 'l293d',   params: { motor: 'Motor A', direction: 'Forward', speed: '255' } },
     ]
   },
 ]
@@ -117,6 +177,12 @@ function getLucideIcon(emoji: string, color: string = 'currentColor') {
     case '📺': return <Tv {...iconProps} style={{ color: '#ff5f9e' }} />
     case '🖥': return <Monitor {...iconProps} style={{ color: '#5fa3ff' }} />
     case '📶': return <Wifi {...iconProps} style={{ color: '#2fd18b' }} />
+    case '🔥': return <Flame {...iconProps} style={{ color: '#ff5f9e' }} />
+    case '🌱': return <Droplets {...iconProps} style={{ color: '#2fd18b' }} />
+    case '💧': return <Waves {...iconProps} style={{ color: '#5fa3ff' }} />
+    case '💨': return <Wind {...iconProps} style={{ color: '#a5b3cd' }} />
+    case '📳': return <Activity {...iconProps} style={{ color: '#ffb13d' }} />
+    case '🔌': return <Cpu {...iconProps} style={{ color: '#a5b3cd' }} />
     
     // logic flows
     case '▶': return <PlayCircle {...iconProps} style={{ color: '#2fd18b' }} />
