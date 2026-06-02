@@ -114,7 +114,7 @@ const NODE_TYPES = [
     section: 'Data',
     nodes: [
       { type: 'variable',  label: 'Variable',      icon: 'x=',  nodeType: 'variable',  params: { name: 'x', value: '0' } },
-      { type: 'function',  label: 'Function',      icon: 'ƒ()', nodeType: 'function',  params: { name: 'myFn', body: 'return x' } },
+      { type: 'function',  label: 'Function',      icon: 'ƒ()', nodeType: 'function',  params: { name: 'myFn', returnType: 'void', arguments: '', argValues: '', assignTo: '' } },
     ]
   },
   {

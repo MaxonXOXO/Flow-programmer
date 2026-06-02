@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { SlidersHorizontal, Info, Hammer, Settings, Move, Link } from 'lucide-react'
 
 export default function PropertiesPanel() {
-  const { selectedNodeId, flowNodes, schemaNodes, updateFlowNodeData, updateSchemaNodeData, activeCanvas } = useFlowStore()
+  const { selectedNodeId, schemaNodes, updateSchemaNodeData, activeCanvas, getActiveFlowNodes, updateActiveFlowNodeData, subFlowStack, flowNodes: allFlowNodes, subFlows } = useFlowStore()
   
   // Track open states for property accordions
   const [openSections, setOpenSections] = useState({
@@ -15,8 +15,10 @@ export default function PropertiesPanel() {
     transform: true,
   })
 
+  const flowNodes = getActiveFlowNodes()
   const nodes = activeCanvas === 'schema' ? schemaNodes : flowNodes
   const node = nodes.find(n => n.id === selectedNodeId)
+  const updateFlowNodeData = updateActiveFlowNodeData
 
   const toggleSection = (sec: keyof typeof openSections) => {
     setOpenSections(prev => ({ ...prev, [sec]: !prev[sec] }))
@@ -63,9 +65,32 @@ export default function PropertiesPanel() {
   }
 
   const data = node.data as Record<string, any>
-  const params = data.params as Record<string, string> || {}
   const pins = data.pins as { id: string, label: string }[] || []
   const nodeType = data.nodeType || data.componentType || 'node'
+
+  const isEndNodeInSubflow = data.nodeType === 'end' && activeCanvas === 'flow' && subFlowStack.length > 0
+  let parentFnReturnType = 'void'
+  if (isEndNodeInSubflow) {
+    const parentId = subFlowStack[subFlowStack.length - 1]
+    let parentFnNode = allFlowNodes.find(n => n.id === parentId)
+    if (!parentFnNode) {
+      for (const sfId of Object.keys(subFlows)) {
+        const found = subFlows[sfId].nodes.find(n => n.id === parentId)
+        if (found) {
+          parentFnNode = found
+          break
+        }
+      }
+    }
+    parentFnReturnType = (parentFnNode?.data as any)?.params?.returnType || 'void'
+  }
+
+  let params = data.params as Record<string, string> || {}
+  if (isEndNodeInSubflow && parentFnReturnType !== 'void') {
+    if (params.value === undefined) {
+      params = { ...params, value: '' }
+    }
+  }
 
   return (
     <div style={{
@@ -182,7 +207,36 @@ export default function PropertiesPanel() {
                   <div style={{ fontSize: 10, color: 'var(--color-text-dim)', marginBottom: 4, textTransform: 'capitalize' }}>
                     {key}
                   </div>
-                  {key === 'variant' ? (
+                  {key === 'returnType' ? (
+                    <select
+                      value={val}
+                      onChange={e => {
+                        const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData
+                        updater(node.id, {
+                          ...data,
+                          params: { ...params, [key]: e.target.value }
+                        })
+                      }}
+                      style={{
+                        width: '100%',
+                        background: 'var(--color-bg-input)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 4,
+                        padding: '4px 8px',
+                        color: 'var(--color-text-bright)',
+                        fontSize: 11,
+                        outline: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <option value="void">void (no return value)</option>
+                      <option value="int">int</option>
+                      <option value="float">float</option>
+                      <option value="bool">bool</option>
+                      <option value="char">char</option>
+                      <option value="String">String</option>
+                    </select>
+                  ) : key === 'variant' ? (
                     <select
                       value={val}
                       onChange={e => {
@@ -259,30 +313,54 @@ export default function PropertiesPanel() {
                       <option value="Stop">Stop</option>
                     </select>
                   ) : (
-                    <input
-                      value={val}
-                      onChange={e => {
-                        const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData
-                        updater(node.id, {
-                          ...data,
-                          params: { ...params, [key]: e.target.value }
-                        })
-                      }}
-                      style={{
-                        width: '100%',
-                        background: 'var(--color-bg-input)',
-                        border: '1px solid var(--color-border)',
-                        borderRadius: 4,
-                        padding: '4px 8px',
-                        color: 'var(--color-text-bright)',
-                        fontSize: 11,
-                        fontFamily: 'monospace',
-                        outline: 'none',
-                        transition: 'border-color 0.1s',
-                      }}
-                      onFocus={e => e.target.style.borderColor = 'var(--color-border-focus)'}
-                      onBlur={e => e.target.style.borderColor = 'var(--color-border)'}
-                    />
+                    <div>
+                      <input
+                        value={val}
+                        placeholder={
+                          key === 'arguments' ? 'e.g. int pin, float speed' :
+                          key === 'argValues' ? 'e.g. 13, 255' :
+                          key === 'assignTo' ? 'e.g. result' :
+                          key === 'value' ? 'e.g. 10 or variable' :
+                          ''
+                        }
+                        onChange={e => {
+                          const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData
+                          updater(node.id, {
+                            ...data,
+                            params: { ...params, [key]: e.target.value }
+                          })
+                        }}
+                        style={{
+                          width: '100%',
+                          background: 'var(--color-bg-input)',
+                          border: '1px solid var(--color-border)',
+                          borderRadius: 4,
+                          padding: '4px 8px',
+                          color: 'var(--color-text-bright)',
+                          fontSize: 11,
+                          fontFamily: 'monospace',
+                          outline: 'none',
+                          transition: 'border-color 0.1s',
+                        }}
+                        onFocus={e => e.target.style.borderColor = 'var(--color-border-focus)'}
+                        onBlur={e => e.target.style.borderColor = 'var(--color-border)'}
+                      />
+                      {key === 'arguments' && (
+                        <div style={{ fontSize: 8, color: '#546484', marginTop: 2 }}>
+                          Declare inputs: type and name separated by commas
+                        </div>
+                      )}
+                      {key === 'argValues' && (
+                        <div style={{ fontSize: 8, color: '#546484', marginTop: 2 }}>
+                          Pass values: variables or raw numbers/strings
+                        </div>
+                      )}
+                      {key === 'assignTo' && (
+                        <div style={{ fontSize: 8, color: '#546484', marginTop: 2 }}>
+                          Variable to store function's returned value
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               ))}

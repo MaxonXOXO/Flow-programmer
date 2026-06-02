@@ -472,6 +472,30 @@ function generateSetup(connections: Connection[], flowNodes: Node[]): string {
 }
 
 // ===== RECURSIVE FLOW CODEGEN =====
+function getArgumentNames(argsStr: string): string[] {
+  if (!argsStr) return []
+  return argsStr.split(',').map(part => {
+    const trimmed = part.trim()
+    const matches = trimmed.match(/(\w+)$/)
+    return matches ? matches[1] : ''
+  }).filter(Boolean)
+}
+
+function findFunctionNode(
+  nodeId: string,
+  flowNodes: Node[],
+  subFlows: Record<string, any>
+): Node | null {
+  let found = flowNodes.find(n => n.id === nodeId)
+  if (found) return found
+
+  for (const sfId of Object.keys(subFlows)) {
+    found = subFlows[sfId].nodes.find((n: any) => n.id === nodeId)
+    if (found) return found
+  }
+  return null
+}
+
 function generateNodeCode(
   nodeId: string,
   flowNodes: Node[],
@@ -479,7 +503,9 @@ function generateNodeCode(
   visited: Set<string>,
   indent: number,
   connections: Connection[],
-  declaredVars: Set<string>
+  declaredVars: Set<string>,
+  isSubFlow?: boolean,
+  returnType?: string
 ): string {
   if (visited.has(nodeId)) return ''
   visited.add(nodeId)
@@ -495,7 +521,7 @@ function generateNodeCode(
   const followPort = (port: string) => {
     const edge = flowEdges.find(e => e.source === nodeId && e.sourceHandle === port)
     if (!edge) return ''
-    return generateNodeCode(edge.target, flowNodes, flowEdges, visited, indent, connections, declaredVars)
+    return generateNodeCode(edge.target, flowNodes, flowEdges, visited, indent, connections, declaredVars, isSubFlow, returnType)
   }
 
   // Follow ALL edges from the 'flow' output handle sequentially
@@ -504,7 +530,7 @@ function generateNodeCode(
     if (edges.length === 0) return ''
     const results: string[] = []
     for (const edge of edges) {
-      const code = generateNodeCode(edge.target, flowNodes, flowEdges, visited, indent, connections, declaredVars)
+      const code = generateNodeCode(edge.target, flowNodes, flowEdges, visited, indent, connections, declaredVars, isSubFlow, returnType)
       if (code) results.push(code)
     }
     return results.join('\n')
@@ -516,6 +542,14 @@ function generateNodeCode(
       break
 
     case 'end':
+      if (isSubFlow) {
+        if (returnType && returnType !== 'void') {
+          const retVal = data.params?.value || '0'
+          lines.push(`${pad}return ${retVal};`)
+        } else {
+          lines.push(`${pad}return;`)
+        }
+      }
       break
 
     case 'variable': {
@@ -562,7 +596,7 @@ function generateNodeCode(
       const trueEdge = flowEdges.find(e => e.source === nodeId && e.sourceHandle === 'true')
       if (trueEdge) {
         const trueVisited = new Set(visited)
-        lines.push(generateNodeCode(trueEdge.target, flowNodes, flowEdges, trueVisited, indent + 1, connections, declaredVars))
+        lines.push(generateNodeCode(trueEdge.target, flowNodes, flowEdges, trueVisited, indent + 1, connections, declaredVars, isSubFlow, returnType))
       }
 
       // Only emit else block if there's a false branch connected
@@ -570,7 +604,7 @@ function generateNodeCode(
       if (falseEdge) {
         lines.push(`${pad}} else {`)
         const falseVisited = new Set(visited)
-        lines.push(generateNodeCode(falseEdge.target, flowNodes, flowEdges, falseVisited, indent + 1, connections, declaredVars))
+        lines.push(generateNodeCode(falseEdge.target, flowNodes, flowEdges, falseVisited, indent + 1, connections, declaredVars, isSubFlow, returnType))
       }
 
       lines.push(`${pad}}`)
@@ -578,7 +612,7 @@ function generateNodeCode(
       // Continue after condition block converges
       const doneEdge = flowEdges.find(e => e.source === nodeId && e.sourceHandle === 'flow')
       if (doneEdge) {
-        lines.push(generateNodeCode(doneEdge.target, flowNodes, flowEdges, visited, indent, connections, declaredVars))
+        lines.push(generateNodeCode(doneEdge.target, flowNodes, flowEdges, visited, indent, connections, declaredVars, isSubFlow, returnType))
       }
       break
     }
@@ -593,14 +627,14 @@ function generateNodeCode(
       const bodyEdge = flowEdges.find(e => e.source === nodeId && e.sourceHandle === 'body')
       if (bodyEdge) {
         const bodyVisited = new Set(visited)
-        lines.push(generateNodeCode(bodyEdge.target, flowNodes, flowEdges, bodyVisited, indent + 1, connections, declaredVars))
+        lines.push(generateNodeCode(bodyEdge.target, flowNodes, flowEdges, bodyVisited, indent + 1, connections, declaredVars, isSubFlow, returnType))
       }
 
       lines.push(`${pad}}`)
 
       const doneEdge = flowEdges.find(e => e.source === nodeId && e.sourceHandle === 'done')
       if (doneEdge) {
-        lines.push(generateNodeCode(doneEdge.target, flowNodes, flowEdges, visited, indent, connections, declaredVars))
+        lines.push(generateNodeCode(doneEdge.target, flowNodes, flowEdges, visited, indent, connections, declaredVars, isSubFlow, returnType))
       }
       break
     }
@@ -730,10 +764,25 @@ function generateNodeCode(
       lines.push(followFlow())
       break
 
-    case 'function':
-      lines.push(`${pad}${data.params?.name || 'myFn'}();`)
+    case 'function': {
+      const fnName = data.params?.name || 'myFn'
+      const returnTypeParam = data.params?.returnType || 'void'
+      const argValues = data.params?.argValues || ''
+      const assignTo = data.params?.assignTo || ''
+
+      let callCode = `${fnName}(${argValues});`
+      if (returnTypeParam !== 'void' && assignTo) {
+        if (declaredVars.has(assignTo)) {
+          callCode = `${assignTo} = ${fnName}(${argValues});`
+        } else {
+          callCode = `${returnTypeParam} ${assignTo} = ${fnName}(${argValues});`
+          declaredVars.add(assignTo)
+        }
+      }
+      lines.push(`${pad}${callCode}`)
       lines.push(followFlow())
       break
+    }
 
     case 'api':
       lines.push(`${pad}// HTTP API: ${data.params?.method || 'GET'} ${data.params?.url || ''}`)
@@ -758,13 +807,49 @@ function generateFlowCode(flowNodes: Node[], flowEdges: Edge[], connections: Con
   return code || '  // Empty flow'
 }
 
+export function generateFunctionCode(
+  fnNode: Node,
+  subFlow: { nodes: Node[]; edges: Edge[] },
+  connections: Connection[]
+): string {
+  const data = fnNode.data as any
+  const fnName = data.params?.name || 'myFn'
+  const returnType = data.params?.returnType || 'void'
+  const args = data.params?.arguments || ''
+
+  const startNode = subFlow.nodes.find(n => (n.data as any).nodeType === 'start')
+  if (!startNode) return `// Empty function ${fnName}`
+
+  const visited = new Set<string>()
+  const declaredVars = new Set<string>(getArgumentNames(args))
+  
+  const bodyCode = generateNodeCode(
+    startNode.id,
+    subFlow.nodes,
+    subFlow.edges,
+    visited,
+    1,
+    connections,
+    declaredVars,
+    true,        // isSubFlow = true
+    returnType   // returnType
+  )
+
+  return [
+    `${returnType} ${fnName}(${args}) {`,
+    bodyCode || '  // Empty body',
+    `}`
+  ].join('\n')
+}
+
 // ===== MAIN EXPORT =====
 export function generateArduinoCode(
   schemaNodes: Node[],
   schemaEdges: Edge[],
   flowNodes: Node[],
-  flowEdges: Edge[]
-): string {
+  flowEdges: Edge[],
+  subFlows: Record<string, { nodes: Node[]; edges: Edge[] }> = {}
+): { main: string; files: Record<string, string> } {
   // Reset module-level counters for clean variable naming
   resetUltrasonicCounter()
 
@@ -774,6 +859,29 @@ export function generateArduinoCode(
   const globals = generateGlobals(connections, flowNodes)
   const setupCode = generateSetup(connections, flowNodes)
   const flowCode = generateFlowCode(flowNodes, flowEdges, connections)
+
+  // Compile sub-flows (functions)
+  const functionPrototypes: string[] = []
+  const functionFiles: Record<string, string> = {}
+  const selfContainedFunctions: string[] = []
+
+  Object.entries(subFlows).forEach(([nodeId, subFlow]) => {
+    const fnNode = findFunctionNode(nodeId, flowNodes, subFlows)
+    if (!fnNode) return
+
+    const data = fnNode.data as any
+    const fnName = data.params?.name || 'myFn'
+    const returnType = data.params?.returnType || 'void'
+    const args = data.params?.arguments || ''
+
+    // Add function prototype
+    functionPrototypes.push(`${returnType} ${fnName}(${args});`)
+
+    // Compile function body
+    const fileCode = generateFunctionCode(fnNode, subFlow, connections)
+    functionFiles[`${fnName}.ino`] = fileCode
+    selfContainedFunctions.push(fileCode)
+  })
 
   const componentSummary = [...new Set(connections.map(c => c.componentLabel))]
     .map(l => ` *   - ${l}`)
@@ -801,6 +909,10 @@ export function generateArduinoCode(
     sections.push('', `// Global Instances`, globals)
   }
 
+  if (functionPrototypes.length > 0) {
+    sections.push('', `// Function Prototypes`, functionPrototypes.join('\n'))
+  }
+
   sections.push(
     '',
     `void setup() {`,
@@ -812,5 +924,12 @@ export function generateArduinoCode(
     `}`,
   )
 
-  return sections.join('\n')
+  if (selfContainedFunctions.length > 0) {
+    sections.push('', `// Function Definitions`, selfContainedFunctions.join('\n\n'))
+  }
+
+  return {
+    main: sections.join('\n'),
+    files: functionFiles
+  }
 }

@@ -21,7 +21,7 @@ export default function EditorPage() {
     setProject(JSON.parse(raw))
   }, [router, setProject])
 
-  const { selectedNodeId, simState, project, activeCanvas, showSidebar, showProperties } = useFlowStore()
+  const { selectedNodeId, simState, project, activeCanvas, showSidebar, showProperties, subFlowStack } = useFlowStore()
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', background: 'var(--color-bg-base)' }}>
@@ -74,6 +74,12 @@ export default function EditorPage() {
           Target: <span style={{ color: 'var(--color-text-normal)', fontWeight: 600 }}>{project?.platform.toUpperCase() || 'Arduino'}</span>
           <span style={{ margin: '0 6px' }}>|</span>
           View: <span style={{ color: 'var(--color-text-normal)', fontWeight: 600 }}>{activeCanvas.toUpperCase()}</span>
+          {subFlowStack.length > 0 && (
+            <>
+              <span style={{ margin: '0 6px' }}>|</span>
+              Depth: <span style={{ color: '#5fa3ff', fontWeight: 600 }}>SUB-FLOW L{subFlowStack.length}</span>
+            </>
+          )}
         </div>
 
         {/* Right: Simulation State & Help Tip */}

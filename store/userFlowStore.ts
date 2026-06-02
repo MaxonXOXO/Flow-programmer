@@ -19,6 +19,12 @@ interface SimState {
   currentNodeId: string | null
 }
 
+// Sub-flow data: each expandable node (like function) stores its own flow
+interface SubFlowData {
+  nodes: Node[]
+  edges: Edge[]
+}
+
 interface FlowStore {
   updateFlowNodeData: (id: string, data: Record<string, unknown>) => void
   updateSchemaNodeData: (id: string, data: Record<string, unknown>) => void
@@ -27,9 +33,13 @@ interface FlowStore {
   schemaNodes: Node[]
   schemaEdges: Edge[]
 
-  // Flow canvas
+  // Flow canvas (main flow)
   flowNodes: Node[]
   flowEdges: Edge[]
+
+  // Sub-flow system
+  subFlows: Record<string, SubFlowData>
+  subFlowStack: string[]  // Stack of node IDs we've navigated into
 
   simState: SimState
   selectedNodeId: string | null
@@ -54,6 +64,24 @@ interface FlowStore {
   onSchemaNodesChange: OnNodesChange<Node>
   onSchemaEdgesChange: OnEdgesChange<Edge>
 
+  // Sub-flow navigation & management
+  enterSubFlow: (nodeId: string) => void
+  exitSubFlow: () => void
+  exitToMainFlow: () => void
+
+  // Get the currently active flow data (respects sub-flow stack)
+  getActiveFlowNodes: () => Node[]
+  getActiveFlowEdges: () => Edge[]
+
+  // Set active flow data (works on current sub-flow level)
+  setActiveFlowNodes: (nodes: Node[]) => void
+  setActiveFlowEdges: (edges: Edge[]) => void
+  addActiveFlowNode: (node: Node) => void
+  deleteActiveFlowNode: (id: string) => void
+  onActiveFlowNodesChange: OnNodesChange<Node>
+  onActiveFlowEdgesChange: OnEdgesChange<Edge>
+  updateActiveFlowNodeData: (id: string, data: Record<string, unknown>) => void
+
   // Shared actions
   setSelectedNode: (id: string | null) => void
   setSimState: (state: Partial<SimState>) => void
@@ -67,6 +95,7 @@ interface FlowStore {
     flowEdges: Edge[]
     schemaNodes: Node[]
     schemaEdges: Edge[]
+    subFlows?: Record<string, SubFlowData>
   }) => void
 
   // Layout states
@@ -81,7 +110,12 @@ interface FlowStore {
   toggleProperties: () => void
 }
 
-export const useFlowStore = create<FlowStore>((set) => ({
+// Helper: get the current sub-flow key from top of stack
+function getCurrentSubFlowId(stack: string[]): string | null {
+  return stack.length > 0 ? stack[stack.length - 1] : null
+}
+
+export const useFlowStore = create<FlowStore>((set, get) => ({
   schemaNodes: [
     {
       id: 'arduino-uno',
@@ -94,6 +128,8 @@ export const useFlowStore = create<FlowStore>((set) => ({
   schemaEdges: [],
   flowNodes: [],
   flowEdges: [],
+  subFlows: {},
+  subFlowStack: [],
   selectedNodeId: null,
   project: null,
   activeCanvas: 'schema',
@@ -134,6 +170,12 @@ export const useFlowStore = create<FlowStore>((set) => ({
   deleteFlowNode: (id) => set((s) => ({
     flowNodes: s.flowNodes.filter(n => n.id !== id),
     flowEdges: s.flowEdges.filter(e => e.source !== id && e.target !== id),
+    // Also clean up sub-flow data if the node had one
+    subFlows: (() => {
+      const copy = { ...s.subFlows }
+      delete copy[id]
+      return copy
+    })(),
   })),
 
   // Apply change handlers directly in the store, avoiding stale closure references
@@ -149,6 +191,198 @@ export const useFlowStore = create<FlowStore>((set) => ({
   onSchemaEdgesChange: (changes) => set((s) => ({
     schemaEdges: applyEdgeChanges(changes, s.schemaEdges)
   })),
+
+  // ===== SUB-FLOW NAVIGATION =====
+  enterSubFlow: (nodeId: string) => set((s) => {
+    // Ensure a sub-flow entry exists for this node
+    const existing = s.subFlows[nodeId]
+    if (!existing) {
+      // Get the function name from the parent node (search flowNodes and nested subflows)
+      let parentNode = s.flowNodes.find(n => n.id === nodeId)
+      if (!parentNode) {
+        for (const sfId of Object.keys(s.subFlows)) {
+          const found = s.subFlows[sfId].nodes.find(n => n.id === nodeId)
+          if (found) {
+            parentNode = found
+            break
+          }
+        }
+      }
+      const fnName = (parentNode?.data as any)?.params?.name || 'myFn'
+ 
+      // Seed with Start and End nodes
+      const subFlows = {
+        ...s.subFlows,
+        [nodeId]: {
+          nodes: [
+            {
+              id: `${nodeId}-start`,
+              type: 'baseNode',
+              position: { x: 100, y: 200 },
+              data: { label: `${fnName}() Start`, nodeType: 'start', icon: '▶', params: {} },
+            },
+            {
+              id: `${nodeId}-end`,
+              type: 'baseNode',
+              position: { x: 600, y: 200 },
+              data: { label: `Return`, nodeType: 'end', icon: '⬛', params: {} },
+            },
+          ],
+          edges: [],
+        }
+      }
+      return {
+        subFlows,
+        subFlowStack: [...s.subFlowStack, nodeId],
+        selectedNodeId: null,
+      }
+    }
+    return {
+      subFlowStack: [...s.subFlowStack, nodeId],
+      selectedNodeId: null,
+    }
+  }),
+
+  exitSubFlow: () => set((s) => {
+    if (s.subFlowStack.length === 0) return s
+    return {
+      subFlowStack: s.subFlowStack.slice(0, -1),
+      selectedNodeId: null,
+    }
+  }),
+
+  exitToMainFlow: () => set({
+    subFlowStack: [],
+    selectedNodeId: null,
+  }),
+
+  // ===== ACTIVE FLOW RESOLUTION =====
+  // These getters resolve the currently visible flow based on sub-flow stack
+  getActiveFlowNodes: () => {
+    const s = get()
+    const currentId = getCurrentSubFlowId(s.subFlowStack)
+    if (currentId && s.subFlows[currentId]) {
+      return s.subFlows[currentId].nodes
+    }
+    return s.flowNodes
+  },
+
+  getActiveFlowEdges: () => {
+    const s = get()
+    const currentId = getCurrentSubFlowId(s.subFlowStack)
+    if (currentId && s.subFlows[currentId]) {
+      return s.subFlows[currentId].edges
+    }
+    return s.flowEdges
+  },
+
+  // Set/modify the currently active flow (auto-routes to sub-flow if inside one)
+  setActiveFlowNodes: (nodes) => set((s) => {
+    const currentId = getCurrentSubFlowId(s.subFlowStack)
+    if (currentId) {
+      return {
+        subFlows: {
+          ...s.subFlows,
+          [currentId]: { ...s.subFlows[currentId], nodes },
+        }
+      }
+    }
+    return { flowNodes: nodes }
+  }),
+
+  setActiveFlowEdges: (edges) => set((s) => {
+    const currentId = getCurrentSubFlowId(s.subFlowStack)
+    if (currentId) {
+      return {
+        subFlows: {
+          ...s.subFlows,
+          [currentId]: { ...s.subFlows[currentId], edges },
+        }
+      }
+    }
+    return { flowEdges: edges }
+  }),
+
+  addActiveFlowNode: (node) => set((s) => {
+    const currentId = getCurrentSubFlowId(s.subFlowStack)
+    if (currentId) {
+      const sf = s.subFlows[currentId] || { nodes: [], edges: [] }
+      return {
+        subFlows: {
+          ...s.subFlows,
+          [currentId]: { ...sf, nodes: [...sf.nodes, node] },
+        }
+      }
+    }
+    return { flowNodes: [...s.flowNodes, node] }
+  }),
+
+  deleteActiveFlowNode: (id) => set((s) => {
+    const currentId = getCurrentSubFlowId(s.subFlowStack)
+    if (currentId) {
+      const sf = s.subFlows[currentId] || { nodes: [], edges: [] }
+      return {
+        subFlows: {
+          ...s.subFlows,
+          [currentId]: {
+            nodes: sf.nodes.filter(n => n.id !== id),
+            edges: sf.edges.filter(e => e.source !== id && e.target !== id),
+          },
+        }
+      }
+    }
+    return {
+      flowNodes: s.flowNodes.filter(n => n.id !== id),
+      flowEdges: s.flowEdges.filter(e => e.source !== id && e.target !== id),
+    }
+  }),
+
+  onActiveFlowNodesChange: (changes) => set((s) => {
+    const currentId = getCurrentSubFlowId(s.subFlowStack)
+    if (currentId) {
+      const sf = s.subFlows[currentId] || { nodes: [], edges: [] }
+      return {
+        subFlows: {
+          ...s.subFlows,
+          [currentId]: { ...sf, nodes: applyNodeChanges(changes, sf.nodes) },
+        }
+      }
+    }
+    return { flowNodes: applyNodeChanges(changes, s.flowNodes) }
+  }),
+
+  onActiveFlowEdgesChange: (changes) => set((s) => {
+    const currentId = getCurrentSubFlowId(s.subFlowStack)
+    if (currentId) {
+      const sf = s.subFlows[currentId] || { nodes: [], edges: [] }
+      return {
+        subFlows: {
+          ...s.subFlows,
+          [currentId]: { ...sf, edges: applyEdgeChanges(changes, sf.edges) },
+        }
+      }
+    }
+    return { flowEdges: applyEdgeChanges(changes, s.flowEdges) }
+  }),
+
+  updateActiveFlowNodeData: (id, data) => set((s) => {
+    const currentId = getCurrentSubFlowId(s.subFlowStack)
+    if (currentId) {
+      const sf = s.subFlows[currentId] || { nodes: [], edges: [] }
+      return {
+        subFlows: {
+          ...s.subFlows,
+          [currentId]: {
+            ...sf,
+            nodes: sf.nodes.map(n => n.id === id ? { ...n, data } : n),
+          },
+        }
+      }
+    }
+    return {
+      flowNodes: s.flowNodes.map(n => n.id === id ? { ...n, data } : n)
+    }
+  }),
 
   setSelectedNode: (id) => set({ selectedNodeId: id }),
   setSimState: (state) => set((s) => ({ simState: { ...s.simState, ...state } })),
@@ -166,5 +400,7 @@ export const useFlowStore = create<FlowStore>((set) => ({
     flowEdges: state.flowEdges,
     schemaNodes: state.schemaNodes,
     schemaEdges: state.schemaEdges,
+    subFlows: state.subFlows || {},
+    subFlowStack: [],
   }),
 }))

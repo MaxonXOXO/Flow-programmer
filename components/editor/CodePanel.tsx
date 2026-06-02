@@ -12,10 +12,10 @@ import {
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false })
 
 export default function CodePanel({ onClose }: { onClose: () => void }) {
-  const { schemaNodes, schemaEdges, flowNodes, flowEdges, project } = useFlowStore()
+  const { schemaNodes, schemaEdges, flowNodes, flowEdges, subFlows, project } = useFlowStore()
   
-  const [code, setCode] = useState('')
-  const [activeTab, setActiveTab] = useState<'ino' | 'json' | 'md'>('ino')
+  const [generatedSketch, setGeneratedSketch] = useState<{ main: string; files: Record<string, string> }>({ main: '', files: {} })
+  const [activeTab, setActiveTab] = useState<string>('ino')
   const [verifyStatus, setVerifyStatus] = useState<'idle' | 'compiling' | 'success' | 'error'>('idle')
   const [terminalLog, setTerminalLog] = useState<string[]>([
     'Initializing compiler engine...',
@@ -23,9 +23,13 @@ export default function CodePanel({ onClose }: { onClose: () => void }) {
   ])
 
   useEffect(() => {
-    const generated = generateArduinoCode(schemaNodes, schemaEdges, flowNodes, flowEdges)
-    setCode(generated)
-  }, [schemaNodes, schemaEdges, flowNodes, flowEdges])
+    const generated = generateArduinoCode(schemaNodes, schemaEdges, flowNodes, flowEdges, subFlows)
+    if (typeof generated === 'string') {
+      setGeneratedSketch({ main: generated, files: {} })
+    } else {
+      setGeneratedSketch(generated as any)
+    }
+  }, [schemaNodes, schemaEdges, flowNodes, flowEdges, subFlows])
 
   // Mock JSON representing the connected hardware diagram
   const getDiagramJson = () => {
@@ -71,23 +75,52 @@ export default function CodePanel({ onClose }: { onClose: () => void }) {
   }
 
   const handleExport = () => {
-    const content = activeTab === 'ino' ? code : activeTab === 'json' ? getDiagramJson() : getWiringGuide()
-    const ext = activeTab === 'ino' ? 'ino' : activeTab === 'json' ? 'json' : 'md'
-    const name = activeTab === 'ino' ? 'sketch' : activeTab === 'json' ? 'diagram' : 'wiring_guide'
+    let content = ''
+    let filename = ''
+
+    if (activeTab === 'ino') {
+      content = generatedSketch.main
+      filename = 'sketch.ino'
+    } else if (activeTab.startsWith('fn:')) {
+      const fnFile = activeTab.slice(3)
+      content = generatedSketch.files[fnFile] || ''
+      filename = fnFile
+    } else if (activeTab === 'json') {
+      content = getDiagramJson()
+      filename = 'diagram.json'
+    } else if (activeTab === 'md') {
+      content = getWiringGuide()
+      filename = 'wiring.md'
+    }
     
     const blob = new Blob([content], { type: 'text/plain' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `${name}.${ext}`
+    a.download = filename
     a.click()
   }
 
   const handleCopyToClipboard = () => {
-    const content = activeTab === 'ino' ? code : activeTab === 'json' ? getDiagramJson() : getWiringGuide()
+    let content = ''
+    let filename = ''
+
+    if (activeTab === 'ino') {
+      content = generatedSketch.main
+      filename = 'sketch.ino'
+    } else if (activeTab.startsWith('fn:')) {
+      const fnFile = activeTab.slice(3)
+      content = generatedSketch.files[fnFile] || ''
+      filename = fnFile
+    } else if (activeTab === 'json') {
+      content = getDiagramJson()
+      filename = 'diagram.json'
+    } else if (activeTab === 'md') {
+      content = getWiringGuide()
+      filename = 'wiring.md'
+    }
+
     navigator.clipboard.writeText(content)
-    
-    // Log to terminal
-    setTerminalLog(prev => [...prev, `[SYS] Copied ${activeTab === 'ino' ? 'sketch.ino' : activeTab === 'json' ? 'diagram.json' : 'wiring_guide.md'} contents to clipboard.`])
+    setTerminalLog(prev => [...prev, `[SYS] Copied ${filename} contents to clipboard.`])
   }
 
   const simulateCompile = () => {
@@ -99,8 +132,8 @@ export default function CodePanel({ onClose }: { onClose: () => void }) {
       setTerminalLog(prev => [
         ...prev,
         '[COMPILER] Build completed successfully.',
-        `[COMPILER] Program size: ${Math.round(code.length * 0.4)} bytes (approx 3% of program storage space).`,
-        `[COMPILER] Global variables use ${Math.round(code.length * 0.08)} bytes of dynamic memory.`
+        `[COMPILER] Program size: ${Math.round(generatedSketch.main.length * 0.4)} bytes (approx 3% of program storage space).`,
+        `[COMPILER] Global variables use ${Math.round(generatedSketch.main.length * 0.08)} bytes of dynamic memory.`
       ])
     }, 1500)
   }
@@ -299,6 +332,34 @@ export default function CodePanel({ onClose }: { onClose: () => void }) {
                 <FileCode className="w-3.5 h-3.5 text-[#3d8bff]" /> sketch.ino
               </button>
 
+              {/* Function files */}
+              {Object.keys(generatedSketch.files).map(fileName => {
+                const tabKey = `fn:${fileName}`
+                return (
+                  <button
+                    key={fileName}
+                    onClick={() => setActiveTab(tabKey)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '5px 8px 5px 20px',
+                      background: activeTab === tabKey ? '#2d2d2d' : 'transparent',
+                      border: 'none',
+                      borderRadius: 4,
+                      width: '100%',
+                      textAlign: 'left',
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                      color: activeTab === tabKey ? 'var(--color-text-bright)' : 'var(--color-text-normal)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <FileCode className="w-3.5 h-3.5 text-[#a5b3cd]" /> {fileName}
+                  </button>
+                )
+              })}
+
               {/* File item 2: diagram.json */}
               <button
                 onClick={() => setActiveTab('json')}
@@ -357,12 +418,17 @@ export default function CodePanel({ onClose }: { onClose: () => void }) {
             }}>
               {[
                 { key: 'ino', label: 'sketch.ino', icon: <FileCode className="w-3.5 h-3.5 text-[#3d8bff]" /> },
+                ...Object.keys(generatedSketch.files).map(fileName => ({
+                  key: `fn:${fileName}`,
+                  label: fileName,
+                  icon: <FileCode className="w-3.5 h-3.5 text-[#a5b3cd]" />
+                })),
                 { key: 'json', label: 'diagram.json', icon: <FileJson className="w-3.5 h-3.5 text-[#e67e22]" /> },
                 { key: 'md', label: 'wiring.md', icon: <FileText className="w-3.5 h-3.5 text-[#2ecc71]" /> }
               ].map(tab => (
                 <div
                   key={tab.key}
-                  onClick={() => setActiveTab(tab.key as any)}
+                  onClick={() => setActiveTab(tab.key)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -390,8 +456,32 @@ export default function CodePanel({ onClose }: { onClose: () => void }) {
                   height="100%"
                   language="cpp"
                   theme="vs-dark"
-                  value={code}
-                  onChange={val => setCode(val || '')}
+                  value={generatedSketch.main}
+                  onChange={val => setGeneratedSketch(prev => ({ ...prev, main: val || '' }))}
+                  options={{
+                    fontSize: 12,
+                    fontFamily: 'var(--font-mono)',
+                    minimap: { enabled: true },
+                    scrollBeyondLastLine: false,
+                    lineNumbers: 'on',
+                    padding: { top: 12 },
+                    cursorBlinking: 'smooth',
+                  }}
+                />
+              )}
+              {activeTab.startsWith('fn:') && (
+                <MonacoEditor
+                  height="100%"
+                  language="cpp"
+                  theme="vs-dark"
+                  value={generatedSketch.files[activeTab.slice(3)] || ''}
+                  onChange={val => {
+                    const fnFile = activeTab.slice(3)
+                    setGeneratedSketch(prev => ({
+                      ...prev,
+                      files: { ...prev.files, [fnFile]: val || '' }
+                    }))
+                  }}
                   options={{
                     fontSize: 12,
                     fontFamily: 'var(--font-mono)',

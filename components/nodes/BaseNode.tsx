@@ -6,7 +6,7 @@ import {
   PlayCircle, StopCircle, GitFork, RotateCw, Timer, 
   Binary, Braces, Printer, Type, Activity, Zap, Link,
   Eye, Thermometer, Radio, Sun, Wrench, Tv, Monitor,
-  Flame, Droplets, Waves, Wind, Cpu
+  Flame, Droplets, Waves, Wind, Cpu, Maximize2
 } from 'lucide-react'
 
 interface BaseNodeData {
@@ -95,11 +95,29 @@ export default function BaseNode({ id, data, selected }: NodeProps) {
   const nodeData = data as unknown as BaseNodeData
   const type = nodeData.nodeType || 'start'
   const style = categoryStyles[type] || categoryStyles.start
+  const { simState, subFlows, subFlowStack, flowNodes } = useFlowStore()
   const params = nodeData.params || {}
-  const { simState } = useFlowStore()
+  const hasSubFlow = type === 'function' && subFlows[id] && subFlows[id].nodes.length > 2
 
   // True if simulation runner is currently executing this specific node block
   const isActive = simState.running && simState.currentNodeId === id
+
+  let nodeLabel = nodeData.label
+  if (type === 'start' && subFlowStack.length > 0) {
+    const parentId = subFlowStack[subFlowStack.length - 1]
+    let parentNode = flowNodes.find(n => n.id === parentId)
+    if (!parentNode) {
+      for (const sfId of Object.keys(subFlows)) {
+        const found = subFlows[sfId].nodes.find(n => n.id === parentId)
+        if (found) {
+          parentNode = found
+          break
+        }
+      }
+    }
+    const fnName = (parentNode?.data as any)?.params?.name || 'myFn'
+    nodeLabel = `${fnName}() Start`
+  }
 
   return (
     <div 
@@ -150,7 +168,7 @@ export default function BaseNode({ id, data, selected }: NodeProps) {
           fontSize: 11.5,
           letterSpacing: '0.2px' 
         }}>
-          {nodeData.label}
+          {nodeLabel}
         </span>
         <span style={{
           fontSize: 8,
@@ -165,6 +183,9 @@ export default function BaseNode({ id, data, selected }: NodeProps) {
         }}>
           {type}
         </span>
+        {type === 'function' && (
+          <Maximize2 className="w-3 h-3" style={{ color: hasSubFlow ? '#2fd18b' : '#546484', marginLeft: 2 }} />
+        )}
       </div>
 
       {/* Target input handle (Left Side) - centered vertically on Header (19px) */}
@@ -220,6 +241,31 @@ export default function BaseNode({ id, data, selected }: NodeProps) {
             </div>
           </div>
         ))}
+
+        {/* Function sub-flow indicator */}
+        {type === 'function' && (
+          <div style={{
+            marginTop: 4,
+            padding: '5px 8px',
+            borderTop: '1px solid rgba(255,255,255,0.04)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+          }}>
+            <div style={{
+              width: 5, height: 5, borderRadius: '50%',
+              background: hasSubFlow ? '#2fd18b' : '#333',
+              boxShadow: hasSubFlow ? '0 0 6px #2fd18b' : 'none',
+            }} />
+            <span style={{
+              fontSize: 8.5,
+              color: hasSubFlow ? '#a5b3cd' : '#546484',
+              fontStyle: 'italic',
+            }}>
+              {hasSubFlow ? 'Sub-flow defined' : 'Double-click to edit sub-flow'}
+            </span>
+          </div>
+        )}
 
         {/* Condition Output Handles (TRUE/FALSE) */}
         {type === 'condition' && (

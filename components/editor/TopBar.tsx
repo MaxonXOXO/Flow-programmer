@@ -30,6 +30,7 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
     flowEdges,
     schemaNodes,
     schemaEdges,
+    subFlows,
     showSidebar,
     showGrid,
     showMinimap,
@@ -46,12 +47,13 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
   const handleSaveProject = () => {
     if (!project) return
     const projectState = {
-      version: "1.3",
+      version: "1.4",
       project,
       schemaNodes,
       schemaEdges,
       flowNodes,
-      flowEdges
+      flowEdges,
+      subFlows
     }
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projectState, null, 2))
     const downloadAnchorNode = document.createElement('a')
@@ -77,6 +79,7 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
             schemaEdges: parsed.schemaEdges || [],
             flowNodes: parsed.flowNodes,
             flowEdges: parsed.flowEdges || [],
+            subFlows: parsed.subFlows || {},
           })
           localStorage.setItem('fp_project', JSON.stringify(parsed.project))
         } else {

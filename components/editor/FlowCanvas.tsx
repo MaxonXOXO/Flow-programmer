@@ -73,21 +73,35 @@ const pinToNumber = (pin: string): string => {
 
 function FlowCanvasInner() {
   const { 
-    flowNodes, 
-    flowEdges, 
-    onFlowNodesChange, 
-    onFlowEdgesChange, 
-    setFlowEdges,
+    flowNodes: mainFlowNodes,
+    flowEdges: mainFlowEdges,
     setSelectedNode, 
-    addFlowNode, 
-    deleteFlowNode, 
     updateFlowNodeData,
     simState,
     schemaNodes,
     schemaEdges,
     showGrid,
-    showMinimap
+    showMinimap,
+    // Sub-flow system
+    subFlowStack,
+    subFlows,
+    enterSubFlow,
+    exitSubFlow,
+    exitToMainFlow,
+    getActiveFlowNodes,
+    getActiveFlowEdges,
+    setActiveFlowEdges,
+    addActiveFlowNode,
+    deleteActiveFlowNode,
+    onActiveFlowNodesChange,
+    onActiveFlowEdgesChange,
+    updateActiveFlowNodeData,
   } = useFlowStore()
+
+  // Resolve current visible flow
+  const flowNodes = getActiveFlowNodes()
+  const flowEdges = getActiveFlowEdges()
+  const isInSubFlow = subFlowStack.length > 0
 
   const { screenToFlowPosition } = useReactFlow()
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
@@ -107,9 +121,17 @@ function FlowCanvasInner() {
   }), [])
 
   const onConnect = useCallback(
-    (connection: Connection) => setFlowEdges(addEdge(connection, flowEdges)),
-    [flowEdges, setFlowEdges]
+    (connection: Connection) => setActiveFlowEdges(addEdge(connection, flowEdges)),
+    [flowEdges, setActiveFlowEdges]
   )
+
+  // Double-click a function node → enter its sub-flow
+  const onNodeDoubleClick = useCallback((_: React.MouseEvent, node: any) => {
+    const nodeType = (node.data as any)?.nodeType
+    if (nodeType === 'function') {
+      enterSubFlow(node.id)
+    }
+  }, [enterSubFlow])
 
   // Handle HTML5 Drag and Drop placement locally inside the provider
   const onDrop = useCallback((e: React.DragEvent) => {
@@ -253,7 +275,7 @@ function FlowCanvasInner() {
       setNotification(msg)
     }
 
-    addFlowNode({
+    addActiveFlowNode({
       id: `node-${Date.now()}`,
       type: 'baseNode',
       position,
@@ -264,7 +286,7 @@ function FlowCanvasInner() {
         params,
       },
     })
-  }, [screenToFlowPosition, addFlowNode, schemaNodes, schemaEdges, flowNodes])
+  }, [screenToFlowPosition, addActiveFlowNode, schemaNodes, schemaEdges, flowNodes])
 
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -318,7 +340,7 @@ function FlowCanvasInner() {
         position: { x: original.position.x + 40, y: original.position.y + 40 },
         selected: false,
       }
-      addFlowNode(copy)
+      addActiveFlowNode(copy)
     }
   }
 
@@ -340,7 +362,7 @@ function FlowCanvasInner() {
     const node = flowNodes.find(n => n.id === quickEdit.nodeId)
     if (node) {
       const data = node.data as any
-      updateFlowNodeData(quickEdit.nodeId, {
+      updateActiveFlowNodeData(quickEdit.nodeId, {
         ...data,
         params: quickEdit.params,
       })
@@ -361,20 +383,125 @@ function FlowCanvasInner() {
       onDrop={onDrop}
       onDragOver={onDragOver}
     >
+      {/* Sub-flow Breadcrumb Navigation Bar */}
+      {isInSubFlow && (
+        <div style={{
+          position: 'absolute',
+          top: 10,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(17, 20, 28, 0.92)',
+          backdropFilter: 'blur(16px)',
+          border: '1px solid rgba(95, 163, 255, 0.25)',
+          borderRadius: 8,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(95,163,255,0.08)',
+          padding: '6px 14px',
+          zIndex: 100,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          fontFamily: 'var(--font-sans)',
+        }}>
+          <button
+            onClick={exitToMainFlow}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#5fa3ff',
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: 'pointer',
+              padding: '2px 4px',
+              borderRadius: 3,
+              transition: 'background 0.1s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(95,163,255,0.1)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+          >
+            Main Flow
+          </button>
+          {subFlowStack.map((nodeId, idx) => {
+            const parentNode = mainFlowNodes.find(n => n.id === nodeId)
+            const fnName = (parentNode?.data as any)?.params?.name || 'function'
+            const isLast = idx === subFlowStack.length - 1
+            return (
+              <span key={nodeId} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: 10 }}>›</span>
+                {isLast ? (
+                  <span style={{
+                    color: '#f0f4fc',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    fontFamily: 'var(--font-mono)',
+                    background: 'rgba(95,163,255,0.12)',
+                    padding: '2px 8px',
+                    borderRadius: 4,
+                    border: '1px solid rgba(95,163,255,0.2)',
+                  }}>
+                    {fnName}()
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => {
+                      // Navigate back to this level (pop everything after)
+                      const depth = idx + 1
+                      for (let i = subFlowStack.length; i > depth; i--) exitSubFlow()
+                    }}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#5fa3ff',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      padding: '2px 4px',
+                      borderRadius: 3,
+                      fontFamily: 'var(--font-mono)',
+                    }}
+                  >
+                    {fnName}()
+                  </button>
+                )}
+              </span>
+            )
+          })}
+          <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: 10, margin: '0 2px' }}>|</span>
+          <button
+            onClick={exitSubFlow}
+            style={{
+              background: 'rgba(255,95,158,0.08)',
+              border: '1px solid rgba(255,95,158,0.2)',
+              color: '#ff5f9e',
+              fontSize: 9.5,
+              fontWeight: 700,
+              cursor: 'pointer',
+              padding: '2px 8px',
+              borderRadius: 4,
+              letterSpacing: '0.3px',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,95,158,0.15)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,95,158,0.08)' }}
+          >
+            ← BACK
+          </button>
+        </div>
+      )}
+
       <ReactFlow
         nodes={flowNodes}
         edges={animatedEdges}
         nodeTypes={nodeTypes}
-        onNodesChange={onFlowNodesChange}
-        onEdgesChange={onFlowEdgesChange}
+        onNodesChange={onActiveFlowNodesChange}
+        onEdgesChange={onActiveFlowEdgesChange}
         onConnect={onConnect}
         onNodeClick={(_, node) => setSelectedNode(node.id)}
+        onNodeDoubleClick={onNodeDoubleClick}
         onPaneClick={() => { setSelectedNode(null); setMenu(null); setQuickEdit(null) }}
         onNodeContextMenu={onNodeContextMenu}
         fitView
         style={{ background: 'var(--color-bg-base)' }}
       >
-        {showGrid && <Background variant={BackgroundVariant.Lines} gap={20} size={1} color="var(--color-border)" />}
+        {showGrid && <Background variant={BackgroundVariant.Lines} gap={20} size={1} color="rgba(255,255,255,0.03)" />}
         <Controls style={{ background: 'var(--color-bg-panel)', border: '1px solid var(--color-border)', color: 'var(--color-text-normal)' }} />
         {showMinimap && <MiniMap style={{ background: 'var(--color-bg-panel)', border: '1px solid var(--color-border)' }} nodeColor="var(--color-accent)" />}
       </ReactFlow>
@@ -473,7 +600,7 @@ function FlowCanvasInner() {
           <div style={{ height: 1, background: 'var(--color-border)', margin: '4px 0' }} />
 
           <button
-            onClick={() => { deleteFlowNode(menu.nodeId); setMenu(null) }}
+            onClick={() => { deleteActiveFlowNode(menu.nodeId); setMenu(null) }}
             style={{
               width: '100%',
               background: 'transparent',

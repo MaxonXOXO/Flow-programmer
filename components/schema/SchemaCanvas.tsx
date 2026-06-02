@@ -134,7 +134,7 @@ function SchemaCanvasInner() {
         fitView
         style={{ background: 'var(--color-bg-base)' }}
       >
-        {showGrid && <Background variant={BackgroundVariant.Lines} gap={20} size={1} color="var(--color-border)" />}
+        {showGrid && <Background variant={BackgroundVariant.Lines} gap={20} size={1} color="rgba(255,255,255,0.03)" />}
         <Controls style={{ background: 'var(--color-bg-panel)', border: '1px solid var(--color-border)', color: 'var(--color-text-normal)' }} />
       </ReactFlow>
 
