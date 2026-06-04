@@ -3,20 +3,8 @@
 import { useFlowStore } from '@/store/userFlowStore'
 import { Play, Square, Code, LogOut, Cpu } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
-
-const evalCondition = (cond: string, vars: Record<string, any>): boolean => {
-  try {
-    let expr = cond
-    Object.entries(vars).forEach(([k, v]) => {
-      const regex = new RegExp(`\\b${k}\\b`, 'g')
-      expr = expr.replace(regex, JSON.stringify(v))
-    })
-    expr = expr.replace(/(?<![=<>!])=(?!=)/g, '==')
-    return !!new Function(`return (${expr})`)()
-  } catch (e) {
-    return Math.random() > 0.5
-  }
-}
+import { SimulationEngine } from '@/lib/ir/runtime'
+import { GraphToIRCompiler } from '@/lib/ir/compiler'
 
 export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
   const { 
@@ -97,112 +85,41 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
     let timeoutId: NodeJS.Timeout | null = null
     
     if (simState.running) {
-      const runStep = (currentNodeId: string, currentVars: Record<string, any>, stepCount: number) => {
-        const node = flowNodes.find(n => n.id === currentNodeId)
-        if (!node) {
-          setSimState({ running: false, currentNodeId: null })
-          return
-        }
-        
-        const nodeData = node.data as any
-        const nodeType = nodeData?.nodeType
-        const nParams = nodeData?.params || {}
-        
-        setSimState({ currentNodeId, step: stepCount, variables: currentVars })
-        
-        if (nodeType === 'end') {
-          timeoutId = setTimeout(() => {
-            setSimState({ running: false, currentNodeId: null })
-          }, 1000)
-          return
-        }
-        
-        let stepDelay = 1000
-        if (nodeType === 'delay') {
-          stepDelay = parseInt(nParams.ms) || 500
-        }
-        
-        const edges = flowEdges.filter(e => e.source === currentNodeId)
-        if (edges.length === 0) {
-          timeoutId = setTimeout(() => {
-            setSimState({ running: false, currentNodeId: null })
-          }, 1000)
-          return
-        }
-        
-        let nextNodeId: string | null = null
-        const nextVars = { ...currentVars }
-        
-        if (nodeType === 'variable') {
-          const name = nParams.name || 'x'
-          const val = parseInt(nParams.value) || 0
-          nextVars[name] = val
-          const nextEdge = edges.find(e => e.sourceHandle === 'flow') || edges[0]
-          nextNodeId = nextEdge?.target || null
-        } else if (nodeType === 'condition') {
-          const cond = nParams.condition || 'true'
-          const isTrue = evalCondition(cond, nextVars)
-          const branch = isTrue ? 'true' : 'false'
-          const nextEdge = edges.find(e => e.sourceHandle === branch)
-          nextNodeId = nextEdge?.target || null
-        } else if (nodeType === 'loop') {
-          const loopVar = nParams.var || 'i'
-          const limit = parseInt(nParams.to) || 10
-          const stepVal = parseInt(nParams.step) || 1
-          const currentVal = (nextVars[loopVar] !== undefined) ? Number(nextVars[loopVar]) : (parseInt(nParams.from) || 0)
+      try {
+        const compiler = new GraphToIRCompiler(flowNodes, flowEdges, subFlows);
+        const program = compiler.compile();
+
+        const simEngine = new SimulationEngine();
+        simEngine.loadProgram(program, schemaNodes);
+
+        const executeStep = (stepCount: number) => {
+          const result = simEngine.step();
           
-          if (currentVal < limit) {
-            const nextEdge = edges.find(e => e.sourceHandle === 'body')
-            nextNodeId = nextEdge?.target || null
-            nextVars[loopVar] = currentVal + stepVal
-          } else {
-            const nextEdge = edges.find(e => e.sourceHandle === 'done')
-            nextNodeId = nextEdge?.target || null
-            delete nextVars[loopVar]
+          if (result.done || result.error) {
+            if (result.error) {
+              console.error('[SIM ERROR]', result.error);
+            }
+            setSimState({ running: false, currentNodeId: null });
+            return;
           }
-        } else if (nodeType === 'dht') {
-          const tempVar = nParams.varTemp || 'temp'
-          const humVar = nParams.varHum || 'hum'
-          nextVars[tempVar] = Math.round(20 + Math.random() * 15)
-          nextVars[humVar] = Math.round(40 + Math.random() * 30)
-          const nextEdge = edges.find(e => e.sourceHandle === 'flow') || edges[0]
-          nextNodeId = nextEdge?.target || null
-        } else if (nodeType === 'ultrasonic') {
-          const distVar = nParams.varDist || 'distance'
-          nextVars[distVar] = Math.round(5 + Math.random() * 200)
-          const nextEdge = edges.find(e => e.sourceHandle === 'flow') || edges[0]
-          nextNodeId = nextEdge?.target || null
-        } else if (nodeType === 'pir') {
-          const motionVar = nParams.varMotion || 'motion'
-          nextVars[motionVar] = Math.random() > 0.5 ? 1 : 0
-          const nextEdge = edges.find(e => e.sourceHandle === 'flow') || edges[0]
-          nextNodeId = nextEdge?.target || null
-        } else if (nodeType === 'ldr') {
-          const lightVar = nParams.varLight || 'lightVal'
-          nextVars[lightVar] = Math.round(100 + Math.random() * 800)
-          const nextEdge = edges.find(e => e.sourceHandle === 'flow') || edges[0]
-          nextNodeId = nextEdge?.target || null
-        } else {
-          const nextEdge = edges.find(e => e.sourceHandle === 'flow') || edges[0]
-          nextNodeId = nextEdge?.target || null
-        }
-        
-        if (nextNodeId) {
+
+          setSimState({
+            running: true,
+            currentNodeId: result.currentNodeId,
+            step: stepCount,
+            variables: simEngine.getVariables()
+          });
+
+          const stepDelay = result.delayMs !== undefined ? result.delayMs : 1000;
           timeoutId = setTimeout(() => {
-            runStep(nextNodeId!, nextVars, stepCount + 1)
-          }, stepDelay)
-        } else {
-          timeoutId = setTimeout(() => {
-            setSimState({ running: false, currentNodeId: null })
-          }, 1000)
-        }
-      }
-      
-      const startNode = flowNodes.find(n => n.data?.nodeType === 'start')
-      if (startNode) {
-        runStep(startNode.id, {}, 0)
-      } else {
-        setSimState({ running: false })
+            executeStep(stepCount + 1);
+          }, stepDelay);
+        };
+
+        executeStep(0);
+      } catch (e) {
+        console.error('[SIM START ERROR]', e);
+        setSimState({ running: false, currentNodeId: null });
       }
     } else {
       if (timeoutId) clearTimeout(timeoutId)

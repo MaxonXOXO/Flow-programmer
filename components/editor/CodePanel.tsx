@@ -3,7 +3,11 @@
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useFlowStore } from '@/store/userFlowStore'
-import { generateArduinoCode } from '@/lib/codegen/generateArduino'
+import { GraphToIRCompiler } from '@/lib/ir/compiler'
+import { ArduinoUnoGenerator } from '@/lib/ir/generator'
+import { IRValidator } from '@/lib/ir/validator'
+import { CPPLexer, CPPParser } from '@/lib/ir/cppParser'
+import { IRToFlowLayout } from '@/lib/ir/layout'
 import { 
   FileCode, FileJson, FileText, Folder, Copy, Download, X, 
   Terminal, Play, CheckCircle2, AlertCircle, RefreshCw
@@ -12,7 +16,7 @@ import {
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false })
 
 export default function CodePanel({ onClose }: { onClose: () => void }) {
-  const { schemaNodes, schemaEdges, flowNodes, flowEdges, subFlows, project } = useFlowStore()
+  const { schemaNodes, schemaEdges, flowNodes, flowEdges, subFlows, project, setFlowNodes, setFlowEdges } = useFlowStore()
   
   const [generatedSketch, setGeneratedSketch] = useState<{ main: string; files: Record<string, string> }>({ main: '', files: {} })
   const [activeTab, setActiveTab] = useState<string>('ino')
@@ -23,13 +27,71 @@ export default function CodePanel({ onClose }: { onClose: () => void }) {
   ])
 
   useEffect(() => {
-    const generated = generateArduinoCode(schemaNodes, schemaEdges, flowNodes, flowEdges, subFlows)
-    if (typeof generated === 'string') {
-      setGeneratedSketch({ main: generated, files: {} })
-    } else {
-      setGeneratedSketch(generated as any)
+    try {
+      // 1. Compile visual nodes to IR AST
+      const compiler = new GraphToIRCompiler(flowNodes, flowEdges, subFlows);
+      const program = compiler.compile();
+
+      // 2. Validate AST
+      const validator = new IRValidator();
+      const errors = validator.validate(program, schemaNodes, schemaEdges);
+
+      // Log validation results in terminal console
+      const newLogs = [
+        'Running AST Verification Passes...',
+        `Verification completed with ${errors.filter(e => e.severity === 'error').length} errors and ${errors.filter(e => e.severity === 'warning').length} warnings.`
+      ];
+
+      errors.forEach(err => {
+        newLogs.push(`[VALIDATOR] ${err.severity.toUpperCase()}: ${err.message}${err.nodeId ? ` (node: ${err.nodeId})` : ''}`);
+      });
+
+      setTerminalLog(prev => [
+        ...prev.filter(l => !l.startsWith('Running AST') && !l.startsWith('[VALIDATOR]')),
+        ...newLogs
+      ]);
+
+      // 3. Generate C++
+      const generator = new ArduinoUnoGenerator();
+      const generated = generator.generate(program, schemaNodes, schemaEdges);
+      setGeneratedSketch(generated);
+    } catch (e: any) {
+      setTerminalLog(prev => [
+        ...prev,
+        `[COMPILER ERROR] Compilation failed: ${e.message}`
+      ]);
     }
   }, [schemaNodes, schemaEdges, flowNodes, flowEdges, subFlows])
+
+  const handleSyncCodeToCanvas = () => {
+    try {
+      // 1. Tokenize & Parse C++ code back to AST
+      const lexer = new CPPLexer(generatedSketch.main);
+      const tokens = lexer.tokenize();
+      const parser = new CPPParser(tokens);
+      const program = parser.parse();
+
+      // 2. Lay out nodes and edges from AST
+      const layouter = new IRToFlowLayout();
+      const { nodes: newNodes, edges: newEdges } = layouter.convert(program);
+
+      // 3. Sync to Zustand
+      setFlowNodes(newNodes);
+      setFlowEdges(newEdges);
+
+      setTerminalLog(prev => [
+        ...prev,
+        '[SYS] Successfully parsed C++ code back to visual nodes and updated Logic Editor!'
+      ]);
+      alert('Sync successful! Visual Logic Editor canvas has been updated.');
+    } catch (e: any) {
+      setTerminalLog(prev => [
+        ...prev,
+        `[SYS ERROR] Reverse Parser failed: ${e.message}`
+      ]);
+      alert(`Reverse Parser Error: ${e.message}`);
+    }
+  }
 
   // Mock JSON representing the connected hardware diagram
   const getDiagramJson = () => {
@@ -221,6 +283,24 @@ export default function CodePanel({ onClose }: { onClose: () => void }) {
                 <Play className="w-3 h-3 fill-current" />
               )}
               Verify Code
+            </button>
+            <button
+              onClick={handleSyncCodeToCanvas}
+              style={{
+                background: '#1d273a',
+                border: '1px solid #2b3e5a',
+                color: '#3d8bff',
+                fontSize: 11,
+                padding: '4px 10px',
+                borderRadius: 4,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                fontWeight: 600,
+              }}
+            >
+              <RefreshCw className="w-3 h-3" /> Sync to Canvas
             </button>
             <button
               onClick={handleCopyToClipboard}
