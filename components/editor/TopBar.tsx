@@ -3,8 +3,8 @@
 import { useFlowStore } from '@/store/userFlowStore'
 import { Play, Square, Code, LogOut, Cpu } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
-import { SimulationEngine } from '@/lib/ir/runtime'
-import { GraphToIRCompiler } from '@/lib/ir/compiler'
+import { SimulationEngine } from '@/lib/compiler/runtime/simulationEngine'
+import { GraphToASTCompiler } from '@/lib/compiler/parser/graphParser'
 
 export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
   const { 
@@ -86,7 +86,7 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
     
     if (simState.running) {
       try {
-        const compiler = new GraphToIRCompiler(flowNodes, flowEdges, subFlows);
+        const compiler = new GraphToASTCompiler(flowNodes, flowEdges, subFlows);
         const program = compiler.compile();
 
         const simEngine = new SimulationEngine();

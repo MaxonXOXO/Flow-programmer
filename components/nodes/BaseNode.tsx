@@ -24,6 +24,7 @@ const categoryStyles: Record<string, { headerBg: string, iconColor: string, text
   loop:      { headerBg: 'rgba(255, 95, 158, 0.15)', iconColor: '#ff5f9e', textColor: '#ff5f9e' },
   variable:  { headerBg: 'rgba(95, 163, 255, 0.15)', iconColor: '#5fa3ff', textColor: '#5fa3ff' },
   function:  { headerBg: 'rgba(95, 163, 255, 0.15)', iconColor: '#5fa3ff', textColor: '#5fa3ff' },
+  function_call: { headerBg: 'rgba(95, 163, 255, 0.15)', iconColor: '#5fa3ff', textColor: '#5fa3ff' },
   print:     { headerBg: 'rgba(47, 209, 139, 0.15)', iconColor: '#2fd18b', textColor: '#2fd18b' },
   sensor:    { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
   delay:     { headerBg: 'rgba(165, 179, 205, 0.15)', iconColor: '#a5b3cd', textColor: '#a5b3cd' },
@@ -62,6 +63,7 @@ function getNodeHeaderIcon(nodeType: string, color: string, className: string = 
     case 'delay': return <Timer {...iconProps} />
     case 'variable': return <Binary {...iconProps} />
     case 'function': return <Braces {...iconProps} />
+    case 'function_call': return <PlayCircle {...iconProps} />
     case 'print': return <Printer {...iconProps} />
     case 'input': return <Type {...iconProps} />
     case 'sensor': return <Activity {...iconProps} />
@@ -99,23 +101,31 @@ export default function BaseNode({ id, data, selected }: NodeProps) {
   const params = nodeData.params || {}
   const hasSubFlow = type === 'function' && subFlows[id] && subFlows[id].nodes.length > 2
 
+  const isSubFlowStart = type === 'start' && subFlowStack.length > 0
+  const parentFnNode = isSubFlowStart ? (() => {
+    const parentId = subFlowStack[subFlowStack.length - 1]
+    let pNode = flowNodes.find(n => n.id === parentId)
+    if (!pNode) {
+      for (const sfId of Object.keys(subFlows)) {
+        const found = subFlows[sfId].nodes.find(n => n.id === parentId)
+        if (found) { pNode = found; break; }
+      }
+    }
+    return pNode
+  })() : null
+
+  const actualParams = parentFnNode ? (parentFnNode.data as any)?.params || {} : params
+
   // True if simulation runner is currently executing this specific node block
   const isActive = simState.running && simState.currentNodeId === id
 
   let nodeLabel = nodeData.label
-  if (type === 'start' && subFlowStack.length > 0) {
-    const parentId = subFlowStack[subFlowStack.length - 1]
-    let parentNode = flowNodes.find(n => n.id === parentId)
-    if (!parentNode) {
-      for (const sfId of Object.keys(subFlows)) {
-        const found = subFlows[sfId].nodes.find(n => n.id === parentId)
-        if (found) {
-          parentNode = found
-          break
-        }
-      }
-    }
-    const fnName = (parentNode?.data as any)?.params?.name || 'myFn'
+  if (type === 'function' && actualParams.name) {
+    nodeLabel = `${actualParams.name}()`
+  } else if (type === 'function_call') {
+    nodeLabel = params.functionName ? `Call: ${params.functionName}()` : 'Call Function'
+  } else if (isSubFlowStart) {
+    const fnName = actualParams.name || 'myFn'
     nodeLabel = `${fnName}() Start`
   }
 
@@ -213,34 +223,110 @@ export default function BaseNode({ id, data, selected }: NodeProps) {
 
       {/* Node Parameters Body Drawer */}
       <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {Object.entries(params).map(([key, val]) => (
-          <div key={key}>
-            <div style={{
-              fontSize: 8.5,
-              color: 'var(--color-text-dim)',
-              fontFamily: 'var(--font-mono)',
-              textTransform: 'uppercase',
-              marginBottom: 3,
-              fontWeight: 600,
-            }}>
-              {key}
+        {type === 'function' || isSubFlowStart ? (
+          <>
+            <div>
+              <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', marginBottom: 3, fontWeight: 600 }}>
+                returns
+              </div>
+              <div style={{ background: 'var(--color-bg-input)', border: '1px solid var(--color-border)', borderRadius: 4, padding: '4px 8px', fontSize: 11, color: 'var(--color-text-bright)', fontFamily: 'var(--font-mono)' }}>
+                {actualParams.returnType || 'void'}
+              </div>
             </div>
-            <div style={{
-              background: 'var(--color-bg-input)',
-              border: '1px solid var(--color-border)',
-              borderRadius: 4,
-              padding: '4px 8px',
-              fontSize: 11,
-              color: 'var(--color-text-bright)',
-              fontFamily: 'var(--font-mono)',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}>
-              {val}
+            <div>
+              <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', marginBottom: 3, fontWeight: 600 }}>
+                parameters
+              </div>
+              <div style={{ background: 'var(--color-bg-input)', border: '1px solid var(--color-border)', borderRadius: 4, padding: '4px 8px', fontSize: 11, color: 'var(--color-text-bright)', fontFamily: 'var(--font-mono)', whiteSpace: 'normal', wordBreak: 'break-all' }}>
+                {(() => {
+                  const pVal = actualParams.parameters;
+                  let list: { name: string, type: string }[] = [];
+                  if (Array.isArray(pVal)) list = pVal;
+                  else if (typeof pVal === 'string' && pVal.trim() !== '') {
+                    try { list = JSON.parse(pVal); } catch(e) {}
+                  }
+                  if (list.length === 0) return 'none';
+                  return list.map(p => `${p.type} ${p.name}`).join(', ');
+                })()}
+              </div>
             </div>
-          </div>
-        ))}
+          </>
+        ) : type === 'function_call' ? (
+          <>
+            <div>
+              <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', marginBottom: 3, fontWeight: 600 }}>
+                function
+              </div>
+              <div style={{ background: 'var(--color-bg-input)', border: '1px solid var(--color-border)', borderRadius: 4, padding: '4px 8px', fontSize: 11, color: 'var(--color-text-bright)', fontFamily: 'var(--font-mono)' }}>
+                {params.functionName ? `${params.functionName}()` : 'none'}
+              </div>
+            </div>
+            {params.assignTo && (
+              <div>
+                <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', marginBottom: 3, fontWeight: 600 }}>
+                  assign to
+                </div>
+                <div style={{ background: 'var(--color-bg-input)', border: '1px solid var(--color-border)', borderRadius: 4, padding: '4px 8px', fontSize: 11, color: 'var(--color-text-bright)', fontFamily: 'var(--font-mono)' }}>
+                  {params.assignTo}
+                </div>
+              </div>
+            )}
+            <div>
+              <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', marginBottom: 3, fontWeight: 600 }}>
+                arguments
+              </div>
+              <div style={{ background: 'var(--color-bg-input)', border: '1px solid var(--color-border)', borderRadius: 4, padding: '4px 8px', fontSize: 11, color: 'var(--color-text-bright)', fontFamily: 'var(--font-mono)', whiteSpace: 'normal', wordBreak: 'break-all' }}>
+                {(() => {
+                  const argsVal = params.arguments;
+                  let list: any[] = [];
+                  if (Array.isArray(argsVal)) list = argsVal;
+                  else if (typeof argsVal === 'string' && argsVal.trim() !== '') {
+                    try {
+                      const parsed = JSON.parse(argsVal);
+                      if (Array.isArray(parsed)) list = parsed;
+                      else return argsVal;
+                    } catch(e) {
+                      return argsVal;
+                    }
+                  } else {
+                    return 'none';
+                  }
+                  if (list.length === 0) return 'none';
+                  return list.map(arg => typeof arg === 'object' ? (arg.value !== undefined ? arg.value : '') : String(arg)).join(', ');
+                })()}
+              </div>
+            </div>
+          </>
+        ) : (
+          Object.entries(params).map(([key, val]) => (
+            <div key={key}>
+              <div style={{
+                fontSize: 8.5,
+                color: 'var(--color-text-dim)',
+                fontFamily: 'var(--font-mono)',
+                textTransform: 'uppercase',
+                marginBottom: 3,
+                fontWeight: 600,
+              }}>
+                {key}
+              </div>
+              <div style={{
+                background: 'var(--color-bg-input)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 4,
+                padding: '4px 8px',
+                fontSize: 11,
+                color: 'var(--color-text-bright)',
+                fontFamily: 'var(--font-mono)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}>
+                {val}
+              </div>
+            </div>
+          ))
+        )}
 
         {/* Function sub-flow indicator */}
         {type === 'function' && (

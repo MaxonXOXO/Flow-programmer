@@ -81,6 +81,7 @@ interface FlowStore {
   onActiveFlowNodesChange: OnNodesChange<Node>
   onActiveFlowEdgesChange: OnEdgesChange<Edge>
   updateActiveFlowNodeData: (id: string, data: Record<string, unknown>) => void
+  updateAnyFlowNodeData: (id: string, data: Record<string, unknown>) => void
 
   // Shared actions
   setSelectedNode: (id: string | null) => void
@@ -382,6 +383,38 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
     return {
       flowNodes: s.flowNodes.map(n => n.id === id ? { ...n, data } : n)
     }
+  }),
+
+  updateAnyFlowNodeData: (id, data) => set((s) => {
+    let updated = false
+    const nextFlowNodes = s.flowNodes.map(n => {
+      if (n.id === id) { updated = true; return { ...n, data } }
+      return n
+    })
+
+    if (updated) {
+      return { flowNodes: nextFlowNodes }
+    }
+
+    const nextSubFlows = { ...s.subFlows }
+    let subFlowUpdated = false
+    for (const sfId of Object.keys(nextSubFlows)) {
+      const sf = nextSubFlows[sfId]
+      const nextNodes = sf.nodes.map(n => {
+        if (n.id === id) { subFlowUpdated = true; return { ...n, data } }
+        return n
+      })
+      if (subFlowUpdated) {
+        nextSubFlows[sfId] = { ...sf, nodes: nextNodes }
+        break
+      }
+    }
+
+    if (subFlowUpdated) {
+      return { subFlows: nextSubFlows }
+    }
+
+    return s
   }),
 
   setSelectedNode: (id) => set({ selectedNodeId: id }),

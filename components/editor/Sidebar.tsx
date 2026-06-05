@@ -114,7 +114,8 @@ const NODE_TYPES = [
     section: 'Data',
     nodes: [
       { type: 'variable',  label: 'Variable',      icon: 'x=',  nodeType: 'variable',  params: { name: 'x', value: '0' } },
-      { type: 'function',  label: 'Function',      icon: 'ƒ()', nodeType: 'function',  params: { name: 'myFn', returnType: 'void', arguments: '', argValues: '', assignTo: '' } },
+      { type: 'function',  label: 'Function Definition', icon: 'ƒ()', nodeType: 'function',  params: { name: 'myFn', returnType: 'void', parameters: [] } },
+      { type: 'function_call', label: 'Function Call', icon: 'call()', nodeType: 'function_call', params: { functionName: '', arguments: [], assignTo: '' } },
     ]
   },
   {
@@ -191,6 +192,7 @@ function getLucideIcon(emoji: string, color: string = 'currentColor') {
     case '⏱': return <Timer {...iconProps} style={{ color: '#a5b3cd' }} />
     case 'x=': return <Binary {...iconProps} style={{ color: '#5fa3ff' }} />
     case 'ƒ()': return <Braces {...iconProps} style={{ color: '#ff5f9e' }} />
+    case 'call()': return <PlayCircle {...iconProps} style={{ color: '#5fa3ff' }} />
     case '»': return <Printer {...iconProps} style={{ color: '#2fd18b' }} />
     case '←': return <Type {...iconProps} style={{ color: '#5fa3ff' }} />
     case '≋': return <Activity {...iconProps} style={{ color: '#2fd18b' }} />

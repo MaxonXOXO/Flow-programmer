@@ -96,6 +96,7 @@ function FlowCanvasInner() {
     onActiveFlowNodesChange,
     onActiveFlowEdgesChange,
     updateActiveFlowNodeData,
+    updateAnyFlowNodeData,
   } = useFlowStore()
 
   // Resolve current visible flow
@@ -346,12 +347,41 @@ function FlowCanvasInner() {
 
   // Open the inline quick edit panel
   const handleOpenQuickEdit = (nodeId: string, x: number, y: number) => {
-    const node = flowNodes.find(n => n.id === nodeId)
+    let node = flowNodes.find(n => n.id === nodeId)
+    if (!node) {
+      node = mainFlowNodes.find(n => n.id === nodeId)
+    }
+    if (!node) {
+      for (const sfId of Object.keys(subFlows)) {
+        const found = subFlows[sfId].nodes.find(n => n.id === nodeId)
+        if (found) { node = found; break; }
+      }
+    }
+
     if (node) {
-      const data = node.data as any
+      const isSubFlowStart = node.data?.nodeType === 'start' && subFlowStack.length > 0
+      const parentFnNode = isSubFlowStart ? (() => {
+        const parentId = subFlowStack[subFlowStack.length - 1]
+        let parentNode = mainFlowNodes.find(n => n.id === parentId)
+        if (!parentNode) {
+          for (const sfId of Object.keys(subFlows)) {
+            const found = subFlows[sfId].nodes.find(n => n.id === parentId)
+            if (found) { parentNode = found; break; }
+          }
+        }
+        return parentNode
+      })() : null
+
+      const targetNode = parentFnNode || node
+      const data = targetNode.data as any
       const params = data.params || {}
-      if (Object.keys(params).length > 0) {
-        setQuickEdit({ nodeId, x, y, params: { ...params } })
+      
+      const paramsToEdit = { ...params }
+      delete paramsToEdit.parameters
+      delete paramsToEdit.arguments
+      
+      if (Object.keys(paramsToEdit).length > 0) {
+        setQuickEdit({ nodeId: targetNode.id, x, y, params: paramsToEdit })
       }
     }
   }
@@ -359,12 +389,22 @@ function FlowCanvasInner() {
   // Save quick edit changes
   const handleSaveQuickEdit = () => {
     if (!quickEdit) return
-    const node = flowNodes.find(n => n.id === quickEdit.nodeId)
-    if (node) {
-      const data = node.data as any
-      updateActiveFlowNodeData(quickEdit.nodeId, {
+    let targetNode = mainFlowNodes.find(n => n.id === quickEdit.nodeId)
+    if (!targetNode) {
+      for (const sfId of Object.keys(subFlows)) {
+        const found = subFlows[sfId].nodes.find(n => n.id === quickEdit.nodeId)
+        if (found) { targetNode = found; break; }
+      }
+    }
+    
+    if (targetNode) {
+      const data = targetNode.data as any
+      updateAnyFlowNodeData(quickEdit.nodeId, {
         ...data,
-        params: quickEdit.params,
+        params: {
+          ...(data.params || {}),
+          ...quickEdit.params,
+        },
       })
     }
     setQuickEdit(null)
@@ -526,8 +566,30 @@ function FlowCanvasInner() {
           {/* Quick Edit - only show if node has params */}
           {(() => {
             const node = flowNodes.find(n => n.id === menu.nodeId)
-            const data = node?.data as any
-            const hasParams = data?.params && Object.keys(data.params).length > 0
+            if (!node) return null
+
+            const isSubFlowStart = node.data?.nodeType === 'start' && subFlowStack.length > 0
+            const parentFnNode = isSubFlowStart ? (() => {
+              const parentId = subFlowStack[subFlowStack.length - 1]
+              let parentNode = mainFlowNodes.find(n => n.id === parentId)
+              if (!parentNode) {
+                for (const sfId of Object.keys(subFlows)) {
+                  const found = subFlows[sfId].nodes.find(n => n.id === parentId)
+                  if (found) { parentNode = found; break; }
+                }
+              }
+              return parentNode
+            })() : null
+
+            const targetNode = parentFnNode || node
+            const data = targetNode.data as any
+            const params = data?.params || {}
+
+            const paramsToEdit = { ...params }
+            delete paramsToEdit.parameters
+            delete paramsToEdit.arguments
+
+            const hasParams = Object.keys(paramsToEdit).length > 0
             return hasParams ? (
               <button
                 onClick={() => { handleOpenQuickEdit(menu.nodeId, menu.x, menu.y); setMenu(null) }}

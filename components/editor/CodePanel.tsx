@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useFlowStore } from '@/store/userFlowStore'
-import { GraphToIRCompiler } from '@/lib/ir/compiler'
-import { ArduinoUnoGenerator } from '@/lib/ir/generator'
-import { IRValidator } from '@/lib/ir/validator'
+import { GraphToASTCompiler } from '@/lib/compiler/parser/graphParser'
+import { ArduinoUnoGenerator } from '@/lib/compiler/generator/arduinoGenerator'
+import { CompilerValidator } from '@/lib/compiler/validators/compilerValidator'
 import { CPPLexer, CPPParser } from '@/lib/ir/cppParser'
 import { IRToFlowLayout } from '@/lib/ir/layout'
 import { 
@@ -28,12 +28,12 @@ export default function CodePanel({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     try {
-      // 1. Compile visual nodes to IR AST
-      const compiler = new GraphToIRCompiler(flowNodes, flowEdges, subFlows);
+      // 1. Compile visual nodes to AST
+      const compiler = new GraphToASTCompiler(flowNodes, flowEdges, subFlows);
       const program = compiler.compile();
 
       // 2. Validate AST
-      const validator = new IRValidator();
+      const validator = new CompilerValidator();
       const errors = validator.validate(program, schemaNodes, schemaEdges);
 
       // Log validation results in terminal console
