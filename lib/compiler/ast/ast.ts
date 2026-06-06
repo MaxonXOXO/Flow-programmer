@@ -31,6 +31,7 @@ export type StatementNode =
   | AssignmentNode
   | IfStatementNode
   | ForLoopNode
+  | WhileLoopNode
   | ReturnStatementNode
   | ExpressionStatementNode;
 
@@ -64,6 +65,12 @@ export interface ForLoopNode extends BaseASTNode {
   init: VariableDeclarationNode | AssignmentNode;
   condition: ExpressionNode;
   update: ExpressionNode | AssignmentNode;
+  body: BlockStatementNode;
+}
+
+export interface WhileLoopNode extends BaseASTNode {
+  kind: 'WhileLoop';
+  condition: ExpressionNode;
   body: BlockStatementNode;
 }
 

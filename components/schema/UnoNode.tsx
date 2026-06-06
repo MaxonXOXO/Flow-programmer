@@ -20,7 +20,7 @@ export default function UnoNode({ selected }: NodeProps) {
         : '0 6px 20px rgba(0,0,0,0.5)',
       position: 'relative',
     }}>
-      
+
       {/* USB Port Outline - sticking out on the top left */}
       <div style={{
         position: 'absolute',
@@ -92,7 +92,7 @@ export default function UnoNode({ selected }: NodeProps) {
 
       {/* Pins layout section */}
       <div style={{ display: 'flex', padding: '10px 0', position: 'relative' }}>
-        
+
         {/* Left Side: Digital Header Pins */}
         <div style={{ flex: 1, borderRight: '1px dashed rgba(255,255,255,0.04)' }}>
           <div style={{
@@ -121,7 +121,7 @@ export default function UnoNode({ selected }: NodeProps) {
                 {isPWM && (
                   <span style={{ fontSize: 6.5, color: '#ffb13d', opacity: 0.8, fontWeight: 700, marginLeft: 4 }}>PWM</span>
                 )}
-                
+
                 {/* Handle positioned exactly on the left card border */}
                 <Handle
                   type="source"
@@ -160,7 +160,7 @@ export default function UnoNode({ selected }: NodeProps) {
           }}>
             ANALOG / PWR
           </div>
-          
+
           {/* Analog Inputs */}
           {ANALOG_PINS.map(pin => (
             <div key={pin} style={{
@@ -172,7 +172,7 @@ export default function UnoNode({ selected }: NodeProps) {
               height: 20,
             }}>
               <span style={{ fontSize: 10.5, color: '#a5b3cd', fontWeight: 600 }}>{pin}</span>
-              
+
               {/* Handle positioned exactly on the right card border */}
               <Handle
                 type="source"
@@ -197,9 +197,9 @@ export default function UnoNode({ selected }: NodeProps) {
           ))}
 
           {/* Copper Silkscreen Divider */}
-          <div style={{ 
-            height: 1, 
-            background: 'rgba(255,255,255,0.05)', 
+          <div style={{
+            height: 1,
+            background: 'rgba(255,255,255,0.05)',
             margin: '6px 8px',
           }} />
 
@@ -216,7 +216,7 @@ export default function UnoNode({ selected }: NodeProps) {
                 height: 20,
               }}>
                 <span style={{ fontSize: 10.5, color, fontWeight: 700 }}>{pin}</span>
-                
+
                 {/* Handle positioned exactly on the right card border */}
                 <Handle
                   type="source"
@@ -242,7 +242,7 @@ export default function UnoNode({ selected }: NodeProps) {
           })}
         </div>
       </div>
-      
+
     </div>
   )
 }

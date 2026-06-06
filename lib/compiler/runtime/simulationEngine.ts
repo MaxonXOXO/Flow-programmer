@@ -199,6 +199,18 @@ export class SimulationEngine {
           return { currentNodeId: nodeId, done: false };
         }
 
+        case 'WhileLoop': {
+          const loopVars = { ...frame.variables };
+          this.pushFrame(`while_loop`, [stmt], loopVars);
+          const loopFrame = this.getCurrentFrame()!;
+          loopFrame.loopState = {
+            init: true,
+            conditionExpr: stmt.condition,
+            bodyStatements: stmt.body.body
+          };
+          return { currentNodeId: nodeId, done: false };
+        }
+
         case 'ExpressionStatement': {
           const expr = stmt.expression;
 
@@ -337,7 +349,7 @@ export class SimulationEngine {
         
         if (!state.init) {
           const updateStmt = state.updateExpr;
-          if (updateStmt.kind === 'Assignment') {
+          if (updateStmt && updateStmt.kind === 'Assignment') {
             const updVal = this.evaluate(updateStmt.value, frame.variables);
             frame.variables[updateStmt.name] = updVal;
           }

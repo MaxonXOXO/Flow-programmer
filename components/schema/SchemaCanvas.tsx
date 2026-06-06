@@ -18,11 +18,116 @@ import UnoNode from './UnoNode'
 import ComponentNode from './ComponentNode'
 import { Copy, Trash2, Sliders } from 'lucide-react'
 
+import { ArduinoUno } from '@/lib/registry/boards'
+import { componentsRegistry } from '@/lib/registry/components'
+
 interface ContextMenuState {
   nodeId: string
   x: number
   y: number
 }
+
+function validateConnection(connection: Connection, nodes: any[]): { valid: boolean; error?: string } {
+  const sourceNode = nodes.find(n => n.id === connection.source)
+  const targetNode = nodes.find(n => n.id === connection.target)
+  if (!sourceNode || !targetNode) return { valid: false, error: "Invalid connection: Nodes not found" }
+
+  const isSourceUno = sourceNode.id === 'arduino-uno'
+  const isTargetUno = targetNode.id === 'arduino-uno'
+
+  if (!isSourceUno && !isTargetUno) {
+    return { valid: false, error: "Connections must be between the Arduino board and a component" }
+  }
+
+  const unoPin = isSourceUno ? connection.sourceHandle : connection.targetHandle
+  const compNode = isSourceUno ? targetNode : sourceNode
+  const compPinId = isSourceUno ? connection.targetHandle : connection.sourceHandle
+
+  if (!unoPin || !compNode || !compPinId) {
+    return { valid: false, error: "Missing pin handle identifier" }
+  }
+
+  const unoPinDef = ArduinoUno.pins[unoPin]
+  if (!unoPinDef) {
+    return { valid: false, error: `Invalid Arduino Pin: ${unoPin}` }
+  }
+
+  const compId = compNode.data?.componentType || compNode.type || ''
+  const compDef = componentsRegistry[compId]
+  if (!compDef) {
+    return { valid: false, error: `Component definition not found for: ${compId}` }
+  }
+
+  const compPin = compDef.pins.find(p => p.id === compPinId)
+  if (!compPin) {
+    return { valid: false, error: `Invalid component pin: ${compPinId}` }
+  }
+
+  if (compPin.type === 'ground') {
+    if (!unoPinDef.capabilities.includes('ground')) {
+      return { valid: false, error: `Ground pin [${compPin.label}] must connect to a GND pin on Arduino` }
+    }
+    return { valid: true }
+  }
+
+  if (compPin.type === 'power') {
+    if (!unoPinDef.capabilities.includes('power')) {
+      return { valid: false, error: `Power pin [${compPin.label}] must connect to 5V or 3.3V on Arduino` }
+    }
+    return { valid: true }
+  }
+
+  if (compPin.type === 'analog') {
+    if (!unoPinDef.capabilities.includes('analog')) {
+      return { valid: false, error: `Analog pin [${compPin.label}] must connect to an Analog pin (A0-A5)` }
+    }
+    return { valid: true }
+  }
+
+  if (compPin.type === 'pwm') {
+    if (!unoPinDef.capabilities.includes('pwm')) {
+      return { valid: false, error: `PWM pin [${compPin.label}] must connect to a PWM pin (with ~ symbol)` }
+    }
+    return { valid: true }
+  }
+
+  if (compPin.type === 'i2c') {
+    if (compPin.id === 'sda' && !unoPinDef.capabilities.includes('i2c_sda')) {
+      return { valid: false, error: "SDA pin must connect to SDA (A4) on Arduino" }
+    }
+    if (compPin.id === 'scl' && !unoPinDef.capabilities.includes('i2c_scl')) {
+      return { valid: false, error: "SCL pin must connect to SCL (A5) on Arduino" }
+    }
+    return { valid: true }
+  }
+
+  if (compPin.type === 'spi') {
+    const checkCap = `spi_${compPin.id}`
+    if (!unoPinDef.capabilities.includes(checkCap as any)) {
+      return { valid: false, error: `${compPin.label} must connect to corresponding SPI pin on Arduino` }
+    }
+    return { valid: true }
+  }
+
+  if (compPin.type === 'uart') {
+    if (compPin.id === 'tx' && !unoPinDef.capabilities.includes('uart_rx')) {
+      return { valid: false, error: "TX pin must connect to RX (Pin 0) on Arduino" }
+    }
+    if (compPin.id === 'rx' && !unoPinDef.capabilities.includes('uart_tx')) {
+      return { valid: false, error: "RX pin must connect to TX (Pin 1) on Arduino" }
+    }
+    return { valid: true }
+  }
+
+  if (compPin.type === 'digital') {
+    if (!unoPinDef.capabilities.includes('digital')) {
+      return { valid: false, error: `Digital pin [${compPin.label}] must connect to a Digital pin on Arduino` }
+    }
+  }
+
+  return { valid: true }
+}
+
 
 function SchemaCanvasInner() {
   const { 
@@ -39,6 +144,7 @@ function SchemaCanvasInner() {
 
   const { screenToFlowPosition } = useReactFlow()
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const nodeTypes = useMemo(() => ({
     unoNode: UnoNode,
@@ -46,8 +152,19 @@ function SchemaCanvasInner() {
   }), [])
 
   const onConnect = useCallback(
-    (connection: Connection) => setSchemaEdges(addEdge(connection, schemaEdges)),
-    [schemaEdges, setSchemaEdges]
+    (connection: Connection) => {
+      const check = validateConnection(connection, schemaNodes)
+      if (!check.valid) {
+        const err = check.error || "Mismatched pin capabilities"
+        setErrorMsg(err)
+        setTimeout(() => {
+          setErrorMsg(prev => prev === err ? null : prev)
+        }, 4000)
+        return
+      }
+      setSchemaEdges(addEdge(connection, schemaEdges))
+    },
+    [schemaEdges, schemaNodes, setSchemaEdges]
   )
 
   // Handle right-click context menu on components
@@ -120,6 +237,40 @@ function SchemaCanvasInner() {
       onDrop={onDrop}
       onDragOver={onDragOver}
     >
+      {errorMsg && (
+        <div style={{
+          position: 'absolute',
+          top: 16,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(255, 95, 158, 0.95)',
+          border: '1px solid #ff5f9e',
+          borderRadius: 6,
+          padding: '8px 16px',
+          color: '#fff',
+          fontSize: 12,
+          fontWeight: 600,
+          zIndex: 1000,
+          boxShadow: '0 4px 16px rgba(255, 95, 158, 0.4)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+        }}>
+          <span>⚠️ {errorMsg}</span>
+          <button 
+            onClick={() => setErrorMsg(null)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#fff',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
       <ReactFlow
         nodes={schemaNodes}
         edges={schemaEdges}
