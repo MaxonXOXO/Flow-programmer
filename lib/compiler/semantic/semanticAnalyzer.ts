@@ -11,6 +11,7 @@ import {
   VariableSymbol,
   FunctionSymbol
 } from '../symbols/symbolTable';
+import { pinSupports } from '../../registry/boards';
 
 export interface ValidationError {
   severity: 'error' | 'warning';
@@ -336,8 +337,61 @@ export class SemanticAnalyzer {
 
         // Validate arguments
         expr.arguments.forEach(arg => this.validateExpression(arg, scope));
+
+        // Pin capability validation
+        if (expr.callee === 'analogRead' && expr.arguments.length >= 1) {
+          const pinArg = expr.arguments[0];
+          const pinName = this.extractPinName(pinArg);
+          if (pinName) {
+            const normalizedPin = /^\d+$/.test(pinName) ? 'D' + pinName : pinName;
+            if (!pinSupports('arduino_uno', normalizedPin, 'analog')) {
+              this.errors.push({
+                severity: 'error',
+                message: `Pin ${pinName} does not support analog input`,
+                nodeId: expr.nodeId
+              });
+            }
+          }
+        } else if (expr.callee === 'analogWrite' && expr.arguments.length >= 1) {
+          const pinArg = expr.arguments[0];
+          const pinName = this.extractPinName(pinArg);
+          if (pinName) {
+            const normalizedPin = /^\d+$/.test(pinName) ? 'D' + pinName : pinName;
+            if (!pinSupports('arduino_uno', normalizedPin, 'pwm')) {
+              this.errors.push({
+                severity: 'error',
+                message: `Pin ${pinName} does not support PWM capability`,
+                nodeId: expr.nodeId
+              });
+            }
+          }
+        } else if ((expr.callee === 'digitalWrite' || expr.callee === 'digitalRead') && expr.arguments.length >= 1) {
+          const pinArg = expr.arguments[0];
+          const pinName = this.extractPinName(pinArg);
+          if (pinName) {
+            const normalizedPin = /^\d+$/.test(pinName) ? 'D' + pinName : pinName;
+            if (!pinSupports('arduino_uno', normalizedPin, 'digital')) {
+              this.errors.push({
+                severity: 'error',
+                message: `Pin ${pinName} does not support digital capability`,
+                nodeId: expr.nodeId
+              });
+            }
+          }
+        }
         break;
       }
     }
+  }
+
+  private extractPinName(expr: ExpressionNode): string | null {
+    if (!expr) return null;
+    if (expr.kind === 'Literal') {
+      return String(expr.value);
+    }
+    if (expr.kind === 'Identifier') {
+      return expr.name;
+    }
+    return null;
   }
 }
