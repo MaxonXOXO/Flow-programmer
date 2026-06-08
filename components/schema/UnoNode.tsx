@@ -10,15 +10,18 @@ const PWM_PINS = ['D3', 'D5', 'D6', 'D9', 'D10', 'D11']
 export default function UnoNode({ selected }: NodeProps) {
   return (
     <div style={{
-      background: '#07120e',
-      border: `1.5px solid ${selected ? '#2fd18b' : '#142c22'}`,
+      background: 'linear-gradient(145deg, rgba(7, 18, 14, 0.85), rgba(4, 10, 8, 0.95))',
+      backdropFilter: 'blur(16px)',
+      WebkitBackdropFilter: 'blur(16px)',
+      border: `1.5px solid ${selected ? '#2fd18b' : 'rgba(47, 209, 139, 0.15)'}`,
       borderRadius: 10,
       width: 290,
       fontFamily: 'var(--font-mono)',
       boxShadow: selected
-        ? '0 0 16px rgba(47, 209, 139, 0.3), 0 0 0 1px #2fd18b, 0 12px 32px rgba(0,0,0,0.6)'
-        : '0 6px 20px rgba(0,0,0,0.5)',
+        ? '0 0 24px rgba(47, 209, 139, 0.2), 0 0 0 1px #2fd18b, 0 16px 40px rgba(0,0,0,0.8)'
+        : '0 8px 32px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.05)',
       position: 'relative',
+      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     }}>
 
       {/* USB Port Outline - sticking out on the top left */}
@@ -28,11 +31,11 @@ export default function UnoNode({ selected }: NodeProps) {
         top: 36,
         width: 16,
         height: 28,
-        background: '#a5b3cd',
+        background: 'linear-gradient(90deg, #64748b, #94a3b8)',
         border: '1.5px solid #142c22',
         borderRight: 'none',
         borderRadius: '3px 0 0 3px',
-        boxShadow: 'inset 0 0 4px rgba(0,0,0,0.6)',
+        boxShadow: 'inset 2px 0 4px rgba(255,255,255,0.3), inset -2px 0 4px rgba(0,0,0,0.4), -4px 4px 8px rgba(0,0,0,0.5)',
         zIndex: -1,
       }} />
 
@@ -43,10 +46,11 @@ export default function UnoNode({ selected }: NodeProps) {
         bottom: 25,
         width: 14,
         height: 24,
-        background: '#15171c',
+        background: 'linear-gradient(90deg, #0f172a, #1e293b)',
         border: '1.5px solid #142c22',
         borderRight: 'none',
         borderRadius: '3px 0 0 3px',
+        boxShadow: 'inset 0 0 6px rgba(0,0,0,0.8), -4px 4px 8px rgba(0,0,0,0.5)',
         zIndex: -1,
       }} />
 
@@ -57,29 +61,40 @@ export default function UnoNode({ selected }: NodeProps) {
         border: '1px solid rgba(47,209,139,0.06)',
         borderRadius: 7,
         pointerEvents: 'none',
+        backgroundImage: 'radial-gradient(rgba(47, 209, 139, 0.1) 1px, transparent 1px)',
+        backgroundSize: '12px 12px',
       }} />
 
       {/* PCB Header */}
       <div style={{
-        background: '#0d2119',
+        background: 'linear-gradient(180deg, rgba(20, 44, 34, 0.8), rgba(13, 33, 25, 0.4))',
         borderRadius: '8px 8px 0 0',
         padding: '10px 14px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        borderBottom: '1px solid #143226',
+        borderBottom: '1px solid rgba(47, 209, 139, 0.15)',
+        position: 'relative',
+        zIndex: 1,
       }}>
         <div>
-          <div style={{ color: '#2fd18b', fontWeight: 800, fontSize: 13, letterSpacing: '0.5px' }}>
+          <div style={{
+            color: '#fff',
+            fontWeight: 800,
+            fontSize: 13,
+            letterSpacing: '0.5px',
+            textShadow: '0 0 12px rgba(47, 209, 139, 0.4)'
+          }}>
             ARDUINO UNO
           </div>
-          <div style={{ color: '#546484', fontSize: 9, marginTop: 1, fontWeight: 500 }}>
-            ATmega328P · 16 MHz Core
+          <div style={{ color: '#94a3b8', fontSize: 9, marginTop: 1, fontWeight: 500 }}>
+            ATmega328P <span style={{ color: '#2fd18b' }}>·</span> 16 MHz Core
           </div>
         </div>
         <div style={{
-          background: 'rgba(47, 209, 139, 0.08)',
-          border: '1px solid rgba(47, 209, 139, 0.2)',
+          background: 'rgba(47, 209, 139, 0.1)',
+          border: '1px solid rgba(47, 209, 139, 0.3)',
+          boxShadow: 'inset 0 0 8px rgba(47, 209, 139, 0.1)',
           borderRadius: 4,
           padding: '2px 6px',
           fontSize: 8.5,
@@ -91,13 +106,13 @@ export default function UnoNode({ selected }: NodeProps) {
       </div>
 
       {/* Pins layout section */}
-      <div style={{ display: 'flex', padding: '10px 0', position: 'relative' }}>
+      <div style={{ display: 'flex', padding: '10px 0', position: 'relative', zIndex: 1 }}>
 
         {/* Left Side: Digital Header Pins */}
-        <div style={{ flex: 1, borderRight: '1px dashed rgba(255,255,255,0.04)' }}>
+        <div style={{ flex: 1, borderRight: '1px dashed rgba(255,255,255,0.05)' }}>
           <div style={{
             fontSize: 9,
-            color: '#1c4a37',
+            color: '#478566',
             textAlign: 'left',
             paddingLeft: 12,
             marginBottom: 8,
@@ -113,13 +128,13 @@ export default function UnoNode({ selected }: NodeProps) {
                 position: 'relative',
                 display: 'flex',
                 alignItems: 'center',
-                padding: '3px 0 3px 12px', // Keep padding left to offset text from handles
+                padding: '3px 0 3px 12px',
                 justifyContent: 'flex-start',
                 height: 20,
               }}>
-                <span style={{ fontSize: 10.5, color: '#a5b3cd', fontWeight: 600 }}>{pin}</span>
+                <span style={{ fontSize: 10.5, color: '#cbd5e1', fontWeight: 600 }}>{pin}</span>
                 {isPWM && (
-                  <span style={{ fontSize: 6.5, color: '#ffb13d', opacity: 0.8, fontWeight: 700, marginLeft: 4 }}>PWM</span>
+                  <span style={{ fontSize: 6.5, color: '#fbbf24', opacity: 0.9, fontWeight: 700, marginLeft: 4 }}>PWM</span>
                 )}
 
                 {/* Handle positioned exactly on the left card border */}
@@ -132,13 +147,13 @@ export default function UnoNode({ selected }: NodeProps) {
                     left: 0,
                     top: '50%',
                     transform: 'translate(-50%, -50%)',
-                    width: 8,
-                    height: 8,
-                    background: '#ffd043', // Gold solder pad
-                    border: '1px solid #111',
-                    borderRadius: 1, // square copper pad
+                    width: 10,
+                    height: 10,
+                    background: '#0f172a',
+                    border: '2px solid #fbbf24',
+                    borderRadius: '50%',
                     flexShrink: 0,
-                    boxShadow: '0 0 3px rgba(255,208,67,0.5)',
+                    boxShadow: '0 0 6px rgba(251, 191, 36, 0.4)',
                     zIndex: 20,
                   }}
                 />
@@ -151,7 +166,7 @@ export default function UnoNode({ selected }: NodeProps) {
         <div style={{ flex: 1 }}>
           <div style={{
             fontSize: 9,
-            color: '#1a3350',
+            color: '#478566',
             textAlign: 'right',
             paddingRight: 12,
             marginBottom: 8,
@@ -167,11 +182,11 @@ export default function UnoNode({ selected }: NodeProps) {
               position: 'relative',
               display: 'flex',
               alignItems: 'center',
-              padding: '3px 12px 3px 0', // Keep padding right to offset text from handles
+              padding: '3px 12px 3px 0',
               justifyContent: 'flex-end',
               height: 20,
             }}>
-              <span style={{ fontSize: 10.5, color: '#a5b3cd', fontWeight: 600 }}>{pin}</span>
+              <span style={{ fontSize: 10.5, color: '#cbd5e1', fontWeight: 600 }}>{pin}</span>
 
               {/* Handle positioned exactly on the right card border */}
               <Handle
@@ -183,13 +198,13 @@ export default function UnoNode({ selected }: NodeProps) {
                   right: 0,
                   top: '50%',
                   transform: 'translate(50%, -50%)',
-                  width: 8,
-                  height: 8,
-                  background: '#5fa3ff', // Neon Blue
-                  border: '1px solid #111',
-                  borderRadius: 1, // square copper pad
+                  width: 10,
+                  height: 10,
+                  background: '#0f172a',
+                  border: '2px solid #60a5fa',
+                  borderRadius: '50%',
                   flexShrink: 0,
-                  boxShadow: '0 0 3px rgba(95,163,255,0.5)',
+                  boxShadow: '0 0 6px rgba(96, 165, 250, 0.4)',
                   zIndex: 20,
                 }}
               />
@@ -199,23 +214,29 @@ export default function UnoNode({ selected }: NodeProps) {
           {/* Copper Silkscreen Divider */}
           <div style={{
             height: 1,
-            background: 'rgba(255,255,255,0.05)',
+            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)',
             margin: '6px 8px',
           }} />
 
           {/* Power Pins */}
           {POWER_PINS.map(pin => {
-            const color = pin === 'GND' ? '#ff5f9e' : pin === '3.3V' ? '#ffb13d' : '#2fd18b'
+            const pinConfig = {
+              'GND': { color: '#f43f5e', glow: 'rgba(244, 63, 94, 0.4)' },
+              '3.3V': { color: '#fbbf24', glow: 'rgba(251, 191, 36, 0.4)' },
+              '5V': { color: '#2fd18b', glow: 'rgba(47, 209, 139, 0.4)' },
+              'VIN': { color: '#2fd18b', glow: 'rgba(47, 209, 139, 0.4)' }
+            }[pin] || { color: '#2fd18b', glow: 'rgba(47, 209, 139, 0.4)' }
+
             return (
               <div key={pin} style={{
                 position: 'relative',
                 display: 'flex',
                 alignItems: 'center',
-                padding: '3px 12px 3px 0', // Keep padding right to offset text from handles
+                padding: '3px 12px 3px 0',
                 justifyContent: 'flex-end',
                 height: 20,
               }}>
-                <span style={{ fontSize: 10.5, color, fontWeight: 700 }}>{pin}</span>
+                <span style={{ fontSize: 10.5, color: pinConfig.color, fontWeight: 700 }}>{pin}</span>
 
                 {/* Handle positioned exactly on the right card border */}
                 <Handle
@@ -227,13 +248,13 @@ export default function UnoNode({ selected }: NodeProps) {
                     right: 0,
                     top: '50%',
                     transform: 'translate(50%, -50%)',
-                    width: 8,
-                    height: 8,
-                    background: color,
-                    border: '1px solid #111',
-                    borderRadius: 1, // square copper pad
+                    width: 10,
+                    height: 10,
+                    background: '#0f172a',
+                    border: `2px solid ${pinConfig.color}`,
+                    borderRadius: '50%',
                     flexShrink: 0,
-                    boxShadow: `0 0 3px ${color}55`,
+                    boxShadow: `0 0 6px ${pinConfig.glow}`,
                     zIndex: 20,
                   }}
                 />

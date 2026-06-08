@@ -234,13 +234,6 @@ export class SemanticAnalyzer {
         break;
       }
 
-      case 'WhileLoop': {
-        const loopScope = new SymbolTable(scope, 'loop');
-        this.validateExpression(stmt.condition, loopScope);
-        this.validateStatement(stmt.body, loopScope);
-        break;
-      }
-
       case 'ReturnStatement': {
         this.hasReturnStatement = true;
         if (this.currentFunction) {

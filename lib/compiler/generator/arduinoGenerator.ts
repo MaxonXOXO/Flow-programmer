@@ -18,8 +18,6 @@ import {
   FunctionDeclarationNode
 } from '../ast/ast';
 import { pluginRegistry, mapLabelToPluginType } from '../../ir/plugin';
-import { resolvePinMapping, interpolateTemplate, resolveOperationTemplate } from '../../runtime/templates';
-import { componentsRegistry } from '../../registry/components';
 
 export interface CodeGeneratorOutput {
   main: string;
@@ -37,16 +35,12 @@ export interface Connection {
 export class ArduinoUnoGenerator {
   private connections: Connection[] = [];
   private declaredVarsGlobal: Set<string> = new Set();
-  private schemaNodes: Node[] = [];
-  private schemaEdges: Edge[] = [];
 
   public generate(
     program: ProgramNode,
     schemaNodes: Node[],
     schemaEdges: Edge[]
   ): CodeGeneratorOutput {
-    this.schemaNodes = schemaNodes;
-    this.schemaEdges = schemaEdges;
     this.connections = this.parseConnections(schemaNodes, schemaEdges);
     this.declaredVarsGlobal.clear();
 
@@ -61,72 +55,48 @@ export class ArduinoUnoGenerator {
     // 1. Gather component-specific configurations (includes, defines, globals, setups)
     const seenComponents = new Set<string>();
 
-    schemaNodes.forEach(node => {
-      if (node.id === 'arduino-uno') return;
+    this.connections.forEach(conn => {
+      if (this.isPowerPin(conn)) return;
 
-      const componentType = (node.data?.componentType as string) || node.type || '';
-      const compDef = componentsRegistry[componentType];
-      if (!compDef) {
-        // Fallback to legacy plugin system for backwards compatibility
-        const pluginType = (mapLabelToPluginType((node.data as any)?.label) || componentType) as string;
-        const plugin = pluginRegistry.get(pluginType);
-        if (!plugin) return;
+      const pluginType = mapLabelToPluginType(conn.componentLabel) || conn.componentType;
+      const plugin = pluginRegistry.get(pluginType);
+      if (!plugin) return;
 
-        const instanceName = this.safeVarName((node.data as any)?.label || node.id);
-        plugin.codegen.includes.forEach((inc: string) => includes.add(inc));
+      const instanceName = this.safeVarName(conn.componentLabel);
 
-        if (seenComponents.has(node.id)) return;
-        seenComponents.add(node.id);
+      // Add includes
+      plugin.codegen.includes.forEach(inc => includes.add(inc));
 
-        const compConnections = this.connections.filter(c => c.componentId === node.id && !this.isPowerPin(c));
-        const pinsMap: Record<string, string> = {};
+      if (seenComponents.has(conn.componentId)) return;
+      seenComponents.add(conn.componentId);
+
+      const compConnections = this.connections.filter(c => c.componentId === conn.componentId && !this.isPowerPin(c));
+      const pinsMap: Record<string, string> = {};
+      compConnections.forEach(c => {
+        pinsMap[c.pin] = this.pinToNumber(c.arduinoPin);
+      });
+
+      const compNode = schemaNodes.find(n => n.id === conn.componentId);
+      const params = (compNode?.data?.params as Record<string, string>) || {};
+
+      // Defines
+      if (plugin.codegen.defines) {
+        defines.push(...plugin.codegen.defines(instanceName, pinsMap));
+      } else {
         compConnections.forEach(c => {
-          pinsMap[c.pin] = this.pinToNumber(c.arduinoPin);
+          const defineName = `${conn.componentLabel.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}_${c.pin.toUpperCase()}`;
+          defines.push(`#define ${defineName} ${this.pinToNumber(c.arduinoPin)}`);
         });
-
-        const params = (node.data?.params as Record<string, string>) || {};
-
-        if (plugin.codegen.defines) {
-          defines.push(...plugin.codegen.defines(instanceName, pinsMap));
-        } else {
-          compConnections.forEach(c => {
-            const defineName = `${((node.data as any)?.label || node.id).replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}_${c.pin.toUpperCase()}`;
-            defines.push(`#define ${defineName} ${this.pinToNumber(c.arduinoPin)}`);
-          });
-        }
-
-        if (plugin.codegen.globals) {
-          globals.push(...plugin.codegen.globals(instanceName, pinsMap, params));
-        }
-
-        if (plugin.codegen.setup) {
-          setups.push(...plugin.codegen.setup(instanceName, pinsMap, params).map((line: string) => `  ${line}`));
-        }
-        return;
       }
 
-      if (seenComponents.has(node.id)) return;
-      seenComponents.add(node.id);
-
-      const pinMapping = resolvePinMapping(node.id, schemaEdges);
-      const params = (node.data?.params as Record<string, string>) || {};
-
-      // Resolve Includes
-      const compIncludes = (compDef.runtime.includes || []).map((inc: string) =>
-        interpolateTemplate(inc, node.id, pinMapping, params)
-      );
-      compIncludes.forEach((inc: string) => includes.add(inc));
-
-      // Resolve Globals
-      if (compDef.runtime.globals) {
-        const globalCode = interpolateTemplate(compDef.runtime.globals, node.id, pinMapping, params);
-        globals.push(globalCode);
+      // Globals
+      if (plugin.codegen.globals) {
+        globals.push(...plugin.codegen.globals(instanceName, pinsMap, params));
       }
 
-      // Resolve Setup
-      if (compDef.runtime.setup) {
-        const setupCode = interpolateTemplate(compDef.runtime.setup, node.id, pinMapping, params);
-        setups.push(...setupCode.split('\n').filter(line => line.trim() !== '').map((line: string) => `  ${line}`));
+      // Setup
+      if (plugin.codegen.setup) {
+        setups.push(...plugin.codegen.setup(instanceName, pinsMap, params).map(line => `  ${line}`));
       }
     });
 
@@ -279,16 +249,6 @@ export class ArduinoUnoGenerator {
         ].join('\n');
       }
 
-      case 'WhileLoop': {
-        const condCode = this.generateExpression(stmt.condition);
-        const bodyCode = this.generateBlock(stmt.body, indent + 1, new Set(declaredVars));
-        return [
-          `${pad}while (${condCode}) {`,
-          bodyCode || `${pad}  // loop body`,
-          `${pad}}`
-        ].join('\n');
-      }
-
       case 'ReturnStatement': {
         if (stmt.value) {
           return `${pad}return ${this.generateExpression(stmt.value)};`;
@@ -349,55 +309,6 @@ export class ArduinoUnoGenerator {
         return `(${expr.operator}${this.generateExpression(expr.argument)})`;
 
       case 'CallExpression': {
-        if (expr.callee.startsWith('hardware::')) {
-          const operationId = expr.callee.slice(10);
-          const arg0 = expr.arguments[0] as LiteralExpressionNode;
-          const arg1 = expr.arguments[1] as LiteralExpressionNode;
-          
-          const targetId = String(arg0.value);
-          let opParams: Record<string, string> = {};
-          try {
-            opParams = JSON.parse(String(arg1.value));
-          } catch (e) {}
-
-          const compNode = this.schemaNodes.find(n => n.id === targetId);
-          let componentType = '';
-          let componentNodeId = '';
-          if (compNode) {
-            componentType = (compNode.data?.componentType as string) || compNode.type || '';
-            componentNodeId = compNode.id;
-          } else {
-            componentType = 'direct';
-          }
-
-          let resolvedOpId = operationId;
-          if (componentType === 'dht22' && operationId === 'sensor_read') {
-            const rType = opParams.readingType || 'Temperature';
-            resolvedOpId = rType === 'Humidity' ? 'read_humidity' : 'read_temperature';
-          }
-
-          if (componentType && componentType !== 'direct') {
-            const resolved = resolveOperationTemplate(
-              resolvedOpId,
-              componentType,
-              componentNodeId,
-              this.schemaEdges,
-              opParams
-            );
-            if (resolved) {
-              return resolved.code;
-            }
-          }
-
-          if (operationId === 'gpio_write') {
-            const pinVal = opParams.pin || '13';
-            const stateVal = opParams.value || 'HIGH';
-            return `digitalWrite(${pinVal}, ${stateVal})`;
-          }
-
-          return `/* Failed to resolve hardware operation ${operationId} for ${targetId} */ 0`;
-        }
-
         const argsCode = expr.arguments.map(arg => this.generateExpression(arg)).join(', ');
         return `${expr.callee}(${argsCode})`;
       }

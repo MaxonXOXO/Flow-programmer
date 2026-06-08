@@ -11,65 +11,154 @@ import {
   Flame, Droplets, Waves, Wind, Cpu
 } from 'lucide-react'
 
-import { getAllComponents } from '@/lib/registry/components'
-import { getAllOperations } from '@/lib/registry/operations'
+const SCHEMA_COMPONENTS = [
+  {
+    section: 'Sensors',
+    nodes: [
+      { label: 'LED', icon: '💡', componentType: 'actuator', pins: [{ id: 'anode', label: 'Anode (+)' }, { id: 'cathode', label: 'Cathode (−)' }] },
+      { label: 'Push Button', icon: '⬛', componentType: 'sensor', pins: [{ id: 'pin1', label: 'Pin 1' }, { id: 'pin2', label: 'Pin 2' }] },
+      { label: 'DHT22', icon: '🌡', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'data', label: 'DATA' }, { id: 'gnd', label: 'GND' }] },
+      { label: 'Ultrasonic HC-SR04', icon: '📡', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'trig', label: 'TRIG' }, { id: 'echo', label: 'ECHO' }, { id: 'gnd', label: 'GND' }] },
+      { label: 'PIR Sensor', icon: '👁', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'out', label: 'OUT' }, { id: 'gnd', label: 'GND' }] },
+      { label: 'LDR', icon: '☀', componentType: 'sensor', pins: [{ id: 'pin1', label: 'Pin 1' }, { id: 'pin2', label: 'Pin 2' }] },
+      { label: 'IR Sensor', icon: '👁', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'out', label: 'OUT' }, { id: 'gnd', label: 'GND' }], params: { variant: 'Active Low' } },
+      { label: 'Flame Sensor', icon: '🔥', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'do', label: 'D0' }, { id: 'ao', label: 'A0' }, { id: 'gnd', label: 'GND' }], params: { variant: 'Active Low' } },
+      { label: 'Soil Moisture', icon: '🌱', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'do', label: 'D0' }, { id: 'ao', label: 'A0' }, { id: 'gnd', label: 'GND' }], params: { variant: 'Active Low' } },
+      { label: 'Water Level', icon: '💧', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'out', label: 'OUT' }, { id: 'gnd', label: 'GND' }], params: { variant: 'Active High' } },
+      { label: 'MQ Gas Sensor', icon: '💨', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'do', label: 'D0' }, { id: 'ao', label: 'A0' }, { id: 'gnd', label: 'GND' }], params: { variant: 'Active Low' } },
+      { label: 'Vibration Sensor', icon: '📳', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'do', label: 'D0' }, { id: 'gnd', label: 'GND' }], params: { variant: 'Active Low' } },
+    ]
+  },
+  {
+    section: 'Actuators',
+    nodes: [
+      { label: 'DC Motor', icon: '⚙', componentType: 'actuator', pins: [{ id: 'pos', label: '+' }, { id: 'neg', label: '−' }] },
+      { label: 'Servo Motor', icon: '🔧', componentType: 'actuator', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'signal', label: 'Signal' }, { id: 'gnd', label: 'GND' }] },
+      { label: 'Buzzer', icon: '🔔', componentType: 'actuator', pins: [{ id: 'pos', label: '+' }, { id: 'neg', label: '−' }] },
+      { label: 'Relay', icon: '⚡', componentType: 'actuator', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'in', label: 'IN' }, { id: 'gnd', label: 'GND' }] },
+    ]
+  },
+  {
+    section: 'Motor Drivers',
+    nodes: [
+      {
+        label: 'L298N Motor Driver',
+        icon: '⚙',
+        componentType: 'actuator',
+        pins: [
+          { id: 'vcc', label: 'VCC (12V)' },
+          { id: 'gnd', label: 'GND' },
+          { id: '5v', label: '5V Out' },
+          { id: 'ena', label: 'ENA' },
+          { id: 'in1', label: 'IN1' },
+          { id: 'in2', label: 'IN2' },
+          { id: 'in3', label: 'IN3' },
+          { id: 'in4', label: 'IN4' },
+          { id: 'enb', label: 'ENB' },
+          { id: 'out1', label: 'OUT1' },
+          { id: 'out2', label: 'OUT2' },
+          { id: 'out3', label: 'OUT3' },
+          { id: 'out4', label: 'OUT4' }
+        ]
+      },
+      {
+        label: 'L293D Motor Driver',
+        icon: '⚙',
+        componentType: 'actuator',
+        pins: [
+          { id: 'vcc1', label: 'VCC1 (5V)' },
+          { id: 'gnd', label: 'GND' },
+          { id: 'vcc2', label: 'VCC2 (Motor)' },
+          { id: 'en1', label: 'EN1' },
+          { id: 'in1', label: 'IN1' },
+          { id: 'in2', label: 'IN2' },
+          { id: 'in3', label: 'IN3' },
+          { id: 'in4', label: 'IN4' },
+          { id: 'en2', label: 'EN2' },
+          { id: 'out1', label: 'OUT1' },
+          { id: 'out2', label: 'OUT2' },
+          { id: 'out3', label: 'OUT3' },
+          { id: 'out4', label: 'OUT4' }
+        ]
+      }
+    ]
+  },
+  {
+    section: 'Display',
+    nodes: [
+      { label: 'LCD 16x2', icon: '📺', componentType: 'display', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'gnd', label: 'GND' }, { id: 'sda', label: 'SDA' }, { id: 'scl', label: 'SCL' }] },
+      { label: 'OLED 128x64', icon: '🖥', componentType: 'display', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'gnd', label: 'GND' }, { id: 'sda', label: 'SDA' }, { id: 'scl', label: 'SCL' }] },
+    ]
+  },
+  {
+    section: 'Comms',
+    nodes: [
+      { label: 'HC-05 Bluetooth', icon: '📶', componentType: 'comms', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'gnd', label: 'GND' }, { id: 'tx', label: 'TX' }, { id: 'rx', label: 'RX' }] },
+      { label: 'NRF24L01', icon: '📡', componentType: 'comms', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'gnd', label: 'GND' }, { id: 'ce', label: 'CE' }, { id: 'csn', label: 'CSN' }, { id: 'sck', label: 'SCK' }, { id: 'mosi', label: 'MOSI' }, { id: 'miso', label: 'MISO' }] },
+    ]
+  },
+]
 
-const getDynamicSchemaComponents = () => {
-  const all = getAllComponents();
-  const sections: Record<string, { section: string; nodes: any[] }> = {
-    sensor: { section: 'Sensors', nodes: [] },
-    actuator: { section: 'Actuators', nodes: [] },
-    display: { section: 'Display', nodes: [] },
-    comms: { section: 'Comms', nodes: [] },
-  };
-
-  all.forEach(c => {
-    const sec = sections[c.category] || sections.sensor;
-    sec.nodes.push({
-      label: c.name,
-      icon: c.icon || '🔌',
-      componentType: c.id,
-      pins: c.pins.map(p => ({ id: p.id, label: p.label })),
-      description: c.description
-    });
-  });
-
-  return Object.values(sections).filter(s => s.nodes.length > 0);
-};
-
-const getDynamicNodeTypes = () => {
-  const all = getAllOperations();
-  const sections: Record<string, { section: string; nodes: any[] }> = {
-    control: { section: 'Control Flow', nodes: [] },
-    data: { section: 'Data', nodes: [] },
-    io: { section: 'I/O', nodes: [] },
-    hardware: { section: 'Hardware', nodes: [] },
-  };
-
-  all.forEach(op => {
-    const sec = sections[op.category];
-    if (sec) {
-      const defaultParams: Record<string, string> = {};
-      op.parameters.forEach(p => {
-        if (p.defaultValue !== undefined) {
-          defaultParams[p.id] = p.defaultValue;
-        }
-      });
-
-      sec.nodes.push({
-        type: op.id,
-        label: op.name,
-        icon: op.icon,
-        nodeType: op.id,
-        params: defaultParams,
-        description: op.description
-      });
-    }
-  });
-
-  return Object.values(sections);
-};
-
+const NODE_TYPES = [
+  {
+    section: 'Control Flow',
+    nodes: [
+      { type: 'start',     label: 'Start',        icon: '▶',   nodeType: 'start',     params: {} },
+      { type: 'end',       label: 'End',           icon: '⬛',  nodeType: 'end',       params: {} },
+      { type: 'condition', label: 'If Condition',  icon: '◇',   nodeType: 'condition', params: { condition: 'x > 0' } },
+      { type: 'loop',      label: 'For Loop',      icon: '↻',   nodeType: 'loop',      params: { from: '0', to: '10', step: '1', var: 'i' } },
+      { type: 'delay',     label: 'Delay',         icon: '⏱',   nodeType: 'delay',     params: { ms: '500' } },
+    ]
+  },
+  {
+    section: 'Data',
+    nodes: [
+      { type: 'variable',  label: 'Variable',      icon: 'x=',  nodeType: 'variable',  params: { name: 'x', value: '0' } },
+      { type: 'function',  label: 'Function Definition', icon: 'ƒ()', nodeType: 'function',  params: { name: 'myFn', returnType: 'void', parameters: [] } },
+      { type: 'function_call', label: 'Function Call', icon: 'call()', nodeType: 'function_call', params: { functionName: '', arguments: [], assignTo: '' } },
+    ]
+  },
+  {
+    section: 'I/O',
+    nodes: [
+      { type: 'print',     label: 'Print',         icon: '»',   nodeType: 'print',     params: { message: '"Hello"' } },
+      { type: 'input',     label: 'User Input',    icon: '←',   nodeType: 'input',     params: { prompt: '"Enter:"', var: 'val' } },
+    ]
+  },
+  {
+    section: 'Hardware',
+    nodes: [
+      { type: 'sensor',    label: 'Sensor Read',   icon: '≋',   nodeType: 'sensor',    params: { pin: 'A0', var: 'sensorVal' } },
+      { type: 'gpio',      label: 'GPIO Write',    icon: '⚡',   nodeType: 'gpio',      params: { pin: '13', value: 'HIGH' } },
+      { type: 'api',       label: 'HTTP API',      icon: '⇌',   nodeType: 'api',       params: { url: 'https://api.example.com', method: 'GET' } },
+    ]
+  },
+  {
+    section: 'Sensor Templates',
+    nodes: [
+      { type: 'dht',        label: 'DHT Sensor',      icon: '🌡',  nodeType: 'dht',        params: { varTemp: 'temp', varHum: 'hum', pin: '2' } },
+      { type: 'ultrasonic', label: 'Ultrasonic Read', icon: '📡',  nodeType: 'ultrasonic', params: { varDist: 'distance', trigPin: '9', echoPin: '10' } },
+      { type: 'pir',        label: 'PIR Motion',      icon: '👁',  nodeType: 'pir',        params: { varMotion: 'motion', pin: '3' } },
+      { type: 'ldr',        label: 'LDR Light',       icon: '☀',  nodeType: 'ldr',        params: { varLight: 'lightVal', pin: 'A0' } },
+      { type: 'ir',         label: 'IR Obstacle',     icon: '👁',  nodeType: 'ir',         params: { varObstacle: 'obstacle', pin: '3', variant: 'Active Low' } },
+      { type: 'flame',      label: 'Flame Sensor',    icon: '🔥',  nodeType: 'flame',      params: { varFlame: 'flameVal', pin: '4', variant: 'Active Low' } },
+      { type: 'soilMoisture', label: 'Soil Moisture', icon: '🌱',  nodeType: 'soilMoisture', params: { varMoisture: 'moisture', pin: 'A1', variant: 'Active Low' } },
+      { type: 'waterLevel', label: 'Water Level',     icon: '💧',  nodeType: 'waterLevel',  params: { varLevel: 'waterLevel', pin: 'A2', variant: 'Active High' } },
+      { type: 'mqGas',      label: 'MQ Gas Sensor',   icon: '💨',  nodeType: 'mqGas',      params: { varGas: 'gasVal', pin: 'A3', variant: 'Active Low' } },
+      { type: 'vibration',  label: 'Vibration Sensor', icon: '📳',  nodeType: 'vibration',  params: { varVib: 'vibration', pin: '5', variant: 'Active Low' } },
+    ]
+  },
+  {
+    section: 'Control Devices',
+    nodes: [
+      { type: 'servo',      label: 'Servo Motor',     icon: '🔧',  nodeType: 'servo',      params: { pin: '9', angle: '90' } },
+      { type: 'lcd',        label: 'LCD 16x2 Text',   icon: '📺',  nodeType: 'lcd',        params: { text: '"Temp: " + String(temp)', row: '0', col: '0' } },
+      { type: 'oled',       label: 'OLED Text',       icon: '🖥',  nodeType: 'oled',       params: { text: '"Distance: " + String(distance)', x: '0', y: '0', size: '1' } },
+      { type: 'l298n',      label: 'L298N Motor Control', icon: '🔌', nodeType: 'l298n',   params: { motor: 'Motor A', direction: 'Forward', speed: '255' } },
+      { type: 'l293d',      label: 'L293D Motor Control', icon: '🔌', nodeType: 'l293d',   params: { motor: 'Motor A', direction: 'Forward', speed: '255' } },
+    ]
+  },
+]
 
 // Render clean vector icon instead of emojis
 function getLucideIcon(emoji: string, color: string = 'currentColor') {
@@ -118,9 +207,7 @@ export default function Sidebar() {
   const [search, setSearch] = useState('')
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
 
-  const rawList = useMemo(() => {
-    return activeCanvas === 'schema' ? getDynamicSchemaComponents() : getDynamicNodeTypes()
-  }, [activeCanvas])
+  const rawList = activeCanvas === 'schema' ? SCHEMA_COMPONENTS : NODE_TYPES
 
   // Filter list by search query
   const filteredList = useMemo(() => {

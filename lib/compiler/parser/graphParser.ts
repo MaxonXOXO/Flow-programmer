@@ -9,7 +9,6 @@ import {
   AssignmentNode,
   IfStatementNode,
   ForLoopNode,
-  WhileLoopNode,
   ReturnStatementNode,
   ExpressionStatementNode,
   Parameter,
@@ -18,7 +17,6 @@ import {
 } from '../ast/ast';
 import { parseExpressionString } from './expressionParser';
 import { pluginRegistry } from '../../ir/plugin';
-import { operationsRegistry } from '../../registry/operations';
 
 export class GraphToASTCompiler {
   private visited: Set<string> = new Set();
@@ -231,41 +229,6 @@ export class GraphToASTCompiler {
             arguments: [parseExpressionString(data?.params?.ms || '1000', currentId)]
           }
         } as ExpressionStatementNode);
-      } else if (operationsRegistry[type]?.category === 'hardware') {
-        const params = data?.params || {};
-        if (type === 'sensor_read') {
-          const varName = params.var || 'sensorVal';
-          const componentId = params.componentId || '';
-          body.push({
-            kind: 'VariableDeclaration',
-            nodeId: currentId,
-            name: varName,
-            varType: 'float',
-            value: {
-              kind: 'CallExpression',
-              nodeId: currentId,
-              callee: `hardware::${type}`,
-              arguments: [
-                { kind: 'Literal', nodeId: currentId, value: componentId, valueType: 'string' },
-                { kind: 'Literal', nodeId: currentId, value: JSON.stringify(params), valueType: 'string' }
-              ]
-            }
-          } as VariableDeclarationNode);
-        } else {
-          body.push({
-            kind: 'ExpressionStatement',
-            nodeId: currentId,
-            expression: {
-              kind: 'CallExpression',
-              nodeId: currentId,
-              callee: `hardware::${type}`,
-              arguments: [
-                { kind: 'Literal', nodeId: currentId, value: params.componentId || params.pin || '', valueType: 'string' },
-                { kind: 'Literal', nodeId: currentId, value: JSON.stringify(params), valueType: 'string' }
-              ]
-            }
-          } as ExpressionStatementNode);
-        }
       } else if (type === 'gpio') {
         body.push({
           kind: 'ExpressionStatement',
@@ -456,27 +419,6 @@ export class GraphToASTCompiler {
         } as ForLoopNode);
 
         const doneEdge = this.flowEdges.find(e => e.source === currentId && e.sourceHandle === 'done');
-        currentId = doneEdge?.target;
-        continue;
-      } else if (type === 'loop_node') {
-        const bodyEdge = this.flowEdges.find(e => e.source === currentId && e.sourceHandle === 'body');
-        const bodyCompiler = new GraphToASTCompiler(this.flowNodes, this.flowEdges, this.subFlows);
-        bodyCompiler.visited = new Set(this.visited);
-        const loopBody = bodyCompiler.compileBlock(bodyEdge?.target);
-
-        body.push({
-          kind: 'WhileLoop',
-          nodeId: currentId,
-          condition: {
-            kind: 'Literal',
-            nodeId: currentId,
-            value: true,
-            valueType: 'boolean'
-          },
-          body: loopBody
-        } as WhileLoopNode);
-
-        const doneEdge = this.flowEdges.find(e => e.source === currentId && (e.sourceHandle === 'done' || e.sourceHandle === 'flow'));
         currentId = doneEdge?.target;
         continue;
       }
