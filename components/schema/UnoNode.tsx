@@ -1,11 +1,20 @@
 'use client'
 
 import { Handle, Position, NodeProps } from '@xyflow/react'
+import { getBoardDefinition, pinSupports } from '@/lib/registry/boards'
 
-const DIGITAL_PINS = ['D13', 'D12', 'D11', 'D10', 'D9', 'D8', 'D7', 'D6', 'D5', 'D4', 'D3', 'D2', 'D1', 'D0']
-const ANALOG_PINS = ['A0', 'A1', 'A2', 'A3', 'A4', 'A5']
-const POWER_PINS = ['5V', '3.3V', 'GND', 'VIN']
-const PWM_PINS = ['D3', 'D5', 'D6', 'D9', 'D10', 'D11']
+const board = getBoardDefinition('arduino_uno')!;
+
+const DIGITAL_PINS = Object.keys(board.pins)
+  .filter(pin => pin.startsWith('D') && pinSupports('arduino_uno', pin, 'digital'))
+  .sort((a, b) => parseInt(b.slice(1), 10) - parseInt(a.slice(1), 10)); // D13 down to D0
+
+const ANALOG_PINS = Object.keys(board.pins)
+  .filter(pin => pin.startsWith('A') && pinSupports('arduino_uno', pin, 'analog'))
+  .sort((a, b) => parseInt(a.slice(1), 10) - parseInt(b.slice(1), 10)); // A0 to A5
+
+const POWER_PINS = Object.keys(board.pins)
+  .filter(pin => pinSupports('arduino_uno', pin, 'power') || pinSupports('arduino_uno', pin, 'ground'));
 
 export default function UnoNode({ selected }: NodeProps) {
   return (
@@ -88,7 +97,7 @@ export default function UnoNode({ selected }: NodeProps) {
             ARDUINO UNO
           </div>
           <div style={{ color: '#94a3b8', fontSize: 9, marginTop: 1, fontWeight: 500 }}>
-            ATmega328P <span style={{ color: '#2fd18b' }}>·</span> 16 MHz Core
+            {board.mcu} <span style={{ color: '#2fd18b' }}>·</span> {board.frequency} Core
           </div>
         </div>
         <div style={{
@@ -122,7 +131,7 @@ export default function UnoNode({ selected }: NodeProps) {
             DIGITAL I/O
           </div>
           {DIGITAL_PINS.map(pin => {
-            const isPWM = PWM_PINS.includes(pin)
+            const isPWM = pinSupports('arduino_uno', pin, 'pwm')
             return (
               <div key={pin} style={{
                 position: 'relative',
