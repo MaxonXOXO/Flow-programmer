@@ -8,6 +8,8 @@ import {
    Flame, Droplets, Waves, Wind, Cpu, Activity
 } from 'lucide-react'
 
+import { ComponentDefinition } from '@/lib/registry/components/types'
+
 // Neon category style mappings
 const categoryStyles: Record<string, { border: string, bg: string, accent: string }> = {
   sensor:   { border: '#2fd18b', bg: 'rgba(47, 209, 139, 0.06)', accent: '#2fd18b' },
@@ -15,6 +17,8 @@ const categoryStyles: Record<string, { border: string, bg: string, accent: strin
   display:  { border: '#ff5f9e', bg: 'rgba(255, 95, 158, 0.06)', accent: '#ff5f9e' },
   power:    { border: '#ffb13d', bg: 'rgba(255, 177, 61, 0.06)', accent: '#ffb13d' },
   comms:    { border: '#5fa3ff', bg: 'rgba(95, 163, 255, 0.06)', accent: '#5fa3ff' },
+  communication: { border: '#5fa3ff', bg: 'rgba(95, 163, 255, 0.06)', accent: '#5fa3ff' },
+  motor_driver:  { border: '#ffb13d', bg: 'rgba(255, 177, 61, 0.06)', accent: '#ffb13d' },
 }
 
 function getComponentVectorIcon(emoji: string, color: string) {
@@ -45,15 +49,17 @@ function getComponentVectorIcon(emoji: string, color: string) {
 
 export default function ComponentNode({ id, data, selected }: NodeProps) {
   const { updateSchemaNodeData } = useFlowStore()
-  const d = data as {
-    label: string
-    componentType: string
-    pins: { id: string, label: string }[]
-    icon: string
-    params?: Record<string, string>
-  }
+  
+  // Accept ComponentDefinition from data.definition, fallback to legacy schema properties
+  const definition = data.definition as ComponentDefinition | undefined
 
-  const styles = categoryStyles[d.componentType] || categoryStyles.sensor
+  const label = definition ? definition.name : (data.label as string)
+  const componentType = definition ? definition.category : (data.componentType as string)
+  const icon = definition ? (definition.icon || '🔌') : (data.icon as string)
+  const pins = definition ? definition.pins : (data.pins as { id: string, label: string }[] || [])
+  const params = data.params as Record<string, string> | undefined
+
+  const styles = categoryStyles[componentType] || categoryStyles.sensor
 
   return (
     <div style={{
@@ -77,21 +83,21 @@ export default function ComponentNode({ id, data, selected }: NodeProps) {
         gap: 8,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {getComponentVectorIcon(d.icon, styles.accent)}
+          {getComponentVectorIcon(icon, styles.accent)}
         </div>
         <div>
           <div style={{ color: 'var(--color-text-bright)', fontSize: 11, fontWeight: 700 }}>
-            {d.label}
+            {label}
           </div>
           <div style={{ color: styles.accent, fontSize: 8.5, fontWeight: 600, textTransform: 'uppercase', marginTop: 1, fontFamily: 'var(--font-mono)' }}>
-            {d.componentType}
+            {componentType}
           </div>
         </div>
       </div>
 
       {/* Pins section */}
       <div style={{ padding: '6px 0', display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {d.pins.map(pin => (
+        {pins.map(pin => (
           <div key={pin.id} style={{
             display: 'flex',
             alignItems: 'center',
@@ -127,7 +133,7 @@ export default function ComponentNode({ id, data, selected }: NodeProps) {
       </div>
 
       {/* Parameters / Variant section */}
-      {d.params && d.params.variant !== undefined && (
+      {params && params.variant !== undefined && (
         <div style={{
           padding: '4px 10px 8px',
           borderTop: '1px solid rgba(255,255,255,0.03)',
@@ -139,11 +145,11 @@ export default function ComponentNode({ id, data, selected }: NodeProps) {
             VARIANT / MODE
           </span>
           <select
-            value={d.params.variant}
+            value={params.variant}
             onChange={(e) => {
               updateSchemaNodeData(id, {
-                ...d,
-                params: { ...d.params, variant: e.target.value }
+                ...data,
+                params: { ...params, variant: e.target.value }
               })
             }}
             style={{

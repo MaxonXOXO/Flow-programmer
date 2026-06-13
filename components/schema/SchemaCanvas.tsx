@@ -82,6 +82,7 @@ function SchemaCanvasInner() {
         componentType: nodeConfig.componentType,
         pins: nodeConfig.pins,
         icon: nodeConfig.icon,
+        definition: nodeConfig.definition,
       },
     })
   }, [screenToFlowPosition, addSchemaNode])

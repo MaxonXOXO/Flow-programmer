@@ -11,93 +11,7 @@ import {
   Flame, Droplets, Waves, Wind, Cpu
 } from 'lucide-react'
 
-const SCHEMA_COMPONENTS = [
-  {
-    section: 'Sensors',
-    nodes: [
-      { label: 'LED', icon: '💡', componentType: 'actuator', pins: [{ id: 'anode', label: 'Anode (+)' }, { id: 'cathode', label: 'Cathode (−)' }] },
-      { label: 'Push Button', icon: '⬛', componentType: 'sensor', pins: [{ id: 'pin1', label: 'Pin 1' }, { id: 'pin2', label: 'Pin 2' }] },
-      { label: 'DHT22', icon: '🌡', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'data', label: 'DATA' }, { id: 'gnd', label: 'GND' }] },
-      { label: 'Ultrasonic HC-SR04', icon: '📡', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'trig', label: 'TRIG' }, { id: 'echo', label: 'ECHO' }, { id: 'gnd', label: 'GND' }] },
-      { label: 'PIR Sensor', icon: '👁', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'out', label: 'OUT' }, { id: 'gnd', label: 'GND' }] },
-      { label: 'LDR', icon: '☀', componentType: 'sensor', pins: [{ id: 'pin1', label: 'Pin 1' }, { id: 'pin2', label: 'Pin 2' }] },
-      { label: 'IR Sensor', icon: '👁', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'out', label: 'OUT' }, { id: 'gnd', label: 'GND' }], params: { variant: 'Active Low' } },
-      { label: 'Flame Sensor', icon: '🔥', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'do', label: 'D0' }, { id: 'ao', label: 'A0' }, { id: 'gnd', label: 'GND' }], params: { variant: 'Active Low' } },
-      { label: 'Soil Moisture', icon: '🌱', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'do', label: 'D0' }, { id: 'ao', label: 'A0' }, { id: 'gnd', label: 'GND' }], params: { variant: 'Active Low' } },
-      { label: 'Water Level', icon: '💧', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'out', label: 'OUT' }, { id: 'gnd', label: 'GND' }], params: { variant: 'Active High' } },
-      { label: 'MQ Gas Sensor', icon: '💨', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'do', label: 'D0' }, { id: 'ao', label: 'A0' }, { id: 'gnd', label: 'GND' }], params: { variant: 'Active Low' } },
-      { label: 'Vibration Sensor', icon: '📳', componentType: 'sensor', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'do', label: 'D0' }, { id: 'gnd', label: 'GND' }], params: { variant: 'Active Low' } },
-    ]
-  },
-  {
-    section: 'Actuators',
-    nodes: [
-      { label: 'DC Motor', icon: '⚙', componentType: 'actuator', pins: [{ id: 'pos', label: '+' }, { id: 'neg', label: '−' }] },
-      { label: 'Servo Motor', icon: '🔧', componentType: 'actuator', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'signal', label: 'Signal' }, { id: 'gnd', label: 'GND' }] },
-      { label: 'Buzzer', icon: '🔔', componentType: 'actuator', pins: [{ id: 'pos', label: '+' }, { id: 'neg', label: '−' }] },
-      { label: 'Relay', icon: '⚡', componentType: 'actuator', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'in', label: 'IN' }, { id: 'gnd', label: 'GND' }] },
-    ]
-  },
-  {
-    section: 'Motor Drivers',
-    nodes: [
-      {
-        label: 'L298N Motor Driver',
-        icon: '⚙',
-        componentType: 'actuator',
-        pins: [
-          { id: 'vcc', label: 'VCC (12V)' },
-          { id: 'gnd', label: 'GND' },
-          { id: '5v', label: '5V Out' },
-          { id: 'ena', label: 'ENA' },
-          { id: 'in1', label: 'IN1' },
-          { id: 'in2', label: 'IN2' },
-          { id: 'in3', label: 'IN3' },
-          { id: 'in4', label: 'IN4' },
-          { id: 'enb', label: 'ENB' },
-          { id: 'out1', label: 'OUT1' },
-          { id: 'out2', label: 'OUT2' },
-          { id: 'out3', label: 'OUT3' },
-          { id: 'out4', label: 'OUT4' }
-        ]
-      },
-      {
-        label: 'L293D Motor Driver',
-        icon: '⚙',
-        componentType: 'actuator',
-        pins: [
-          { id: 'vcc1', label: 'VCC1 (5V)' },
-          { id: 'gnd', label: 'GND' },
-          { id: 'vcc2', label: 'VCC2 (Motor)' },
-          { id: 'en1', label: 'EN1' },
-          { id: 'in1', label: 'IN1' },
-          { id: 'in2', label: 'IN2' },
-          { id: 'in3', label: 'IN3' },
-          { id: 'in4', label: 'IN4' },
-          { id: 'en2', label: 'EN2' },
-          { id: 'out1', label: 'OUT1' },
-          { id: 'out2', label: 'OUT2' },
-          { id: 'out3', label: 'OUT3' },
-          { id: 'out4', label: 'OUT4' }
-        ]
-      }
-    ]
-  },
-  {
-    section: 'Display',
-    nodes: [
-      { label: 'LCD 16x2', icon: '📺', componentType: 'display', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'gnd', label: 'GND' }, { id: 'sda', label: 'SDA' }, { id: 'scl', label: 'SCL' }] },
-      { label: 'OLED 128x64', icon: '🖥', componentType: 'display', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'gnd', label: 'GND' }, { id: 'sda', label: 'SDA' }, { id: 'scl', label: 'SCL' }] },
-    ]
-  },
-  {
-    section: 'Comms',
-    nodes: [
-      { label: 'HC-05 Bluetooth', icon: '📶', componentType: 'comms', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'gnd', label: 'GND' }, { id: 'tx', label: 'TX' }, { id: 'rx', label: 'RX' }] },
-      { label: 'NRF24L01', icon: '📡', componentType: 'comms', pins: [{ id: 'vcc', label: 'VCC' }, { id: 'gnd', label: 'GND' }, { id: 'ce', label: 'CE' }, { id: 'csn', label: 'CSN' }, { id: 'sck', label: 'SCK' }, { id: 'mosi', label: 'MOSI' }, { id: 'miso', label: 'MISO' }] },
-    ]
-  },
-]
+import { getAllComponents } from '@/lib/registry/components'
 
 const NODE_TYPES = [
   {
@@ -207,7 +121,39 @@ export default function Sidebar() {
   const [search, setSearch] = useState('')
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
 
-  const rawList = activeCanvas === 'schema' ? SCHEMA_COMPONENTS : NODE_TYPES
+  // Dynamically load components from registry
+  const schemaComponents = useMemo(() => {
+    const components = getAllComponents()
+    const categoriesMap: Record<string, { section: string, nodes: any[] }> = {
+      sensor: { section: 'Sensors', nodes: [] },
+      actuator: { section: 'Actuators', nodes: [] },
+      motor_driver: { section: 'Motor Drivers', nodes: [] },
+      display: { section: 'Display', nodes: [] },
+      communication: { section: 'Comms', nodes: [] }
+    }
+
+    components.forEach(comp => {
+      const cat = categoriesMap[comp.category] || { section: comp.category, nodes: [] }
+      cat.nodes.push({
+        id: comp.id,
+        label: comp.name,
+        icon: comp.icon || '🔌',
+        componentType: comp.category,
+        pins: comp.pins,
+        definition: comp
+      })
+    })
+
+    return [
+      categoriesMap.sensor,
+      categoriesMap.actuator,
+      categoriesMap.motor_driver,
+      categoriesMap.display,
+      categoriesMap.communication
+    ].filter(Boolean).filter(section => section.nodes.length > 0)
+  }, [])
+
+  const rawList = activeCanvas === 'schema' ? schemaComponents : NODE_TYPES
 
   // Filter list by search query
   const filteredList = useMemo(() => {
