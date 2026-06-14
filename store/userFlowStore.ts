@@ -5,6 +5,7 @@ import {
   Node, Edge, applyNodeChanges, applyEdgeChanges, 
   OnNodesChange, OnEdgesChange 
 } from '@xyflow/react'
+import { loadPackage, packageExists, validatePackage } from '@/lib/packages/packageLoader'
 
 interface ProjectConfig {
   name: string
@@ -25,6 +26,18 @@ interface SubFlowData {
   edges: Edge[]
 }
 
+// Component Package data: each component package encapsulates its own internal flow
+interface ComponentPackageData {
+  id: string
+  name: string
+  version: string
+  packagePins?: Record<string, { signal: string }>
+  outputs?: Record<string, { type: string }>
+  nodes: Node[]
+  edges: Edge[]
+  validationErrors?: Array<{ rule: string; message: string; nodeId?: string }>
+}
+
 interface FlowStore {
   updateFlowNodeData: (id: string, data: Record<string, unknown>) => void
   updateSchemaNodeData: (id: string, data: Record<string, unknown>) => void
@@ -40,6 +53,10 @@ interface FlowStore {
   // Sub-flow system
   subFlows: Record<string, SubFlowData>
   subFlowStack: string[]  // Stack of node IDs we've navigated into
+
+  // Component Packages
+  componentPackages: Record<string, ComponentPackageData>
+  activePackageId: string | null
 
   simState: SimState
   selectedNodeId: string | null
@@ -69,6 +86,10 @@ interface FlowStore {
   exitSubFlow: () => void
   exitToMainFlow: () => void
 
+  // Component Package navigation & management
+  openComponentPackage: (packageId: string) => void
+  exitComponentPackage: () => void
+
   // Get the currently active flow data (respects sub-flow stack)
   getActiveFlowNodes: () => Node[]
   getActiveFlowEdges: () => Edge[]
@@ -97,6 +118,7 @@ interface FlowStore {
     schemaNodes: Node[]
     schemaEdges: Edge[]
     subFlows?: Record<string, SubFlowData>
+    componentPackages?: Record<string, ComponentPackageData>
   }) => void
 
   // Layout states
@@ -131,6 +153,8 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   flowEdges: [],
   subFlows: {},
   subFlowStack: [],
+  componentPackages: {},
+  activePackageId: null,
   selectedNodeId: null,
   project: null,
   activeCanvas: 'schema',
@@ -257,10 +281,61 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
     selectedNodeId: null,
   }),
 
+  // ===== COMPONENT PACKAGE NAVIGATION =====
+  openComponentPackage: (packageId: string) => set((s) => {
+    let pkg = s.componentPackages[packageId]
+    if (!pkg) {
+      if (packageExists(packageId)) {
+        const loaded = loadPackage(packageId)
+        pkg = {
+          id: loaded.id,
+          name: loaded.name,
+          version: loaded.version,
+          packagePins: loaded.packagePins,
+          outputs: loaded.outputs,
+          nodes: loaded.nodes,
+          edges: loaded.edges,
+          validationErrors: loaded.validationErrors,
+        }
+      } else {
+        pkg = {
+          id: packageId,
+          name: packageId,
+          version: '2.0',
+          packagePins: {},
+          outputs: {},
+          nodes: [],
+          edges: [],
+          validationErrors: [],
+        }
+      }
+    }
+
+    return {
+      componentPackages: {
+        ...s.componentPackages,
+        [packageId]: pkg,
+      },
+      activePackageId: packageId,
+      activeCanvas: 'flow',
+      subFlowStack: [],
+      selectedNodeId: null,
+    }
+  }),
+
+  exitComponentPackage: () => set({
+    activePackageId: null,
+    activeCanvas: 'schema',
+    selectedNodeId: null,
+  }),
+
   // ===== ACTIVE FLOW RESOLUTION =====
-  // These getters resolve the currently visible flow based on sub-flow stack
+  // These getters resolve the currently visible flow based on sub-flow stack and package context
   getActiveFlowNodes: () => {
     const s = get()
+    if (s.activePackageId && s.componentPackages[s.activePackageId]) {
+      return s.componentPackages[s.activePackageId].nodes
+    }
     const currentId = getCurrentSubFlowId(s.subFlowStack)
     if (currentId && s.subFlows[currentId]) {
       return s.subFlows[currentId].nodes
@@ -270,6 +345,9 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
 
   getActiveFlowEdges: () => {
     const s = get()
+    if (s.activePackageId && s.componentPackages[s.activePackageId]) {
+      return s.componentPackages[s.activePackageId].edges
+    }
     const currentId = getCurrentSubFlowId(s.subFlowStack)
     if (currentId && s.subFlows[currentId]) {
       return s.subFlows[currentId].edges
@@ -277,8 +355,19 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
     return s.flowEdges
   },
 
-  // Set/modify the currently active flow (auto-routes to sub-flow if inside one)
+  // Set/modify the currently active flow (auto-routes to sub-flow or package if active)
   setActiveFlowNodes: (nodes) => set((s) => {
+    if (s.activePackageId && s.componentPackages[s.activePackageId]) {
+      const activePkg = s.componentPackages[s.activePackageId]
+      const updatedPkg = { ...activePkg, nodes }
+      updatedPkg.validationErrors = validatePackage(updatedPkg)
+      return {
+        componentPackages: {
+          ...s.componentPackages,
+          [s.activePackageId]: updatedPkg
+        }
+      }
+    }
     const currentId = getCurrentSubFlowId(s.subFlowStack)
     if (currentId) {
       return {
@@ -292,6 +381,17 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   }),
 
   setActiveFlowEdges: (edges) => set((s) => {
+    if (s.activePackageId && s.componentPackages[s.activePackageId]) {
+      const activePkg = s.componentPackages[s.activePackageId]
+      const updatedPkg = { ...activePkg, edges }
+      updatedPkg.validationErrors = validatePackage(updatedPkg)
+      return {
+        componentPackages: {
+          ...s.componentPackages,
+          [s.activePackageId]: updatedPkg
+        }
+      }
+    }
     const currentId = getCurrentSubFlowId(s.subFlowStack)
     if (currentId) {
       return {
@@ -305,6 +405,17 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   }),
 
   addActiveFlowNode: (node) => set((s) => {
+    if (s.activePackageId && s.componentPackages[s.activePackageId]) {
+      const activePkg = s.componentPackages[s.activePackageId]
+      const updatedPkg = { ...activePkg, nodes: [...activePkg.nodes, node] }
+      updatedPkg.validationErrors = validatePackage(updatedPkg)
+      return {
+        componentPackages: {
+          ...s.componentPackages,
+          [s.activePackageId]: updatedPkg
+        }
+      }
+    }
     const currentId = getCurrentSubFlowId(s.subFlowStack)
     if (currentId) {
       const sf = s.subFlows[currentId] || { nodes: [], edges: [] }
@@ -319,6 +430,21 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   }),
 
   deleteActiveFlowNode: (id) => set((s) => {
+    if (s.activePackageId && s.componentPackages[s.activePackageId]) {
+      const activePkg = s.componentPackages[s.activePackageId]
+      const updatedPkg = {
+        ...activePkg,
+        nodes: activePkg.nodes.filter(n => n.id !== id),
+        edges: activePkg.edges.filter(e => e.source !== id && e.target !== id),
+      }
+      updatedPkg.validationErrors = validatePackage(updatedPkg)
+      return {
+        componentPackages: {
+          ...s.componentPackages,
+          [s.activePackageId]: updatedPkg
+        }
+      }
+    }
     const currentId = getCurrentSubFlowId(s.subFlowStack)
     if (currentId) {
       const sf = s.subFlows[currentId] || { nodes: [], edges: [] }
@@ -339,6 +465,17 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   }),
 
   onActiveFlowNodesChange: (changes) => set((s) => {
+    if (s.activePackageId && s.componentPackages[s.activePackageId]) {
+      const activePkg = s.componentPackages[s.activePackageId]
+      const updatedPkg = { ...activePkg, nodes: applyNodeChanges(changes, activePkg.nodes) }
+      updatedPkg.validationErrors = validatePackage(updatedPkg)
+      return {
+        componentPackages: {
+          ...s.componentPackages,
+          [s.activePackageId]: updatedPkg
+        }
+      }
+    }
     const currentId = getCurrentSubFlowId(s.subFlowStack)
     if (currentId) {
       const sf = s.subFlows[currentId] || { nodes: [], edges: [] }
@@ -353,6 +490,17 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   }),
 
   onActiveFlowEdgesChange: (changes) => set((s) => {
+    if (s.activePackageId && s.componentPackages[s.activePackageId]) {
+      const activePkg = s.componentPackages[s.activePackageId]
+      const updatedPkg = { ...activePkg, edges: applyEdgeChanges(changes, activePkg.edges) }
+      updatedPkg.validationErrors = validatePackage(updatedPkg)
+      return {
+        componentPackages: {
+          ...s.componentPackages,
+          [s.activePackageId]: updatedPkg
+        }
+      }
+    }
     const currentId = getCurrentSubFlowId(s.subFlowStack)
     if (currentId) {
       const sf = s.subFlows[currentId] || { nodes: [], edges: [] }
@@ -367,6 +515,20 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   }),
 
   updateActiveFlowNodeData: (id, data) => set((s) => {
+    if (s.activePackageId && s.componentPackages[s.activePackageId]) {
+      const activePkg = s.componentPackages[s.activePackageId]
+      const updatedPkg = {
+        ...activePkg,
+        nodes: activePkg.nodes.map(n => n.id === id ? { ...n, data } : n),
+      }
+      updatedPkg.validationErrors = validatePackage(updatedPkg)
+      return {
+        componentPackages: {
+          ...s.componentPackages,
+          [s.activePackageId]: updatedPkg
+        }
+      }
+    }
     const currentId = getCurrentSubFlowId(s.subFlowStack)
     if (currentId) {
       const sf = s.subFlows[currentId] || { nodes: [], edges: [] }
@@ -414,6 +576,25 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
       return { subFlows: nextSubFlows }
     }
 
+    const nextPackages = { ...s.componentPackages }
+    let packageUpdated = false
+    for (const pkgId of Object.keys(nextPackages)) {
+      const pkg = nextPackages[pkgId]
+      const nextNodes = pkg.nodes.map(n => {
+        if (n.id === id) { packageUpdated = true; return { ...n, data } }
+        return n
+      })
+      if (packageUpdated) {
+        nextPackages[pkgId] = { ...pkg, nodes: nextNodes }
+        nextPackages[pkgId].validationErrors = validatePackage(nextPackages[pkgId])
+        break
+      }
+    }
+
+    if (packageUpdated) {
+      return { componentPackages: nextPackages }
+    }
+
     return s
   }),
 
@@ -434,6 +615,8 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
     schemaNodes: state.schemaNodes,
     schemaEdges: state.schemaEdges,
     subFlows: state.subFlows || {},
+    componentPackages: state.componentPackages || {},
     subFlowStack: [],
+    activePackageId: null,
   }),
 }))
