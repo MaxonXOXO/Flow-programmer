@@ -1,0 +1,201 @@
+{
+  "id": "ultrasonic_hcsr04",
+  "name": "Ultrasonic HC-SR04",
+  "version": "2.0",
+  "packagePins": {
+    "TRIG": {
+      "signal": "digital"
+    },
+    "ECHO": {
+      "signal": "digital"
+    }
+  },
+  "outputs": {
+    "distance": {
+      "type": "float"
+    }
+  },
+  "nodes": [
+    {
+      "id": "start",
+      "type": "baseNode",
+      "position": { "x": 100, "y": 200 },
+      "data": {
+        "label": "Start Measurement",
+        "nodeType": "start",
+        "icon": "▶",
+        "params": {}
+      }
+    },
+    {
+      "id": "trig_low_1",
+      "type": "baseNode",
+      "position": { "x": 340, "y": 200 },
+      "data": {
+        "label": "TRIG Write LOW",
+        "nodeType": "gpio",
+        "icon": "⚡",
+        "params": {
+          "pin": "$TRIG",
+          "value": "LOW"
+        }
+      }
+    },
+    {
+      "id": "delay_2us",
+      "type": "baseNode",
+      "position": { "x": 580, "y": 200 },
+      "data": {
+        "label": "Delay 2 us",
+        "nodeType": "delay",
+        "icon": "⏱",
+        "params": {
+          "duration": "2",
+          "unit": "us"
+        }
+      }
+    },
+    {
+      "id": "trig_high",
+      "type": "baseNode",
+      "position": { "x": 820, "y": 200 },
+      "data": {
+        "label": "TRIG Write HIGH",
+        "nodeType": "gpio",
+        "icon": "⚡",
+        "params": {
+          "pin": "$TRIG",
+          "value": "HIGH"
+        }
+      }
+    },
+    {
+      "id": "delay_10us",
+      "type": "baseNode",
+      "position": { "x": 1060, "y": 200 },
+      "data": {
+        "label": "Delay 10 us",
+        "nodeType": "delay",
+        "icon": "⏱",
+        "params": {
+          "duration": "10",
+          "unit": "us"
+        }
+      }
+    },
+    {
+      "id": "trig_low_2",
+      "type": "baseNode",
+      "position": { "x": 1300, "y": 200 },
+      "data": {
+        "label": "TRIG Write LOW",
+        "nodeType": "gpio",
+        "icon": "⚡",
+        "params": {
+          "pin": "$TRIG",
+          "value": "LOW"
+        }
+      }
+    },
+    {
+      "id": "pulse_in_echo",
+      "type": "baseNode",
+      "position": { "x": 1540, "y": 200 },
+      "data": {
+        "label": "Read ECHO Pulse",
+        "nodeType": "pulse_in",
+        "icon": "⏱",
+        "params": {
+          "pin": "$ECHO",
+          "value": "HIGH",
+          "var": "duration"
+        }
+      }
+    },
+    {
+      "id": "calc_distance",
+      "type": "baseNode",
+      "position": { "x": 1780, "y": 200 },
+      "data": {
+        "label": "Calculate Distance",
+        "nodeType": "assignment",
+        "icon": "x=",
+        "params": {
+          "target": "distance",
+          "expression": "duration * 0.034 / 2"
+        }
+      }
+    },
+    {
+      "id": "return_distance",
+      "type": "baseNode",
+      "position": { "x": 2020, "y": 200 },
+      "data": {
+        "label": "Output Distance",
+        "nodeType": "return",
+        "icon": "⬛",
+        "params": {
+          "value": "distance"
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-start-trig_low_1",
+      "source": "start",
+      "target": "trig_low_1",
+      "sourceHandle": "flow",
+      "targetHandle": "flow"
+    },
+    {
+      "id": "e-trig_low_1-delay_2us",
+      "source": "trig_low_1",
+      "target": "delay_2us",
+      "sourceHandle": "flow",
+      "targetHandle": "flow"
+    },
+    {
+      "id": "e-delay_2us-trig_high",
+      "source": "delay_2us",
+      "target": "trig_high",
+      "sourceHandle": "flow",
+      "targetHandle": "flow"
+    },
+    {
+      "id": "e-trig_high-delay_10us",
+      "source": "trig_high",
+      "target": "delay_10us",
+      "sourceHandle": "flow",
+      "targetHandle": "flow"
+    },
+    {
+      "id": "e-delay_10us-trig_low_2",
+      "source": "delay_10us",
+      "target": "trig_low_2",
+      "sourceHandle": "flow",
+      "targetHandle": "flow"
+    },
+    {
+      "id": "e-trig_low_2-pulse_in_echo",
+      "source": "trig_low_2",
+      "target": "pulse_in_echo",
+      "sourceHandle": "flow",
+      "targetHandle": "flow"
+    },
+    {
+      "id": "e-pulse_in_echo-calc_distance",
+      "source": "pulse_in_echo",
+      "target": "calc_distance",
+      "sourceHandle": "flow",
+      "targetHandle": "flow"
+    },
+    {
+      "id": "e-calc_distance-return_distance",
+      "source": "calc_distance",
+      "target": "return_distance",
+      "sourceHandle": "flow",
+      "targetHandle": "flow"
+    }
+  ]
+}
