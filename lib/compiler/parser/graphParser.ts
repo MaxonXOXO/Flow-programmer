@@ -145,6 +145,11 @@ export class GraphToASTCompiler {
 
       if (type === 'end') {
         this.visited.add(currentId);
+        break;
+      }
+
+      if (type === 'return') {
+        this.visited.add(currentId);
         const retValue = data?.params?.value;
         body.push({
           kind: 'ReturnStatement',
@@ -166,6 +171,15 @@ export class GraphToASTCompiler {
           varType: rawValue.includes('.') ? 'float' : 'int',
           value: parseExpressionString(rawValue, currentId)
         } as VariableDeclarationNode);
+      } else if (type === 'assignment') {
+        const target = data?.params?.target || 'x';
+        const expression = data?.params?.expression || '0';
+        body.push({
+          kind: 'Assignment',
+          nodeId: currentId,
+          name: target,
+          value: parseExpressionString(expression, currentId)
+        } as AssignmentNode);
       } else if (type === 'print') {
         const rawMsg = data?.params?.message || '""';
         const parts = this.parsePrintArguments(rawMsg);
