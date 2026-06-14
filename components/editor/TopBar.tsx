@@ -19,6 +19,8 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
     schemaNodes,
     schemaEdges,
     subFlows,
+    componentPackages,
+    activePackageId,
     showSidebar,
     showGrid,
     showMinimap,
@@ -35,13 +37,14 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
   const handleSaveProject = () => {
     if (!project) return
     const projectState = {
-      version: "1.4",
+      version: "1.5",
       project,
       schemaNodes,
       schemaEdges,
       flowNodes,
       flowEdges,
-      subFlows
+      subFlows,
+      componentPackages
     }
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projectState, null, 2))
     const downloadAnchorNode = document.createElement('a')
@@ -68,6 +71,7 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
             flowNodes: parsed.flowNodes,
             flowEdges: parsed.flowEdges || [],
             subFlows: parsed.subFlows || {},
+            componentPackages: parsed.componentPackages || {},
           })
           localStorage.setItem('fp_project', JSON.stringify(parsed.project))
         } else {
@@ -422,6 +426,47 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
               SIM: {simState.running ? 'RUNNING' : 'STOPPED'}
             </span>
           </div>
+        </div>
+      )}
+
+      {/* Package Validation Status */}
+      {activeCanvas === 'flow' && activePackageId && componentPackages[activePackageId] && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingLeft: 4 }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            background: (componentPackages[activePackageId].validationErrors || []).length > 0 ? '#3b1c1c' : '#1c2e24',
+            border: `1px solid ${(componentPackages[activePackageId].validationErrors || []).length > 0 ? '#572929' : '#2d4c38'}`,
+            borderRadius: 4,
+            padding: '3px 8px',
+            height: 22,
+          }}>
+            <div style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: (componentPackages[activePackageId].validationErrors || []).length > 0 ? '#ef5f5f' : '#45b872',
+              boxShadow: (componentPackages[activePackageId].validationErrors || []).length > 0 ? '0 0 8px #ef5f5f' : '0 0 8px #45b872',
+            }} />
+            <span style={{ 
+              fontSize: 10, 
+              fontWeight: 700, 
+              color: (componentPackages[activePackageId].validationErrors || []).length > 0 ? '#ef5f5f' : '#45b872',
+              fontFamily: 'monospace' 
+            }}>
+              PACKAGE VALIDATION: {(componentPackages[activePackageId].validationErrors || []).length > 0 
+                ? `${(componentPackages[activePackageId].validationErrors || []).length} WARNINGS` 
+                : 'PASS'}
+            </span>
+          </div>
+          
+          {/* Display details tooltip/popover when hovered/clicked if there are warnings */}
+          {(componentPackages[activePackageId].validationErrors || []).length > 0 && (
+            <span style={{ fontSize: 9.5, color: '#ef5f5f', fontStyle: 'italic', marginLeft: 4 }}>
+              ({(componentPackages[activePackageId].validationErrors || []).map(e => e.message).join(', ')})
+            </span>
+          )}
         </div>
       )}
 

@@ -97,12 +97,17 @@ function FlowCanvasInner() {
     onActiveFlowEdgesChange,
     updateActiveFlowNodeData,
     updateAnyFlowNodeData,
+    // Component Packages
+    activePackageId,
+    componentPackages,
+    exitComponentPackage
   } = useFlowStore()
 
   // Resolve current visible flow
   const flowNodes = getActiveFlowNodes()
   const flowEdges = getActiveFlowEdges()
   const isInSubFlow = subFlowStack.length > 0
+  const activePackage = activePackageId ? componentPackages[activePackageId] : null
 
   const { screenToFlowPosition } = useReactFlow()
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
@@ -423,6 +428,80 @@ function FlowCanvasInner() {
       onDrop={onDrop}
       onDragOver={onDragOver}
     >
+      {/* Component Package Header Bar */}
+      {activePackage && (
+        <div style={{
+          position: 'absolute',
+          top: 10,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(17, 20, 28, 0.95)',
+          backdropFilter: 'blur(16px)',
+          border: '1px solid rgba(47, 209, 139, 0.4)', // Distinct green border for package context
+          borderRadius: 8,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 20px rgba(47,209,139,0.12)',
+          padding: '8px 16px',
+          zIndex: 100,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+          fontFamily: 'var(--font-sans)',
+        }}>
+          {/* Label indicating component package editor */}
+          <span style={{
+            background: 'rgba(47, 209, 139, 0.15)',
+            color: '#2fd18b',
+            fontSize: 9,
+            fontWeight: 800,
+            padding: '2px 6px',
+            borderRadius: 4,
+            letterSpacing: '0.5px',
+            textTransform: 'uppercase',
+            fontFamily: 'var(--font-mono)'
+          }}>
+            Package Editor
+          </span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ color: '#f0f4fc', fontSize: 11, fontWeight: 700 }}>
+              {activePackage.name}
+            </span>
+            <span style={{ color: '#546484', fontSize: 10, fontFamily: 'var(--font-mono)' }}>
+              ({activePackage.id})
+            </span>
+          </div>
+
+          <div style={{ width: 1, height: 12, background: 'var(--color-border)' }} />
+
+          <div style={{ display: 'flex', gap: 10, fontSize: 10, color: 'var(--color-text-dim)' }}>
+            <span>Nodes: <strong style={{ color: 'var(--color-text-normal)' }}>{activePackage.nodes.length}</strong></span>
+            <span>Edges: <strong style={{ color: 'var(--color-text-normal)' }}>{activePackage.edges.length}</strong></span>
+          </div>
+
+          <div style={{ width: 1, height: 12, background: 'var(--color-border)' }} />
+
+          <button
+            onClick={exitComponentPackage}
+            style={{
+              background: 'rgba(255,95,158,0.08)',
+              border: '1px solid rgba(255,95,158,0.2)',
+              color: '#ff5f9e',
+              fontSize: 9.5,
+              fontWeight: 700,
+              cursor: 'pointer',
+              padding: '2px 8px',
+              borderRadius: 4,
+              letterSpacing: '0.3px',
+              transition: 'background 0.1s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,95,158,0.15)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,95,158,0.08)' }}
+          >
+            ← EXIT PACKAGE
+          </button>
+        </div>
+      )}
+
       {/* Sub-flow Breadcrumb Navigation Bar */}
       {isInSubFlow && (
         <div style={{

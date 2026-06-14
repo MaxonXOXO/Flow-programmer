@@ -4,7 +4,7 @@ import { useFlowStore } from '@/store/userFlowStore'
 import { useState, useCallback, useMemo } from 'react'
 import { 
   Search, ChevronDown, ChevronRight, GripVertical, 
-  Lightbulb, Square, Thermometer, Radio, Eye, Sun, 
+  Lightbulb, Square, StopCircle, Thermometer, Radio, Eye, Sun, 
   Settings, Wrench, Volume2, Zap, Tv, Monitor, Wifi, 
   PlayCircle, HelpCircle, RotateCw, Timer, Binary, 
   Braces, Printer, Type, Activity, Network,
@@ -19,6 +19,7 @@ const NODE_TYPES = [
     nodes: [
       { type: 'start',     label: 'Start',        icon: '▶',   nodeType: 'start',     params: {} },
       { type: 'end',       label: 'End',           icon: '⬛',  nodeType: 'end',       params: {} },
+      { type: 'return',    label: 'Return',       icon: '↩',   nodeType: 'return',    params: { value: '' } },
       { type: 'condition', label: 'If Condition',  icon: '◇',   nodeType: 'condition', params: { condition: 'x > 0' } },
       { type: 'loop',      label: 'For Loop',      icon: '↻',   nodeType: 'loop',      params: { from: '0', to: '10', step: '1', var: 'i' } },
       { type: 'delay',     label: 'Delay',         icon: '⏱',   nodeType: 'delay',     params: { ms: '500' } },
@@ -28,6 +29,7 @@ const NODE_TYPES = [
     section: 'Data',
     nodes: [
       { type: 'variable',  label: 'Variable',      icon: 'x=',  nodeType: 'variable',  params: { name: 'x', value: '0' } },
+      { type: 'assignment', label: 'Assignment',   icon: 'x=',  nodeType: 'assignment', params: { target: 'x', expression: '0' } },
       { type: 'function',  label: 'Function Definition', icon: 'ƒ()', nodeType: 'function',  params: { name: 'myFn', returnType: 'void', parameters: [] } },
       { type: 'function_call', label: 'Function Call', icon: 'call()', nodeType: 'function_call', params: { functionName: '', arguments: [], assignTo: '' } },
     ]
@@ -100,6 +102,7 @@ function getLucideIcon(emoji: string, color: string = 'currentColor') {
     case '🔌': return <Cpu {...iconProps} style={{ color: '#a5b3cd' }} />
     
     // logic flows
+    case '↩': return <StopCircle {...iconProps} style={{ color: '#ff5f9e' }} />
     case '▶': return <PlayCircle {...iconProps} style={{ color: '#2fd18b' }} />
     case '◇': return <HelpCircle {...iconProps} style={{ color: '#ffb13d' }} />
     case '↻': return <RotateCw {...iconProps} style={{ color: '#ff5f9e' }} />

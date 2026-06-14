@@ -20,9 +20,11 @@ interface BaseNodeData {
 const categoryStyles: Record<string, { headerBg: string, iconColor: string, textColor: string }> = {
   start:     { headerBg: 'rgba(47, 209, 139, 0.15)', iconColor: '#2fd18b', textColor: '#2fd18b' },
   end:       { headerBg: 'rgba(255, 95, 158, 0.15)', iconColor: '#ff5f9e', textColor: '#ff5f9e' },
+  return:    { headerBg: 'rgba(255, 95, 158, 0.15)', iconColor: '#ff5f9e', textColor: '#ff5f9e' },
   condition: { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
   loop:      { headerBg: 'rgba(255, 95, 158, 0.15)', iconColor: '#ff5f9e', textColor: '#ff5f9e' },
   variable:  { headerBg: 'rgba(95, 163, 255, 0.15)', iconColor: '#5fa3ff', textColor: '#5fa3ff' },
+  assignment:{ headerBg: 'rgba(95, 163, 255, 0.15)', iconColor: '#5fa3ff', textColor: '#5fa3ff' },
   function:  { headerBg: 'rgba(95, 163, 255, 0.15)', iconColor: '#5fa3ff', textColor: '#5fa3ff' },
   function_call: { headerBg: 'rgba(95, 163, 255, 0.15)', iconColor: '#5fa3ff', textColor: '#5fa3ff' },
   print:     { headerBg: 'rgba(47, 209, 139, 0.15)', iconColor: '#2fd18b', textColor: '#2fd18b' },
@@ -58,10 +60,12 @@ function getNodeHeaderIcon(nodeType: string, color: string, className: string = 
   switch (nodeType) {
     case 'start': return <PlayCircle {...iconProps} />
     case 'end': return <StopCircle {...iconProps} />
+    case 'return': return <StopCircle {...iconProps} />
     case 'condition': return <GitFork {...iconProps} />
     case 'loop': return <RotateCw {...iconProps} />
     case 'delay': return <Timer {...iconProps} />
     case 'variable': return <Binary {...iconProps} />
+    case 'assignment': return <Binary {...iconProps} />
     case 'function': return <Braces {...iconProps} />
     case 'function_call': return <PlayCircle {...iconProps} />
     case 'print': return <Printer {...iconProps} />
@@ -497,7 +501,7 @@ export default function BaseNode({ id, data, selected }: NodeProps) {
       </div>
 
       {/* Source output handle (Right Side) - centered vertically on Header (19px) */}
-      {type !== 'end' && type !== 'condition' && type !== 'loop' && (
+      {type !== 'end' && type !== 'return' && type !== 'condition' && type !== 'loop' && (
         <Handle
           type="source"
           position={Position.Right}

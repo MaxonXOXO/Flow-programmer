@@ -34,7 +34,8 @@ function SchemaCanvasInner() {
     setSelectedNode,
     addSchemaNode,
     deleteSchemaNode,
-    showGrid
+    showGrid,
+    openComponentPackage
   } = useFlowStore()
 
   const { screenToFlowPosition } = useReactFlow()
@@ -49,6 +50,16 @@ function SchemaCanvasInner() {
     (connection: Connection) => setSchemaEdges(addEdge(connection, schemaEdges)),
     [schemaEdges, setSchemaEdges]
   )
+
+  // Handle double clicking schematic component to open package editor
+  const onNodeDoubleClick = useCallback((_: React.MouseEvent, node: any) => {
+    if (node.type === 'componentNode') {
+      const packageId = node.data?.definition?.packageId
+      if (packageId) {
+        openComponentPackage(packageId)
+      }
+    }
+  }, [openComponentPackage])
 
   // Handle right-click context menu on components
   const onNodeContextMenu = useCallback(
@@ -129,6 +140,7 @@ function SchemaCanvasInner() {
         onEdgesChange={onSchemaEdgesChange}
         onConnect={onConnect}
         onNodeClick={(_, node) => setSelectedNode(node.id)}
+        onNodeDoubleClick={onNodeDoubleClick}
         onPaneClick={() => { setSelectedNode(null); setMenu(null) }}
         onNodeContextMenu={onNodeContextMenu}
         connectionMode={ConnectionMode.Loose}
