@@ -31,6 +31,12 @@ export interface ComponentOutput {
   type: 'int' | 'float' | 'bool' | 'string';
 }
 
+export interface ComponentDependencies {
+  includes?: string[];
+  globals?: string[];
+  setup?: string[];
+}
+
 export interface ComponentDefinition {
   id: string;
 
@@ -49,4 +55,9 @@ export interface ComponentDefinition {
   tags?: string[];
 
   editable?: boolean;
+
+  dependencies?: ComponentDependencies;
+
+  packageId?: string;
 }
+

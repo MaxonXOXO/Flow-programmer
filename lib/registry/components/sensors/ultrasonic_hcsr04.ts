@@ -15,5 +15,12 @@ export const UltrasonicHCSR04Component: ComponentDefinition = {
   outputs: [
     { id: 'distance', label: 'Distance', type: 'float' }
   ],
-  tags: ['distance', 'ultrasonic']
+  tags: ['distance', 'ultrasonic'],
+  dependencies: {
+    includes: [],
+    globals: [],
+    setup: []
+  },
+  packageId: 'ultrasonic_hcsr04'
 };
+
