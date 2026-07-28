@@ -1,17 +1,31 @@
-import { ComponentDefinition } from '../types';
+﻿import { PackageDefinition } from '../types';
 
-export const LDRLightComponent: ComponentDefinition = {
-  id: 'ldr_light',
-  name: 'LDR Light Sensor',
-  category: 'sensor',
-  description: 'Light dependent resistor sensor',
-  icon: '☀',
+export const LDRLightPackage: PackageDefinition = {
+  metadata: {
+    id: 'ldr_light',
+    name: 'LDR Light Sensor',
+    description: 'Light-dependent resistor â€” measures ambient light level',
+    category: 'sensor',
+    icon: 'â˜€',
+    tags: ['light', 'ambient', 'ldr', 'photoresistor'],
+  },
+
   pins: [
-    { id: 'pin1', label: 'Pin 1', signal: 'analog_output' },
-    { id: 'pin2', label: 'Pin 2', signal: 'ground' }
+    { id: 'pin1', label: 'Pin 1', signal: 'analog_output', required: true },
+    { id: 'pin2', label: 'Pin 2', signal: 'ground',        required: true },
   ],
+
   outputs: [
-    { id: 'lightLevel', label: 'Light Level', type: 'int' }
+    { id: 'lightLevel', label: 'Light Level', type: 'int', description: 'Raw analog light level (0â€“1023)' },
   ],
-  tags: ['light', 'ambient']
+
+  properties: [],
+
+  dependencies: {
+    includes: [],
+    globals:  [],
+    setup:    [],
+  },
+
+  implementation: { type: 'builtin' },
 };

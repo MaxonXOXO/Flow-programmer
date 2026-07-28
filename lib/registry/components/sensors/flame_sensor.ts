@@ -1,21 +1,34 @@
-import { ComponentDefinition } from '../types';
+﻿import { PackageDefinition } from '../types';
 
-export const FlameSensorComponent: ComponentDefinition = {
-  id: 'flame_sensor',
-  name: 'Flame Sensor',
-  category: 'sensor',
-  description: 'Flame detection sensor',
-  icon: '🔥',
+export const FlameSensorPackage: PackageDefinition = {
+  metadata: {
+    id: 'flame_sensor',
+    name: 'Flame Sensor',
+    description: 'Flame detection sensor â€” outputs both digital and analog signals',
+    category: 'sensor',
+    icon: 'ðŸ”¥',
+    tags: ['flame', 'fire', 'safety'],
+  },
+
   pins: [
-    { id: 'vcc', label: 'VCC', signal: 'power' },
-    { id: 'do', label: 'D0', signal: 'digital_output' },
-    { id: 'ao', label: 'A0', signal: 'analog_output' },
-    { id: 'gnd', label: 'GND', signal: 'ground' }
+    { id: 'vcc', label: 'VCC', signal: 'power',          required: true },
+    { id: 'do',  label: 'D0',  signal: 'digital_output', required: false },
+    { id: 'ao',  label: 'A0',  signal: 'analog_output',  required: false },
+    { id: 'gnd', label: 'GND', signal: 'ground',         required: true },
   ],
+
   outputs: [
-    { id: 'flameDigital', label: 'Flame Detected (Digital)', type: 'bool' },
-    { id: 'flameAnalog', label: 'Flame Level (Analog)', type: 'int' }
+    { id: 'flameDigital', label: 'Flame Detected (Digital)', type: 'bool', description: 'True when flame is detected (digital threshold)' },
+    { id: 'flameAnalog',  label: 'Flame Level (Analog)',     type: 'int',  description: 'Raw analog flame intensity (0â€“1023)' },
   ],
-  tags: ['flame', 'fire', 'safety'],
-  editable: true
+
+  properties: [],
+
+  dependencies: {
+    includes: [],
+    globals:  [],
+    setup:    [],
+  },
+
+  implementation: { type: 'builtin' },
 };

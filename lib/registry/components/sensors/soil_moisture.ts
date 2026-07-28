@@ -1,20 +1,33 @@
-import { ComponentDefinition } from '../types';
+﻿import { PackageDefinition } from '../types';
 
-export const SoilMoistureComponent: ComponentDefinition = {
-  id: 'soil_moisture',
-  name: 'Soil Moisture Sensor',
-  category: 'sensor',
-  description: 'Soil moisture detection sensor',
-  icon: '🌱',
+export const SoilMoisturePackage: PackageDefinition = {
+  metadata: {
+    id: 'soil_moisture',
+    name: 'Soil Moisture Sensor',
+    description: 'Capacitive or resistive soil moisture detection sensor',
+    category: 'sensor',
+    icon: 'ðŸŒ±',
+    tags: ['moisture', 'soil', 'agriculture', 'plant'],
+  },
+
   pins: [
-    { id: 'vcc', label: 'VCC', signal: 'power' },
-    { id: 'do', label: 'D0', signal: 'digital_output' },
-    { id: 'ao', label: 'A0', signal: 'analog_output' },
-    { id: 'gnd', label: 'GND', signal: 'ground' }
+    { id: 'vcc', label: 'VCC', signal: 'power',          required: true },
+    { id: 'do',  label: 'D0',  signal: 'digital_output', required: false },
+    { id: 'ao',  label: 'A0',  signal: 'analog_output',  required: false },
+    { id: 'gnd', label: 'GND', signal: 'ground',         required: true },
   ],
+
   outputs: [
-    { id: 'moisture', label: 'Moisture Level', type: 'int' }
+    { id: 'moisture', label: 'Moisture Level', type: 'int', description: 'Raw analog moisture value (0â€“1023; lower = wetter on resistive sensors)' },
   ],
-  tags: ['moisture', 'soil', 'agriculture'],
-  editable: true
+
+  properties: [],
+
+  dependencies: {
+    includes: [],
+    globals:  [],
+    setup:    [],
+  },
+
+  implementation: { type: 'builtin' },
 };

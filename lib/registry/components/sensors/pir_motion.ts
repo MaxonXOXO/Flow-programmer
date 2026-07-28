@@ -1,18 +1,32 @@
-import { ComponentDefinition } from '../types';
+﻿import { PackageDefinition } from '../types';
 
-export const PIRMotionComponent: ComponentDefinition = {
-  id: 'pir_motion',
-  name: 'PIR Motion Sensor',
-  category: 'sensor',
-  description: 'Passive infrared motion sensor',
-  icon: '👁',
+export const PIRMotionPackage: PackageDefinition = {
+  metadata: {
+    id: 'pir_motion',
+    name: 'PIR Motion Sensor',
+    description: 'Passive infrared motion sensor â€” detects nearby movement',
+    category: 'sensor',
+    icon: 'ðŸ‘',
+    tags: ['motion', 'pir', 'security'],
+  },
+
   pins: [
-    { id: 'vcc', label: 'VCC', signal: 'power' },
-    { id: 'out', label: 'OUT', signal: 'digital_output' },
-    { id: 'gnd', label: 'GND', signal: 'ground' }
+    { id: 'vcc', label: 'VCC', signal: 'power',          required: true },
+    { id: 'out', label: 'OUT', signal: 'digital_output', required: true },
+    { id: 'gnd', label: 'GND', signal: 'ground',         required: true },
   ],
+
   outputs: [
-    { id: 'motion', label: 'Motion Detected', type: 'bool' }
+    { id: 'motion', label: 'Motion Detected', type: 'bool', description: 'True when motion is detected' },
   ],
-  tags: ['motion', 'security']
+
+  properties: [],
+
+  dependencies: {
+    includes: [],
+    globals:  [],
+    setup:    [],
+  },
+
+  implementation: { type: 'builtin' },
 };

@@ -1,14 +1,29 @@
-import { ComponentDefinition } from '../types';
+﻿import { PackageDefinition } from '../types';
 
-export const BuzzerComponent: ComponentDefinition = {
-  id: 'buzzer',
-  name: 'Buzzer',
-  category: 'actuator',
-  description: 'Piezoelectric buzzer',
-  icon: '🔔',
+export const BuzzerPackage: PackageDefinition = {
+  metadata: {
+    id: 'buzzer',
+    name: 'Buzzer',
+    description: 'Piezoelectric buzzer â€” emits tone on digital HIGH',
+    category: 'actuator',
+    icon: 'ðŸ””',
+    tags: ['buzzer', 'sound', 'beeper', 'tone', 'alarm'],
+  },
+
   pins: [
-    { id: 'pos', label: '+', signal: 'digital_input' },
-    { id: 'neg', label: '−', signal: 'ground' }
+    { id: 'pos', label: '+',  signal: 'digital_input', required: true },
+    { id: 'neg', label: 'âˆ’',  signal: 'ground',        required: true },
   ],
-  tags: ['buzzer', 'sound', 'beeper']
+
+  outputs: [],
+
+  properties: [],
+
+  dependencies: {
+    includes: [],
+    globals:  [],
+    setup:    [],
+  },
+
+  implementation: { type: 'builtin' },
 };

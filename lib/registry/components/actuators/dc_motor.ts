@@ -1,14 +1,29 @@
-import { ComponentDefinition } from '../types';
+﻿import { PackageDefinition } from '../types';
 
-export const DCMotorComponent: ComponentDefinition = {
-  id: 'dc_motor',
-  name: 'DC Motor',
-  category: 'actuator',
-  description: 'Standard DC motor',
-  icon: '⚙',
+export const DCMotorPackage: PackageDefinition = {
+  metadata: {
+    id: 'dc_motor',
+    name: 'DC Motor',
+    description: 'Standard brushed DC motor â€” requires a motor driver to operate',
+    category: 'actuator',
+    icon: 'âš™',
+    tags: ['motor', 'dc', 'actuator', 'brushed'],
+  },
+
   pins: [
-    { id: 'pos', label: '+', signal: 'power' },
-    { id: 'neg', label: '−', signal: 'ground' }
+    { id: 'pos', label: '+', signal: 'power',  required: true },
+    { id: 'neg', label: 'âˆ’', signal: 'ground', required: true },
   ],
-  tags: ['motor', 'dc', 'actuator']
+
+  outputs: [],
+
+  properties: [],
+
+  dependencies: {
+    includes: [],
+    globals:  [],
+    setup:    [],
+  },
+
+  implementation: { type: 'builtin' },
 };

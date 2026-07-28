@@ -1,26 +1,52 @@
-import { ComponentDefinition } from '../types';
+﻿import { PackageDefinition } from '../types';
 
-export const UltrasonicHCSR04Component: ComponentDefinition = {
-  id: 'ultrasonic_hcsr04',
-  name: 'Ultrasonic HC-SR04',
-  category: 'sensor',
-  description: 'Ultrasonic distance sensor',
-  icon: '📡',
+export const UltrasonicHCSR04Package: PackageDefinition = {
+  metadata: {
+    id: 'ultrasonic_hcsr04',
+    name: 'Ultrasonic HC-SR04',
+    description: 'Ultrasonic distance sensor â€” measures distance via echo timing',
+    category: 'sensor',
+    icon: 'ðŸ“¡',
+    tags: ['distance', 'ultrasonic', 'hcsr04'],
+  },
+
   pins: [
-    { id: 'vcc', label: 'VCC', signal: 'power' },
-    { id: 'trig', label: 'TRIG', signal: 'digital_input' },
-    { id: 'echo', label: 'ECHO', signal: 'digital_output' },
-    { id: 'gnd', label: 'GND', signal: 'ground' }
+    { id: 'vcc',  label: 'VCC',  signal: 'power',          required: true },
+    { id: 'trig', label: 'TRIG', signal: 'digital_input',  required: true },
+    { id: 'echo', label: 'ECHO', signal: 'digital_output', required: true },
+    { id: 'gnd',  label: 'GND',  signal: 'ground',         required: true },
   ],
+
   outputs: [
-    { id: 'distance', label: 'Distance', type: 'float' }
+    { id: 'distance', label: 'Distance', type: 'float', description: 'Measured distance in centimetres' },
   ],
-  tags: ['distance', 'ultrasonic'],
+
+  properties: [
+    {
+      id: 'trigPin',
+      label: 'Trigger Pin',
+      type: 'pin',
+      defaultValue: '',
+      description: 'Arduino pin connected to the TRIG pin of the sensor',
+    },
+    {
+      id: 'echoPin',
+      label: 'Echo Pin',
+      type: 'pin',
+      defaultValue: '',
+      description: 'Arduino pin connected to the ECHO pin of the sensor',
+    },
+  ],
+
   dependencies: {
     includes: [],
-    globals: [],
-    setup: []
+    globals:  [],
+    // pinMode calls are emitted by the compiler using the $trigPin / $echoPin property values
+    setup: [
+      'pinMode($trigPin, OUTPUT)',
+      'pinMode($echoPin, INPUT)',
+    ],
   },
-  packageId: 'ultrasonic_hcsr04'
-};
 
+  implementation: { type: 'builtin' },
+};
