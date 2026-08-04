@@ -131,6 +131,18 @@ interface FlowStore {
   toggleGrid: () => void
   toggleMinimap: () => void
   toggleProperties: () => void
+
+  // Edit actions (Undo, Redo, Copy, Cut, Paste, Delete)
+  historyPast: Array<{ nodes: Node[]; edges: Edge[]; canvas: 'schema' | 'flow' }>
+  historyFuture: Array<{ nodes: Node[]; edges: Edge[]; canvas: 'schema' | 'flow' }>
+  clipboardNode: Node | null
+  pushHistory: () => void
+  undo: () => void
+  redo: () => void
+  copySelectedNode: () => void
+  cutSelectedNode: () => void
+  pasteNode: () => void
+  deleteSelectedNode: () => void
 }
 
 // Helper: get the current sub-flow key from top of stack
@@ -183,25 +195,36 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
 
   setSchemaNodes: (schemaNodes) => set({ schemaNodes }),
   setSchemaEdges: (schemaEdges) => set({ schemaEdges }),
-  addSchemaNode: (node) => set((s) => ({ schemaNodes: [...s.schemaNodes, node] })),
-  deleteSchemaNode: (id) => set((s) => ({
-    schemaNodes: s.schemaNodes.filter(n => n.id !== id),
-    schemaEdges: s.schemaEdges.filter(e => e.source !== id && e.target !== id),
-  })),
+  addSchemaNode: (node) => {
+    get().pushHistory();
+    set((s) => ({ schemaNodes: [...s.schemaNodes, node] }));
+  },
+  deleteSchemaNode: (id) => {
+    get().pushHistory();
+    set((s) => ({
+      schemaNodes: s.schemaNodes.filter(n => n.id !== id),
+      schemaEdges: s.schemaEdges.filter(e => e.source !== id && e.target !== id),
+    }));
+  },
 
   setFlowNodes: (flowNodes) => set({ flowNodes }),
   setFlowEdges: (flowEdges) => set({ flowEdges }),
-  addFlowNode: (node) => set((s) => ({ flowNodes: [...s.flowNodes, node] })),
-  deleteFlowNode: (id) => set((s) => ({
-    flowNodes: s.flowNodes.filter(n => n.id !== id),
-    flowEdges: s.flowEdges.filter(e => e.source !== id && e.target !== id),
-    // Also clean up sub-flow data if the node had one
-    subFlows: (() => {
-      const copy = { ...s.subFlows }
-      delete copy[id]
-      return copy
-    })(),
-  })),
+  addFlowNode: (node) => {
+    get().pushHistory();
+    set((s) => ({ flowNodes: [...s.flowNodes, node] }));
+  },
+  deleteFlowNode: (id) => {
+    get().pushHistory();
+    set((s) => ({
+      flowNodes: s.flowNodes.filter(n => n.id !== id),
+      flowEdges: s.flowEdges.filter(e => e.source !== id && e.target !== id),
+      subFlows: (() => {
+        const copy = { ...s.subFlows }
+        delete copy[id]
+        return copy
+      })(),
+    }));
+  },
 
   // Apply change handlers directly in the store, avoiding stale closure references
   onFlowNodesChange: (changes) => set((s) => ({
@@ -608,6 +631,141 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   })),
   setProject: (project) => set({ project }),
   setActiveCanvas: (canvas) => set({ activeCanvas: canvas }),
+
+  // Edit actions implementation
+  historyPast: [],
+  historyFuture: [],
+  clipboardNode: null,
+
+  pushHistory: () => set((s) => {
+    const newSnapshot = {
+      flowNodes: JSON.parse(JSON.stringify(s.flowNodes)),
+      flowEdges: JSON.parse(JSON.stringify(s.flowEdges)),
+      schemaNodes: JSON.parse(JSON.stringify(s.schemaNodes)),
+      schemaEdges: JSON.parse(JSON.stringify(s.schemaEdges)),
+      subFlows: JSON.parse(JSON.stringify(s.subFlows)),
+      componentPackages: JSON.parse(JSON.stringify(s.componentPackages)),
+      activeCanvas: s.activeCanvas
+    };
+
+    const past = [...s.historyPast, newSnapshot as any].slice(-40);
+    return { historyPast: past, historyFuture: [] };
+  }),
+
+  undo: () => set((s) => {
+    if (s.historyPast.length === 0) return s;
+    const past = [...s.historyPast];
+    const previous: any = past.pop()!;
+
+    const currentSnapshot = {
+      flowNodes: JSON.parse(JSON.stringify(s.flowNodes)),
+      flowEdges: JSON.parse(JSON.stringify(s.flowEdges)),
+      schemaNodes: JSON.parse(JSON.stringify(s.schemaNodes)),
+      schemaEdges: JSON.parse(JSON.stringify(s.schemaEdges)),
+      subFlows: JSON.parse(JSON.stringify(s.subFlows)),
+      componentPackages: JSON.parse(JSON.stringify(s.componentPackages)),
+      activeCanvas: s.activeCanvas
+    };
+
+    const future = [currentSnapshot as any, ...s.historyFuture];
+
+    return {
+      flowNodes: previous.flowNodes || s.flowNodes,
+      flowEdges: previous.flowEdges || s.flowEdges,
+      schemaNodes: previous.schemaNodes || s.schemaNodes,
+      schemaEdges: previous.schemaEdges || s.schemaEdges,
+      subFlows: previous.subFlows || s.subFlows,
+      componentPackages: previous.componentPackages || s.componentPackages,
+      historyPast: past,
+      historyFuture: future,
+    };
+  }),
+
+  redo: () => set((s) => {
+    if (s.historyFuture.length === 0) return s;
+    const future = [...s.historyFuture];
+    const next: any = future.shift()!;
+
+    const currentSnapshot = {
+      flowNodes: JSON.parse(JSON.stringify(s.flowNodes)),
+      flowEdges: JSON.parse(JSON.stringify(s.flowEdges)),
+      schemaNodes: JSON.parse(JSON.stringify(s.schemaNodes)),
+      schemaEdges: JSON.parse(JSON.stringify(s.schemaEdges)),
+      subFlows: JSON.parse(JSON.stringify(s.subFlows)),
+      componentPackages: JSON.parse(JSON.stringify(s.componentPackages)),
+      activeCanvas: s.activeCanvas
+    };
+
+    const past = [...s.historyPast, currentSnapshot as any];
+
+    return {
+      flowNodes: next.flowNodes || s.flowNodes,
+      flowEdges: next.flowEdges || s.flowEdges,
+      schemaNodes: next.schemaNodes || s.schemaNodes,
+      schemaEdges: next.schemaEdges || s.schemaEdges,
+      subFlows: next.subFlows || s.subFlows,
+      componentPackages: next.componentPackages || s.componentPackages,
+      historyPast: past,
+      historyFuture: future,
+    };
+  }),
+
+  copySelectedNode: () => {
+    const s = get();
+    if (!s.selectedNodeId) return;
+    const nodes = s.activeCanvas === 'flow' ? s.getActiveFlowNodes() : s.schemaNodes;
+    const nodeToCopy = nodes.find(n => n.id === s.selectedNodeId);
+    if (nodeToCopy) {
+      set({ clipboardNode: JSON.parse(JSON.stringify(nodeToCopy)) });
+    }
+  },
+
+  cutSelectedNode: () => {
+    const s = get();
+    if (!s.selectedNodeId) return;
+    get().copySelectedNode();
+    get().deleteSelectedNode();
+  },
+
+  pasteNode: () => {
+    const s = get();
+    if (!s.clipboardNode) return;
+    get().pushHistory();
+
+    const timestamp = Date.now();
+    const newNodeId = `node_${timestamp}`;
+    const pastedNode: Node = {
+      ...JSON.parse(JSON.stringify(s.clipboardNode)),
+      id: newNodeId,
+      position: {
+        x: s.clipboardNode.position.x + 40,
+        y: s.clipboardNode.position.y + 40
+      },
+      selected: true
+    };
+
+    if (s.activeCanvas === 'flow') {
+      get().addActiveFlowNode(pastedNode);
+    } else {
+      get().addSchemaNode(pastedNode);
+    }
+    set({ selectedNodeId: newNodeId });
+  },
+
+  deleteSelectedNode: () => {
+    const s = get();
+    if (!s.selectedNodeId) return;
+    get().pushHistory();
+
+    const targetId = s.selectedNodeId;
+    if (s.activeCanvas === 'flow') {
+      get().deleteActiveFlowNode(targetId);
+    } else {
+      get().deleteSchemaNode(targetId);
+    }
+    set({ selectedNodeId: null });
+  },
+
   loadProjectState: (state) => set({
     project: state.project,
     flowNodes: state.flowNodes,
