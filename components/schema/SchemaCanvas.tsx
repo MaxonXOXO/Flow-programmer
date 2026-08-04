@@ -35,11 +35,24 @@ function SchemaCanvasInner() {
     addSchemaNode,
     deleteSchemaNode,
     showGrid,
-    openComponentPackage
+    openComponentPackage,
+    pushHistory
   } = useFlowStore()
 
-  const { screenToFlowPosition } = useReactFlow()
+  const { screenToFlowPosition, setViewport, fitView } = useReactFlow()
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
+
+  useEffect(() => {
+    const handleResetZoom = () => {
+      try {
+        fitView({ duration: 300 });
+      } catch (e) {
+        setViewport({ x: 0, y: 0, zoom: 1 }, { duration: 300 });
+      }
+    };
+    window.addEventListener('flow:reset-zoom', handleResetZoom);
+    return () => window.removeEventListener('flow:reset-zoom', handleResetZoom);
+  }, [fitView, setViewport])
 
   const nodeTypes = useMemo(() => ({
     unoNode: UnoNode,
@@ -47,8 +60,11 @@ function SchemaCanvasInner() {
   }), [])
 
   const onConnect = useCallback(
-    (connection: Connection) => setSchemaEdges(addEdge(connection, schemaEdges)),
-    [schemaEdges, setSchemaEdges]
+    (connection: Connection) => {
+      pushHistory()
+      setSchemaEdges(addEdge(connection, schemaEdges))
+    },
+    [schemaEdges, setSchemaEdges, pushHistory]
   )
 
   // Handle double clicking schematic component to open package editor
@@ -77,8 +93,9 @@ function SchemaCanvasInner() {
   // Handle local Drag and Drop logic
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
-    const raw = e.dataTransfer.getData('application/flownode')
+    const raw = e.dataTransfer.getData('application/schemanode') || e.dataTransfer.getData('application/flownode')
     if (!raw) return
+    pushHistory()
     const nodeConfig = JSON.parse(raw)
 
     // Map screen drop client pixels to local Flow canvas coordinates
@@ -96,7 +113,7 @@ function SchemaCanvasInner() {
         definition: nodeConfig.definition,
       },
     })
-  }, [screenToFlowPosition, addSchemaNode])
+  }, [screenToFlowPosition, addSchemaNode, pushHistory])
 
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -114,6 +131,7 @@ function SchemaCanvasInner() {
   const handleDuplicate = (nodeId: string) => {
     const original = schemaNodes.find(n => n.id === nodeId)
     if (original && original.id !== 'arduino-uno') {
+      pushHistory()
       const newId = `comp-${Date.now()}`
       const copy = {
         ...original,
@@ -139,6 +157,9 @@ function SchemaCanvasInner() {
         onNodesChange={onSchemaNodesChange}
         onEdgesChange={onSchemaEdgesChange}
         onConnect={onConnect}
+        onNodeDragStart={() => pushHistory()}
+        onNodesDelete={() => pushHistory()}
+        onEdgesDelete={() => pushHistory()}
         onNodeClick={(_, node) => setSelectedNode(node.id)}
         onNodeDoubleClick={onNodeDoubleClick}
         onPaneClick={() => { setSelectedNode(null); setMenu(null) }}
