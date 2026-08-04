@@ -97,6 +97,7 @@ function FlowCanvasInner() {
     onActiveFlowEdgesChange,
     updateActiveFlowNodeData,
     updateAnyFlowNodeData,
+    pushHistory,
     // Component Packages
     activePackageId,
     componentPackages,
@@ -109,11 +110,23 @@ function FlowCanvasInner() {
   const isInSubFlow = subFlowStack.length > 0
   const activePackage = activePackageId ? componentPackages[activePackageId] : null
 
-  const { screenToFlowPosition } = useReactFlow()
+  const { screenToFlowPosition, setViewport, fitView } = useReactFlow()
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const [quickEdit, setQuickEdit] = useState<QuickEditState | null>(null)
   const quickEditRef = useRef<HTMLDivElement>(null)
   const [notification, setNotification] = useState<string | null>(null)
+
+  useEffect(() => {
+    const handleResetZoom = () => {
+      try {
+        fitView({ duration: 300 });
+      } catch (e) {
+        setViewport({ x: 0, y: 0, zoom: 1 }, { duration: 300 });
+      }
+    };
+    window.addEventListener('flow:reset-zoom', handleResetZoom);
+    return () => window.removeEventListener('flow:reset-zoom', handleResetZoom);
+  }, [fitView, setViewport])
 
   useEffect(() => {
     if (notification) {
@@ -127,8 +140,11 @@ function FlowCanvasInner() {
   }), [])
 
   const onConnect = useCallback(
-    (connection: Connection) => setActiveFlowEdges(addEdge(connection, flowEdges)),
-    [flowEdges, setActiveFlowEdges]
+    (connection: Connection) => {
+      pushHistory()
+      setActiveFlowEdges(addEdge(connection, flowEdges))
+    },
+    [flowEdges, setActiveFlowEdges, pushHistory]
   )
 
   // Double-click a function node → enter its sub-flow
@@ -144,6 +160,7 @@ function FlowCanvasInner() {
     e.preventDefault()
     const raw = e.dataTransfer.getData('application/flownode')
     if (!raw) return
+    pushHistory()
     const nodeConfig = JSON.parse(raw)
     
     // Convert screen pixel position to flow coordinates using local canvas bounds
@@ -613,6 +630,9 @@ function FlowCanvasInner() {
         onNodesChange={onActiveFlowNodesChange}
         onEdgesChange={onActiveFlowEdgesChange}
         onConnect={onConnect}
+        onNodeDragStart={() => pushHistory()}
+        onNodesDelete={() => pushHistory()}
+        onEdgesDelete={() => pushHistory()}
         onNodeClick={(_, node) => setSelectedNode(node.id)}
         onNodeDoubleClick={onNodeDoubleClick}
         onPaneClick={() => { setSelectedNode(null); setMenu(null); setQuickEdit(null) }}
