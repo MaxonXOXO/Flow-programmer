@@ -13,6 +13,11 @@ export interface ResolvedPackageImplementation {
     nodes: any[];
     edges: any[];
   };
+  /** Alias for subflow graph */
+  graph?: {
+    nodes: any[];
+    edges: any[];
+  };
   /** Package unique identifier */
   packageId: string;
 }
@@ -58,8 +63,9 @@ export function resolvePackageImplementation(
   }
 
   let parsedSubflow: { nodes: any[]; edges: any[] } | undefined = undefined;
-  if (impl.subflow && typeof impl.subflow === 'object') {
-    const s = impl.subflow as any;
+  const rawGraph = impl.graph || impl.subflow;
+  if (rawGraph && typeof rawGraph === 'object') {
+    const s = rawGraph as any;
     if (Array.isArray(s.nodes) && Array.isArray(s.edges)) {
       parsedSubflow = { nodes: s.nodes, edges: s.edges };
     }
@@ -70,6 +76,7 @@ export function resolvePackageImplementation(
     version: impl.version || 1,
     entry: impl.entry,
     subflow: parsedSubflow,
+    graph: parsedSubflow,
     packageId,
   };
 }
