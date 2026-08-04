@@ -14,6 +14,7 @@ import { generateMQGasCode } from './sensors/mqGas'
 import { generateVibrationCode } from './sensors/vibration'
 import { generateL298NCode } from './sensors/l298n'
 import { generateL293DCode } from './sensors/l293d'
+import { resolvePackageImplementation, dispatchPackageExecution } from '../compiler/packages'
 
 // ===== TYPES =====
 export interface Connection {
@@ -675,6 +676,8 @@ function generateNodeCode(
     }
 
     case 'ultrasonic': {
+      const pkgImpl = resolvePackageImplementation('ultrasonic_hcsr04')
+      dispatchPackageExecution(pkgImpl.packageId, { nodeId, params: data.params })
       lines.push(generateUltrasonicCode(data, nodeId, connections, declaredVars, pad))
       declaredVars.add(data.params?.varDist || 'distance')
       lines.push(followFlow())

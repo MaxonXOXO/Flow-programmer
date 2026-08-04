@@ -18,6 +18,7 @@ import {
   FunctionDeclarationNode
 } from '../ast/ast';
 import { pluginRegistry, mapLabelToPluginType } from '../../ir/plugin';
+import { resolvePackageImplementation, dispatchPackageExecution } from '../packages';
 
 export interface CodeGeneratorOutput {
   main: string;
@@ -59,6 +60,13 @@ export class ArduinoUnoGenerator {
       if (this.isPowerPin(conn)) return;
 
       const pluginType = mapLabelToPluginType(conn.componentLabel) || conn.componentType;
+      
+      // Consult Package Execution Resolver and Dispatcher for implementation strategy
+      const resolvedImpl = resolvePackageImplementation(conn.componentId || pluginType);
+      dispatchPackageExecution(resolvedImpl.packageId || pluginType, {
+        instanceName: this.safeVarName(conn.componentLabel),
+      });
+
       const plugin = pluginRegistry.get(pluginType);
       if (!plugin) return;
 
