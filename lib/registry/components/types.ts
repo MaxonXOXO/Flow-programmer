@@ -136,22 +136,25 @@ export interface PackageMetadata {
 
 /**
  * Describes HOW this component is implemented internally.
- * This is a placeholder for Phase 3 (internal subflows / AST).
- *
- * All existing components use type: 'builtin'.
- * Future phases will introduce 'subflow' and 'ast'.
+ * Strategy options: 'builtin' | 'subflow' | 'native'.
  */
-export type ImplementationType = 'builtin' | 'subflow' | 'ast';
+export type ImplementationStrategy = 'builtin' | 'subflow' | 'native';
+export type ImplementationType = ImplementationStrategy | 'ast';
 
 export interface PackageImplementation {
   /** The strategy used to implement this component's behaviour */
-  type: ImplementationType;
-  /**
-   * Phase 3 placeholder: when type === 'subflow', this will hold
-   * the internal React Flow graph (nodes + edges).
-   * Not used in Phase 2.
-   */
-  subflow?: unknown;
+  strategy?: ImplementationStrategy;
+  /** Version of the implementation schema */
+  version?: number;
+  /** Entry point if applicable */
+  entry?: string;
+  /** Subflow graph data (nodes & edges) when strategy === 'subflow' */
+  subflow?: {
+    nodes: any[];
+    edges: any[];
+  } | unknown;
+  /** Legacy compatibility field */
+  type?: ImplementationType;
 }
 
 // ─── Package Definition (used by individual package files) ───────

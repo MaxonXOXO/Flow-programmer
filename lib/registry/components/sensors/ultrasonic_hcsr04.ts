@@ -1,4 +1,4 @@
-﻿import { PackageDefinition } from '../types';
+import { PackageDefinition } from '../types';
 
 export const UltrasonicHCSR04Package: PackageDefinition = {
   metadata: {
@@ -48,5 +48,8 @@ export const UltrasonicHCSR04Package: PackageDefinition = {
     ],
   },
 
-  implementation: { type: 'builtin' },
+  implementation: {
+    strategy: 'builtin',
+    version: 1,
+  },
 };
