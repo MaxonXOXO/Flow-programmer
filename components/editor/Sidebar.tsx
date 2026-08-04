@@ -181,7 +181,9 @@ export default function Sidebar() {
 
   const onDragStart = useCallback((e: React.DragEvent, nodeConfig: any) => {
     const type = activeCanvas === 'schema' ? 'schemaComponent' : 'flowNode'
-    e.dataTransfer.setData('application/flownode', JSON.stringify({ ...nodeConfig, canvasType: type }))
+    const payload = JSON.stringify({ ...nodeConfig, canvasType: type })
+    e.dataTransfer.setData('application/schemanode', payload)
+    e.dataTransfer.setData('application/flownode', payload)
     e.dataTransfer.effectAllowed = 'move'
   }, [activeCanvas])
 
@@ -215,17 +217,17 @@ export default function Sidebar() {
             placeholder={activeCanvas === 'schema' ? 'Search components...' : 'Search nodes...'}
             style={{
               width: '100%',
-              background: 'var(--color-bg-input)',
-              border: '1px solid var(--color-border)',
+              background: 'rgba(0, 0, 0, 0.25)',
+              border: 'none',
               borderRadius: 4,
-              padding: '4px 8px 4px 26px',
+              padding: '5px 8px 5px 26px',
               fontSize: 11,
               color: 'var(--color-text-bright)',
               outline: 'none',
-              transition: 'border-color 0.15s',
+              transition: 'all 0.15s',
             }}
-            onFocus={e => e.target.style.borderColor = 'var(--color-border-focus)'}
-            onBlur={e => e.target.style.borderColor = 'var(--color-border)'}
+            onFocus={e => { e.currentTarget.style.boxShadow = '0 0 0 1px var(--color-border-focus)' }}
+            onBlur={e => { e.currentTarget.style.boxShadow = 'none' }}
           />
           {search && (
             <button 
