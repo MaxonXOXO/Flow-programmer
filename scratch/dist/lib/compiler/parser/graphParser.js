@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.GraphToASTCompiler = void 0;
 const expressionParser_1 = require("./expressionParser");
 const plugin_1 = require("../../ir/plugin");
+const componentExpander_1 = require("../packages/componentExpander");
 class GraphToASTCompiler {
     visited = new Set();
     flowNodes = [];
@@ -16,6 +17,12 @@ class GraphToASTCompiler {
         this.functionSignatures = functionSignatures;
     }
     compile() {
+        // 0. Expand any component nodes that provide an internal subflow graph (Phase 4)
+        const expanded = (0, componentExpander_1.expandComponentGraphs)(this.flowNodes, this.flowEdges);
+        if (expanded.hasExpandedComponents) {
+            this.flowNodes = expanded.nodes;
+            this.flowEdges = expanded.edges;
+        }
         this.visited.clear();
         const body = [];
         // First, scan all subFlows to register their signatures in functionSignatures
@@ -210,14 +217,17 @@ class GraphToASTCompiler {
                 });
             }
             else if (type === 'delay') {
+                const duration = data?.params?.duration || data?.params?.ms || '1000';
+                const unit = data?.params?.unit || 'ms';
+                const callee = unit === 'us' ? 'delayMicroseconds' : 'delay';
                 body.push({
                     kind: 'ExpressionStatement',
                     nodeId: currentId,
                     expression: {
                         kind: 'CallExpression',
                         nodeId: currentId,
-                        callee: 'delay',
-                        arguments: [(0, expressionParser_1.parseExpressionString)(data?.params?.ms || '1000', currentId)]
+                        callee: callee,
+                        arguments: [(0, expressionParser_1.parseExpressionString)(duration, currentId)]
                     }
                 });
             }
@@ -232,6 +242,26 @@ class GraphToASTCompiler {
                         arguments: [
                             (0, expressionParser_1.parseExpressionString)(data?.params?.pin || '13', currentId),
                             (0, expressionParser_1.parseExpressionString)(data?.params?.value || 'HIGH', currentId)
+                        ]
+                    }
+                });
+            }
+            else if (type === 'pulse_in') {
+                const varName = data?.params?.var || 'duration';
+                const pin = data?.params?.pin || '10';
+                const pulseVal = data?.params?.value || 'HIGH';
+                body.push({
+                    kind: 'VariableDeclaration',
+                    nodeId: currentId,
+                    name: varName,
+                    varType: 'unsigned long',
+                    value: {
+                        kind: 'CallExpression',
+                        nodeId: currentId,
+                        callee: 'pulseIn',
+                        arguments: [
+                            (0, expressionParser_1.parseExpressionString)(pin, currentId),
+                            (0, expressionParser_1.parseExpressionString)(pulseVal, currentId)
                         ]
                     }
                 });

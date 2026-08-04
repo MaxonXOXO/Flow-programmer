@@ -40,8 +40,9 @@ function resolvePackageImplementation(pkgOrId) {
         strategy = 'builtin';
     }
     let parsedSubflow = undefined;
-    if (impl.subflow && typeof impl.subflow === 'object') {
-        const s = impl.subflow;
+    const rawGraph = impl.graph || impl.subflow;
+    if (rawGraph && typeof rawGraph === 'object') {
+        const s = rawGraph;
         if (Array.isArray(s.nodes) && Array.isArray(s.edges)) {
             parsedSubflow = { nodes: s.nodes, edges: s.edges };
         }
@@ -51,6 +52,7 @@ function resolvePackageImplementation(pkgOrId) {
         version: impl.version || 1,
         entry: impl.entry,
         subflow: parsedSubflow,
+        graph: parsedSubflow,
         packageId,
     };
 }
