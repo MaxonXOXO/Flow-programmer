@@ -2,17 +2,218 @@
 
 import { useFlowStore } from '@/store/userFlowStore'
 import { useState } from 'react'
-import { SlidersHorizontal, Info, Hammer, Settings, Move, Link } from 'lucide-react'
+import CustomSelect from '@/components/ui/CustomSelect'
+import { 
+  SlidersHorizontal, 
+  Settings, 
+  Link, 
+  Edit3, 
+  HelpCircle,
+  Play,
+  Square,
+  CornerDownLeft,
+  Clock,
+  Zap,
+  Radio,
+  Equal,
+  Variable,
+  GitBranch,
+  RotateCw,
+  Code2,
+  Terminal,
+  Ruler,
+  Thermometer,
+  Cog,
+  Lightbulb,
+  CircleDot,
+  Car,
+  Tv,
+  Cpu,
+  Plug,
+  Box,
+  Trash2,
+  Plus
+} from 'lucide-react'
+
+// Human-readable flow descriptions and metadata registry for node types
+const NODE_DESCRIPTIONS: Record<string, { title: string; category: string; description: string }> = {
+  start: {
+    title: 'Execution Start',
+    category: 'CONTROL FLOW',
+    description: 'Marks the execution entry point. Execution begins here automatically when the microcontroller boots or loops.'
+  },
+  end: {
+    title: 'Return / End Flow',
+    category: 'CONTROL FLOW',
+    description: 'Terminates the current sub-flow execution path or returns a calculated result back to the caller.'
+  },
+  return: {
+    title: 'Return Value',
+    category: 'CONTROL FLOW',
+    description: 'Returns an expression result from an internal sub-flow or function back to the main program.'
+  },
+  delay: {
+    title: 'Pause Delay',
+    category: 'TIMING',
+    description: 'Pauses program execution for a specified duration in milliseconds (ms) or microseconds (us).'
+  },
+  gpio: {
+    title: 'Digital Pin I/O',
+    category: 'HARDWARE GPIO',
+    description: 'Controls a microcontroller digital pin. Sets output state to HIGH (5V) or LOW (0V), or reads digital input.'
+  },
+  pulse_in: {
+    title: 'Pulse Duration Measurement',
+    category: 'TIMING / SIGNAL',
+    description: 'Measures the duration in microseconds for a pulse signal to transition HIGH or LOW on a digital pin.'
+  },
+  assignment: {
+    title: 'Variable Assignment',
+    category: 'DATA / VARIABLES',
+    description: 'Evaluates an expression or sensor value and assigns the result into a named program variable.'
+  },
+  variable: {
+    title: 'Variable Declaration',
+    category: 'DATA / VARIABLES',
+    description: 'Declares a global or local variable with a specified type (int, float, bool, String).'
+  },
+  if: {
+    title: 'Conditional Branch (IF)',
+    category: 'CONTROL FLOW',
+    description: 'Evaluates a boolean condition. Routes execution down Branch A if TRUE, or Branch B if FALSE.'
+  },
+  condition: {
+    title: 'Conditional Branch',
+    category: 'CONTROL FLOW',
+    description: 'Evaluates a boolean expression to dynamically branch execution paths.'
+  },
+  loop: {
+    title: 'Iterative Loop',
+    category: 'CONTROL FLOW',
+    description: 'Repeats all connected child nodes continuously or while a loop condition remains TRUE.'
+  },
+  while: {
+    title: 'While Loop',
+    category: 'CONTROL FLOW',
+    description: 'Continuously executes nested flow nodes as long as the evaluation condition is TRUE.'
+  },
+  function: {
+    title: 'Sub-Flow Function',
+    category: 'SUB-FLOW / FUNCTION',
+    description: 'Defines a custom reusable visual sub-flow graph with typed input parameters and return type.'
+  },
+  function_call: {
+    title: 'Function Invocation',
+    category: 'SUB-FLOW / FUNCTION',
+    description: 'Executes a defined sub-flow function by passing argument values and optionally receiving a return value.'
+  },
+  print: {
+    title: 'Serial Monitor Output',
+    category: 'COMMUNICATION',
+    description: 'Outputs text or variable data to the Serial Monitor at 9600 baud for debugging.'
+  },
+  ultrasonic: {
+    title: 'Ultrasonic Distance Sensor',
+    category: 'HARDWARE SENSOR',
+    description: 'Measures obstacle distance in centimeters using HC-SR04 ultrasonic sound wave pulse-echo timing.'
+  },
+  ultrasonic_hcsr04: {
+    title: 'Ultrasonic HC-SR04',
+    category: 'HARDWARE SENSOR',
+    description: 'Measures obstacle distance in centimeters using HC-SR04 ultrasonic sound wave pulse-echo timing.'
+  },
+  dht: {
+    title: 'DHT Temp & Humidity Sensor',
+    category: 'HARDWARE SENSOR',
+    description: 'Reads ambient temperature (°C) and relative humidity (%) from a DHT11 or DHT22 digital sensor.'
+  },
+  servo: {
+    title: 'Servo Motor Control',
+    category: 'ACTUATOR',
+    description: 'Positions a rotational servo motor arm to a targeted angle between 0 and 180 degrees.'
+  },
+  led: {
+    title: 'LED Indicator',
+    category: 'ACTUATOR / DISPLAY',
+    description: 'Controls an illuminated single-color LED indicator connected to a digital PWM output pin.'
+  },
+  button: {
+    title: 'Push Button Switch',
+    category: 'INPUT SENSOR',
+    description: 'Detects physical button press events via digital pin pull-up/pull-down readings.'
+  },
+  motor_driver: {
+    title: 'L298N Dual Motor Driver',
+    category: 'ACTUATOR',
+    description: 'Controls DC motor direction (Forward/Backward) and speed (PWM) using an L298N driver module.'
+  },
+  lcd: {
+    title: 'I2C Character LCD',
+    category: 'DISPLAY',
+    description: 'Renders text lines and numbers onto a 16x2 or 20x4 I2C liquid crystal display screen.'
+  },
+  unoNode: {
+    title: 'Arduino Uno MCU Board',
+    category: 'HARDWARE TARGET',
+    description: 'Arduino Uno ATmega328P microcontroller mainboard connection map and pin allocation.'
+  },
+  componentNode: {
+    title: 'Hardware Schematic Component',
+    category: 'HARDWARE SCHEMATIC',
+    description: 'Physical hardware component package connected to board signal pins.'
+  }
+}
+
+// Clean Lucide SVG Icon Renderer (No Emojis)
+function renderNodeIcon(type: string) {
+  switch (type) {
+    case 'start': return <Play className="w-3.5 h-3.5 text-[#3b82f6] fill-current" />
+    case 'end': return <Square className="w-3.5 h-3.5 text-[#ef5f5f] fill-current" />
+    case 'return': return <CornerDownLeft className="w-3.5 h-3.5 text-[#e67e22]" />
+    case 'delay': return <Clock className="w-3.5 h-3.5 text-[#ffb13d]" />
+    case 'gpio': return <Zap className="w-3.5 h-3.5 text-[#2ecc71]" />
+    case 'pulse_in': return <Radio className="w-3.5 h-3.5 text-[#60a5fa]" />
+    case 'assignment': return <Equal className="w-3.5 h-3.5 text-[#3b82f6]" />
+    case 'variable': return <Variable className="w-3.5 h-3.5 text-[#a855f7]" />
+    case 'if':
+    case 'condition': return <GitBranch className="w-3.5 h-3.5 text-[#e67e22]" />
+    case 'loop':
+    case 'while': return <RotateCw className="w-3.5 h-3.5 text-[#2ecc71]" />
+    case 'function':
+    case 'function_call': return <Code2 className="w-3.5 h-3.5 text-[#3b82f6]" />
+    case 'print': return <Terminal className="w-3.5 h-3.5 text-[#a5b3cd]" />
+    case 'ultrasonic':
+    case 'ultrasonic_hcsr04': return <Ruler className="w-3.5 h-3.5 text-[#3b82f6]" />
+    case 'dht': return <Thermometer className="w-3.5 h-3.5 text-[#ef5f5f]" />
+    case 'servo': return <Cog className="w-3.5 h-3.5 text-[#ffb13d]" />
+    case 'led': return <Lightbulb className="w-3.5 h-3.5 text-[#ffb13d]" />
+    case 'button': return <CircleDot className="w-3.5 h-3.5 text-[#2ecc71]" />
+    case 'motor_driver': return <Car className="w-3.5 h-3.5 text-[#e67e22]" />
+    case 'lcd': return <Tv className="w-3.5 h-3.5 text-[#60a5fa]" />
+    case 'unoNode': return <Cpu className="w-3.5 h-3.5 text-[#3b82f6]" />
+    case 'componentNode': return <Plug className="w-3.5 h-3.5 text-[#2ecc71]" />
+    default: return <Box className="w-3.5 h-3.5 text-[#60a5fa]" />
+  }
+}
 
 export default function PropertiesPanel() {
-  const { selectedNodeId, schemaNodes, updateSchemaNodeData, activeCanvas, getActiveFlowNodes, updateAnyFlowNodeData, subFlowStack, flowNodes: allFlowNodes, subFlows } = useFlowStore()
-  
-  // Track open states for property accordions
+  const { 
+    selectedNodeId, 
+    schemaNodes, 
+    updateSchemaNodeData, 
+    activeCanvas, 
+    getActiveFlowNodes, 
+    updateAnyFlowNodeData, 
+    subFlowStack, 
+    flowNodes: allFlowNodes, 
+    subFlows 
+  } = useFlowStore()
+
+  // Track open accordion sections
   const [openSections, setOpenSections] = useState({
-    identity: true,
+    purpose: true,
     params: true,
-    pins: true,
-    transform: true,
+    connectors: true,
   })
 
   const flowNodes = getActiveFlowNodes()
@@ -42,7 +243,7 @@ export default function PropertiesPanel() {
   if (!node) {
     return (
       <div style={{
-        width: 240,
+        width: 250,
         height: '100%',
         background: 'var(--color-bg-panel)',
         borderLeft: '1px solid var(--color-border)',
@@ -54,26 +255,34 @@ export default function PropertiesPanel() {
         padding: 24,
       }}>
         <div style={{
-          width: 48,
-          height: 48,
+          width: 52,
+          height: 52,
           borderRadius: '50%',
           background: 'rgba(255,255,255,0.02)',
-          border: '1px dashed #3e3e3e',
+          border: '1px dashed var(--color-border)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#555',
+          color: 'var(--color-text-dim)',
         }}>
-          <SlidersHorizontal className="w-5 h-5" />
+          <SlidersHorizontal className="w-6 h-6 text-[#3b82f6]" />
         </div>
         <div style={{ 
-          fontSize: 11, 
+          fontSize: 12, 
+          fontWeight: 600,
+          color: 'var(--color-text-bright)',
+          textAlign: 'center', 
+        }}>
+          No Node Selected
+        </div>
+        <div style={{ 
+          fontSize: 10.5, 
           color: 'var(--color-text-dim)', 
           textAlign: 'center', 
           lineHeight: 1.5,
-          maxWidth: 160,
+          maxWidth: 180,
         }}>
-          Select a canvas node to inspect properties.
+          Click any component or flow node on the canvas to inspect its behavior and edit properties.
         </div>
       </div>
     )
@@ -81,7 +290,14 @@ export default function PropertiesPanel() {
 
   const data = node.data as Record<string, any>
   const pins = data.pins as { id: string, label: string }[] || []
-  const nodeType = data.nodeType || data.componentType || 'node'
+  const rawNodeType = data.nodeType || data.componentType || node.type || 'node'
+  
+  // Resolve description metadata
+  const meta = NODE_DESCRIPTIONS[rawNodeType] || {
+    title: data.label || 'Custom Flow Node',
+    category: activeCanvas === 'schema' ? 'HARDWARE COMPONENT' : 'FLOW CONTROL',
+    description: `Executes ${data.label || rawNodeType} operation in the flow graph.`
+  }
 
   const isEndNodeInSubflow = data.nodeType === 'end' && activeCanvas === 'flow' && subFlowStack.length > 0
   let parentFnReturnType = 'void'
@@ -107,9 +323,14 @@ export default function PropertiesPanel() {
     }
   }
 
+  const handleLabelChange = (newLabel: string) => {
+    const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData
+    updater(node.id, { ...data, label: newLabel })
+  }
+
   return (
     <div style={{
-      width: 240,
+      width: 250,
       height: '100%',
       background: 'var(--color-bg-panel)',
       borderLeft: '1px solid var(--color-border)',
@@ -118,111 +339,152 @@ export default function PropertiesPanel() {
       userSelect: 'none',
       overflowY: 'auto',
     }}>
-      {/* Panel Main Header */}
+      {/* Panel Top Banner: Node Title & Category */}
       <div style={{
-        padding: '10px 12px',
-        background: '#1b1b1b',
+        padding: '12px 14px',
+        background: 'var(--color-bg-header)',
         borderBottom: '1px solid var(--color-border)',
         display: 'flex',
-        alignItems: 'center',
+        flexDirection: 'column',
         gap: 8,
       }}>
-        <div style={{
-          width: 24,
-          height: 24,
-          borderRadius: 4,
-          background: 'rgba(230, 126, 34, 0.08)',
-          border: '1px solid rgba(230, 126, 34, 0.2)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'var(--color-accent)',
-          fontSize: 11,
-          fontWeight: 600,
-        }}>
-          {originalNode?.type === 'unoNode' ? 'U' : 'N'}
-        </div>
-        <div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-bright)' }}>
-            {data.label}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{
+              width: 28,
+              height: 28,
+              borderRadius: 6,
+              background: 'rgba(59, 130, 246, 0.12)',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              {renderNodeIcon(rawNodeType)}
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-bright)' }}>
+                {meta.title}
+              </div>
+              <div style={{ 
+                fontSize: 8.5, 
+                fontWeight: 700,
+                color: 'var(--color-accent)', 
+                textTransform: 'uppercase', 
+                marginTop: 2, 
+                letterSpacing: '0.5px' 
+              }}>
+                {meta.category}
+              </div>
+            </div>
           </div>
-          <div style={{ fontSize: 9, color: 'var(--color-text-dim)', textTransform: 'uppercase', marginTop: 1, fontFamily: 'monospace' }}>
-            {nodeType}
+        </div>
+
+        {/* Editable Custom Display Label */}
+        <div style={{ marginTop: 2 }}>
+          <label style={{ 
+            display: 'block', 
+            fontSize: 9, 
+            color: 'var(--color-text-dim)', 
+            fontWeight: 700, 
+            textTransform: 'uppercase', 
+            marginBottom: 4 
+          }}>
+            Display Label
+          </label>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <input
+              value={data.label || ''}
+              onChange={e => handleLabelChange(e.target.value)}
+              placeholder="Custom node label..."
+              style={{
+                width: '100%',
+                background: 'rgba(0, 0, 0, 0.3)',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                borderRadius: 4,
+                padding: '5px 8px 5px 24px',
+                color: 'var(--color-text-bright)',
+                fontSize: 11,
+                fontWeight: 600,
+                outline: 'none',
+                transition: 'all 0.15s ease',
+              }}
+              onFocus={e => { e.currentTarget.style.borderColor = 'var(--color-border-focus)' }}
+              onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)' }}
+            />
+            <Edit3 className="w-3 h-3 text-[var(--color-text-dim)] absolute left-2 pointer-events-none" />
           </div>
         </div>
       </div>
 
-      {/* Accordion 1: Identity */}
+      {/* Accordion 1: Flow Purpose & Behavior */}
       <div style={{ borderBottom: '1px solid var(--color-border)' }}>
         <div 
-          onClick={() => toggleSection('identity')}
+          onClick={() => toggleSection('purpose')}
           style={{
-            padding: '8px 12px',
-            background: 'rgba(0,0,0,0.05)',
+            padding: '9px 14px',
+            background: 'rgba(0,0,0,0.1)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             cursor: 'pointer',
-            fontSize: 10,
+            fontSize: 10.5,
             fontWeight: 700,
             color: 'var(--color-text-normal)',
           }}
         >
           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Info className="w-3.5 h-3.5 text-[#e67e22]" /> IDENTITY
+            <HelpCircle className="w-3.5 h-3.5 text-[var(--color-accent)]" /> FLOW BEHAVIOR
           </span>
-          <span style={{ color: '#555', fontSize: 10 }}>{openSections.identity ? '▼' : '▶'}</span>
+          <span style={{ color: '#555', fontSize: 10 }}>{openSections.purpose ? '▼' : '▶'}</span>
         </div>
-        {openSections.identity && (
-          <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div>
-              <div style={{ fontSize: 9, color: 'var(--color-text-dim)', marginBottom: 4 }}>NODE ID</div>
-              <div style={{
-                fontFamily: 'monospace',
-                fontSize: 11,
-                color: 'var(--color-accent-blue)',
-                background: '#1a1a1a',
-                padding: '4px 8px',
-                borderRadius: 4,
-                border: '1px solid var(--color-border)',
-              }}>
-                {originalNode?.id}
-              </div>
+        {openSections.purpose && (
+          <div style={{ padding: '12px 14px' }}>
+            <div style={{
+              background: 'rgba(59, 130, 246, 0.06)',
+              border: '1px solid rgba(59, 130, 246, 0.2)',
+              borderRadius: 6,
+              padding: '10px 12px',
+              fontSize: 10.5,
+              color: 'var(--color-text-normal)',
+              lineHeight: 1.5,
+            }}>
+              {meta.description}
             </div>
           </div>
         )}
       </div>
 
-      {/* Accordion 2: Parameters */}
+      {/* Accordion 2: Editable Parameters & Inputs */}
       {Object.keys(params).length > 0 && (
         <div style={{ borderBottom: '1px solid var(--color-border)' }}>
           <div 
             onClick={() => toggleSection('params')}
             style={{
-              padding: '8px 12px',
-              background: 'rgba(0,0,0,0.05)',
+              padding: '9px 14px',
+              background: 'rgba(0,0,0,0.1)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               cursor: 'pointer',
-              fontSize: 10,
+              fontSize: 10.5,
               fontWeight: 700,
               color: 'var(--color-text-normal)',
             }}
           >
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Settings className="w-3.5 h-3.5 text-[#3d8bff]" /> PARAMETERS
+              <Settings className="w-3.5 h-3.5 text-[var(--color-accent)]" /> EDITABLE PARAMETERS
             </span>
             <span style={{ color: '#555', fontSize: 10 }}>{openSections.params ? '▼' : '▶'}</span>
           </div>
           {openSections.params && (
-            <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {nodeType === 'function' ? (
+            <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {rawNodeType === 'function' ? (
                 <>
                   {/* Function Name */}
                   <div>
-                    <div style={{ fontSize: 10, color: 'var(--color-text-dim)', marginBottom: 4 }}>
-                      Function Name
+                    <div style={{ fontSize: 9.5, color: 'var(--color-text-dim)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>
+                      Function Identifier
                     </div>
                     <input
                       value={params.name || ''}
@@ -238,10 +500,10 @@ export default function PropertiesPanel() {
                         background: 'var(--color-bg-input)',
                         border: '1px solid var(--color-border)',
                         borderRadius: 4,
-                        padding: '4px 8px',
+                        padding: '5px 8px',
                         color: 'var(--color-text-bright)',
                         fontSize: 11,
-                        fontFamily: 'monospace',
+                        fontFamily: 'var(--font-mono)',
                         outline: 'none',
                       }}
                     />
@@ -249,149 +511,70 @@ export default function PropertiesPanel() {
 
                   {/* Return Type */}
                   <div>
-                    <div style={{ fontSize: 10, color: 'var(--color-text-dim)', marginBottom: 4 }}>
+                    <div style={{ fontSize: 9.5, color: 'var(--color-text-dim)', fontWeight: 700, marginBottom: 4 }}>
                       Return Type
                     </div>
-                    <select
+                    <CustomSelect
                       value={params.returnType || 'void'}
-                      onChange={e => {
+                      options={[
+                        { value: 'void', label: 'void (No return value)' },
+                        { value: 'int', label: 'int (Integer)' },
+                        { value: 'float', label: 'float (Decimal)' },
+                        { value: 'bool', label: 'bool (True/False)' },
+                        { value: 'char', label: 'char (Character)' },
+                        { value: 'String', label: 'String (Text)' },
+                      ]}
+                      onChange={val => {
                         const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData
                         updater(node.id, {
                           ...data,
-                          params: { ...params, returnType: e.target.value }
+                          params: { ...params, returnType: val }
                         })
                       }}
-                      style={{
-                        width: '100%',
-                        background: 'var(--color-bg-input)',
-                        border: '1px solid var(--color-border)',
-                        borderRadius: 4,
-                        padding: '4px 8px',
-                        color: 'var(--color-text-bright)',
-                        fontSize: 11,
-                        outline: 'none',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <option value="void">void</option>
-                      <option value="int">int</option>
-                      <option value="float">float</option>
-                      <option value="bool">bool</option>
-                      <option value="char">char</option>
-                      <option value="String">String</option>
-                    </select>
+                    />
                   </div>
 
                   {/* Parameters Editor */}
-                  <div>
-                    <div style={{ fontSize: 10, color: 'var(--color-text-dim)', marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>Parameters</span>
-                      <button
-                        onClick={() => {
-                          const pVal = params.parameters;
-                          let currentParams: any[] = [];
-                          if (Array.isArray(pVal)) currentParams = pVal;
-                          else if (typeof pVal === 'string' && pVal.trim() !== '') {
-                            try { currentParams = JSON.parse(pVal); } catch(e) {}
-                          }
-                          const newParams = [...currentParams, { name: `arg${currentParams.length}`, type: 'int' }];
-                          const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData;
-                          updater(node.id, {
-                            ...data,
-                            params: { ...params, parameters: newParams }
-                          });
-                        }}
-                        style={{
-                          background: 'rgba(95, 163, 255, 0.15)',
-                          border: '1px solid rgba(95, 163, 255, 0.3)',
-                          borderRadius: 3,
-                          padding: '2px 6px',
-                          fontSize: 9,
-                          color: '#5fa3ff',
-                          cursor: 'pointer',
-                          fontWeight: 600,
-                        }}
-                      >
-                        + Add
-                      </button>
-                    </div>
+                  <div style={{ marginTop: 4 }}>
+                    {(() => {
+                      const pVal = params.parameters;
+                      let currentParams: { name: string, type: string }[] = [];
+                      if (Array.isArray(pVal)) currentParams = pVal;
+                      else if (typeof pVal === 'string' && pVal.trim() !== '') {
+                        try { currentParams = JSON.parse(pVal); } catch(e) {}
+                      }
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {(() => {
-                        const pVal = params.parameters;
-                        let currentParams: { name: string, type: string }[] = [];
-                        if (Array.isArray(pVal)) currentParams = pVal;
-                        else if (typeof pVal === 'string' && pVal.trim() !== '') {
-                          try { currentParams = JSON.parse(pVal); } catch(e) {}
-                        }
+                      const retType = params.returnType || 'void';
+                      const fnName = params.name || 'myFn';
+                      const signatureStr = `${retType} ${fnName}(${currentParams.map(p => `${p.type} ${p.name || 'arg'}`).join(', ')})`;
 
-                        if (currentParams.length === 0) {
-                          return <div style={{ fontSize: 9.5, color: '#546484', fontStyle: 'italic', padding: '4px 0' }}>No parameters defined</div>;
-                        }
+                      return (
+                        <>
+                          {/* Live Function Signature Preview */}
+                          <div style={{ marginBottom: 12 }}>
+                            <div style={{ fontSize: 9.5, color: 'var(--color-text-dim)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>
+                              C++ Signature Preview
+                            </div>
+                            <div style={{
+                              background: 'rgba(0, 0, 0, 0.4)',
+                              borderRadius: 4,
+                              padding: '6px 8px',
+                              fontSize: 10,
+                              fontFamily: 'var(--font-mono)',
+                              color: '#60a5fa',
+                              wordBreak: 'break-all',
+                              lineHeight: 1.4,
+                            }}>
+                              {signatureStr}
+                            </div>
+                          </div>
 
-                        return currentParams.map((param, idx) => (
-                          <div key={idx} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                            {/* Param Name */}
-                            <input
-                              value={param.name}
-                              placeholder="name"
-                              onChange={e => {
-                                const newParams = [...currentParams];
-                                newParams[idx] = { ...newParams[idx], name: e.target.value };
-                                const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData;
-                                updater(node.id, {
-                                  ...data,
-                                  params: { ...params, parameters: newParams }
-                                });
-                              }}
-                              style={{
-                                flex: 1.2,
-                                background: 'var(--color-bg-input)',
-                                border: '1px solid var(--color-border)',
-                                borderRadius: 4,
-                                padding: '4px 6px',
-                                color: 'var(--color-text-bright)',
-                                fontSize: 10,
-                                fontFamily: 'monospace',
-                                outline: 'none',
-                              }}
-                            />
-
-                            {/* Param Type Select */}
-                            <select
-                              value={param.type}
-                              onChange={e => {
-                                const newParams = [...currentParams];
-                                newParams[idx] = { ...newParams[idx], type: e.target.value };
-                                const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData;
-                                updater(node.id, {
-                                  ...data,
-                                  params: { ...params, parameters: newParams }
-                                });
-                              }}
-                              style={{
-                                flex: 1,
-                                background: 'var(--color-bg-input)',
-                                border: '1px solid var(--color-border)',
-                                borderRadius: 4,
-                                padding: '3px 4px',
-                                color: 'var(--color-text-bright)',
-                                fontSize: 9.5,
-                                outline: 'none',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              <option value="int">int</option>
-                              <option value="float">float</option>
-                              <option value="bool">bool</option>
-                              <option value="char">char</option>
-                              <option value="String">String</option>
-                            </select>
-
-                            {/* Trash Button */}
+                          {/* Section Header */}
+                          <div style={{ fontSize: 9.5, color: 'var(--color-text-dim)', fontWeight: 700, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>Input Parameters ({currentParams.length})</span>
                             <button
                               onClick={() => {
-                                const newParams = currentParams.filter((_, i) => i !== idx);
+                                const newParams = [...currentParams, { name: `arg${currentParams.length}`, type: 'int' }];
                                 const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData;
                                 updater(node.id, {
                                   ...data,
@@ -399,27 +582,151 @@ export default function PropertiesPanel() {
                                 });
                               }}
                               style={{
-                                background: 'transparent',
+                                background: 'var(--color-accent)',
                                 border: 'none',
-                                color: '#ff5f9e',
-                                fontSize: 11,
+                                borderRadius: 4,
+                                padding: '3px 8px',
+                                fontSize: 10,
+                                color: '#ffffff',
                                 cursor: 'pointer',
-                                padding: '2px 4px',
+                                fontWeight: 700,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 4,
                               }}
                             >
-                              ✕
+                              <Plus className="w-3 h-3" /> Add Param
                             </button>
                           </div>
-                        ));
-                      })()}
-                    </div>
+
+                          {/* Stacked Parameter Cards */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {currentParams.length === 0 ? (
+                              <div style={{
+                                fontSize: 10,
+                                color: 'var(--color-text-dim)',
+                                fontStyle: 'italic',
+                                padding: '12px 8px',
+                                textAlign: 'center',
+                                background: 'rgba(0,0,0,0.15)',
+                                borderRadius: 6,
+                              }}>
+                                No input parameters defined. Click "+ Add Param" to add function arguments.
+                              </div>
+                            ) : (
+                              currentParams.map((param, idx) => (
+                                <div 
+                                  key={idx} 
+                                  style={{
+                                    background: 'rgba(0, 0, 0, 0.25)',
+                                    borderRadius: 6,
+                                    padding: '8px 10px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: 6,
+                                  }}
+                                >
+                                  {/* Card Top: Index Badge & Delete */}
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--color-accent)', textTransform: 'uppercase' }}>
+                                      Parameter #{idx + 1}
+                                    </span>
+                                    <button
+                                      onClick={() => {
+                                        const newParams = currentParams.filter((_, i) => i !== idx);
+                                        const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData;
+                                        updater(node.id, {
+                                          ...data,
+                                          params: { ...params, parameters: newParams }
+                                        });
+                                      }}
+                                      title="Remove Parameter"
+                                      style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: '#ef5f5f',
+                                        cursor: 'pointer',
+                                        padding: 2,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                      }}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5 text-[#ef5f5f]" />
+                                    </button>
+                                  </div>
+
+                                  {/* Name Input */}
+                                  <div>
+                                    <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontWeight: 600, marginBottom: 2 }}>
+                                      Parameter Name
+                                    </div>
+                                    <input
+                                      value={param.name}
+                                      placeholder="e.g. distance"
+                                      onChange={e => {
+                                        const newParams = [...currentParams];
+                                        newParams[idx] = { ...newParams[idx], name: e.target.value };
+                                        const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData;
+                                        updater(node.id, {
+                                          ...data,
+                                          params: { ...params, parameters: newParams }
+                                        });
+                                      }}
+                                      style={{
+                                        width: '100%',
+                                        background: 'rgba(0, 0, 0, 0.3)',
+                                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                                        borderRadius: 4,
+                                        padding: '5px 8px',
+                                        color: 'var(--color-text-bright)',
+                                        fontSize: 11,
+                                        fontFamily: 'var(--font-mono)',
+                                        outline: 'none',
+                                        transition: 'all 0.15s ease',
+                                      }}
+                                      onFocus={e => { e.currentTarget.style.borderColor = 'var(--color-border-focus)' }}
+                                      onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)' }}
+                                    />
+                                  </div>
+
+                                  {/* Type Select */}
+                                  <div>
+                                    <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontWeight: 600, marginBottom: 2 }}>
+                                      Data Type
+                                    </div>
+                                    <CustomSelect
+                                      value={param.type}
+                                      options={[
+                                        { value: 'int', label: 'int (Integer)' },
+                                        { value: 'float', label: 'float (Decimal)' },
+                                        { value: 'bool', label: 'bool (Boolean)' },
+                                        { value: 'char', label: 'char (Character)' },
+                                        { value: 'String', label: 'String (Text)' },
+                                      ]}
+                                      onChange={val => {
+                                        const newParams = [...currentParams];
+                                        newParams[idx] = { ...newParams[idx], type: val };
+                                        const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData;
+                                        updater(node.id, {
+                                          ...data,
+                                          params: { ...params, parameters: newParams }
+                                        });
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </>
-              ) : nodeType === 'function_call' ? (
+              ) : rawNodeType === 'function_call' ? (
                 (() => {
                   const definedFunctions: { id: string, name: string, returnType: string, parameters: { name: string, type: string }[] }[] = [];
                   
-                  // 1. Check main flow nodes
                   allFlowNodes.forEach((n: any) => {
                     if (n.data?.nodeType === 'function') {
                       const fnName = n.data?.params?.name || 'myFn';
@@ -434,39 +741,25 @@ export default function PropertiesPanel() {
                     }
                   });
 
-                  // 2. Check subFlows nodes (in case they are defined elsewhere)
-                  Object.values(subFlows).forEach((subFlow: any) => {
-                    subFlow.nodes.forEach((n: any) => {
-                      if (n.data?.nodeType === 'function') {
-                        const fnName = n.data?.params?.name || 'myFn';
-                        if (!definedFunctions.some(f => f.name === fnName)) {
-                          const returnType = n.data?.params?.returnType || 'void';
-                          const pVal = n.data?.params?.parameters;
-                          let paramsList: any[] = [];
-                          if (Array.isArray(pVal)) paramsList = pVal;
-                          else if (typeof pVal === 'string' && pVal.trim() !== '') {
-                            try { paramsList = JSON.parse(pVal); } catch(e) {}
-                          }
-                          definedFunctions.push({ id: n.id, name: fnName, returnType, parameters: paramsList });
-                        }
-                      }
-                    });
-                  });
-
                   const currentFnName = params.functionName || '';
                   const selectedFn = definedFunctions.find(f => f.name === currentFnName);
 
                   return (
                     <>
-                      {/* Select Function */}
                       <div>
-                        <div style={{ fontSize: 10, color: 'var(--color-text-dim)', marginBottom: 4 }}>
-                          Select Function
+                        <div style={{ fontSize: 9.5, color: 'var(--color-text-dim)', fontWeight: 700, marginBottom: 4 }}>
+                          Target Function
                         </div>
-                        <select
+                        <CustomSelect
                           value={currentFnName}
-                          onChange={e => {
-                            const newFnName = e.target.value;
+                          options={[
+                            { value: '', label: '-- Select Function --' },
+                            ...definedFunctions.map(f => ({
+                              value: f.name,
+                              label: `${f.name}() ${f.returnType !== 'void' ? `-> ${f.returnType}` : ''}`
+                            }))
+                          ]}
+                          onChange={newFnName => {
                             const targetFn = definedFunctions.find(f => f.name === newFnName);
                             const newArgs = targetFn ? new Array(targetFn.parameters.length).fill('') : [];
                             const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData;
@@ -480,123 +773,62 @@ export default function PropertiesPanel() {
                               }
                             });
                           }}
-                          style={{
-                            width: '100%',
-                            background: 'var(--color-bg-input)',
-                            border: '1px solid var(--color-border)',
-                            borderRadius: 4,
-                            padding: '4px 8px',
-                            color: 'var(--color-text-bright)',
-                            fontSize: 11,
-                            outline: 'none',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          <option value="">-- Select Function --</option>
-                          {definedFunctions.map(f => (
-                            <option key={f.id} value={f.name}>
-                              {f.name}() {f.returnType !== 'void' ? `-> ${f.returnType}` : ''}
-                            </option>
-                          ))}
-                        </select>
+                        />
                       </div>
 
-                      {/* If function is selected, show arguments */}
-                      {selectedFn && (
-                        <>
-                          {/* Arguments */}
-                          {selectedFn.parameters.length > 0 ? (
-                            <div>
-                              <div style={{ fontSize: 10, color: 'var(--color-text-dim)', marginBottom: 6 }}>
-                                Arguments
-                              </div>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                {selectedFn.parameters.map((param, idx) => {
-                                  let currentArgs: any[] = [];
-                                  const argsVal = params.arguments;
-                                  if (Array.isArray(argsVal)) currentArgs = argsVal;
-                                  else if (typeof argsVal === 'string' && argsVal.trim() !== '') {
-                                    try {
-                                      const parsed = JSON.parse(argsVal);
-                                      if (Array.isArray(parsed)) currentArgs = parsed;
-                                    } catch(e) {}
-                                  }
-                                  const currentVal = currentArgs[idx] || '';
+                      {selectedFn && selectedFn.parameters.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: 9.5, color: 'var(--color-text-dim)', fontWeight: 700, marginBottom: 6 }}>
+                            Passed Arguments
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {selectedFn.parameters.map((param, idx) => {
+                              let currentArgs: any[] = [];
+                              const argsVal = params.arguments;
+                              if (Array.isArray(argsVal)) currentArgs = argsVal;
+                              else if (typeof argsVal === 'string' && argsVal.trim() !== '') {
+                                try {
+                                  const parsed = JSON.parse(argsVal);
+                                  if (Array.isArray(parsed)) currentArgs = parsed;
+                                } catch(e) {}
+                              }
+                              const currentVal = currentArgs[idx] || '';
 
-                                  return (
-                                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                      <div style={{ fontSize: 8.5, color: '#a5b3cd', fontFamily: 'monospace' }}>
-                                        {param.name} ({param.type})
-                                      </div>
-                                      <input
-                                        value={currentVal}
-                                        placeholder={`e.g. ${param.type === 'int' ? '13' : param.type === 'float' ? '10.5' : 'val'}`}
-                                        onChange={e => {
-                                          const newArgs = [...currentArgs];
-                                          while (newArgs.length <= idx) {
-                                            newArgs.push('');
-                                          }
-                                          newArgs[idx] = e.target.value;
-                                          const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData;
-                                          updater(node.id, {
-                                            ...data,
-                                            params: { ...params, arguments: newArgs }
-                                          });
-                                        }}
-                                        style={{
-                                          width: '100%',
-                                          background: 'var(--color-bg-input)',
-                                          border: '1px solid var(--color-border)',
-                                          borderRadius: 4,
-                                          padding: '4px 6px',
-                                          color: 'var(--color-text-bright)',
-                                          fontSize: 10,
-                                          fontFamily: 'monospace',
-                                          outline: 'none',
-                                        }}
-                                      />
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          ) : (
-                            <div style={{ fontSize: 9.5, color: '#546484', fontStyle: 'italic' }}>
-                              No arguments required
-                            </div>
-                          )}
-
-                          {/* Assignment Target if returnType is not void */}
-                          {selectedFn.returnType !== 'void' && (
-                            <div>
-                              <div style={{ fontSize: 10, color: 'var(--color-text-dim)', marginBottom: 4 }}>
-                                Assign Return Value To
-                              </div>
-                              <input
-                                value={params.assignTo || ''}
-                                placeholder="e.g. val"
-                                onChange={e => {
-                                  const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData;
-                                  updater(node.id, {
-                                    ...data,
-                                    params: { ...params, assignTo: e.target.value }
-                                  });
-                                }}
-                                style={{
-                                  width: '100%',
-                                  background: 'var(--color-bg-input)',
-                                  border: '1px solid var(--color-border)',
-                                  borderRadius: 4,
-                                  padding: '4px 8px',
-                                  color: 'var(--color-text-bright)',
-                                  fontSize: 11,
-                                  fontFamily: 'monospace',
-                                  outline: 'none',
-                                }}
-                              />
-                            </div>
-                          )}
-                        </>
+                              return (
+                                <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                  <div style={{ fontSize: 8.5, color: 'var(--color-text-normal)', fontFamily: 'var(--font-mono)' }}>
+                                    {param.name} ({param.type})
+                                  </div>
+                                  <input
+                                    value={currentVal}
+                                    placeholder={`e.g. ${param.type === 'int' ? '13' : 'val'}`}
+                                    onChange={e => {
+                                      const newArgs = [...currentArgs];
+                                      while (newArgs.length <= idx) newArgs.push('');
+                                      newArgs[idx] = e.target.value;
+                                      const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData;
+                                      updater(node.id, {
+                                        ...data,
+                                        params: { ...params, arguments: newArgs }
+                                      });
+                                    }}
+                                    style={{
+                                      width: '100%',
+                                      background: 'var(--color-bg-input)',
+                                      border: '1px solid var(--color-border)',
+                                      borderRadius: 4,
+                                      padding: '4px 6px',
+                                      color: 'var(--color-text-bright)',
+                                      fontSize: 10,
+                                      fontFamily: 'var(--font-mono)',
+                                      outline: 'none',
+                                    }}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
                       )}
                     </>
                   );
@@ -604,163 +836,82 @@ export default function PropertiesPanel() {
               ) : (
                 Object.entries(params).map(([key, val]) => (
                   <div key={key}>
-                    <div style={{ fontSize: 10, color: 'var(--color-text-dim)', marginBottom: 4, textTransform: 'capitalize' }}>
-                      {key}
+                    <div style={{ fontSize: 9.5, color: 'var(--color-text-dim)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>
+                      {key.replace(/([A-Z])/g, ' $1')}
                     </div>
-                    {key === 'returnType' ? (
-                      <select
+
+                    {key === 'unit' ? (
+                      <CustomSelect
                         value={val}
-                        onChange={e => {
+                        options={[
+                          { value: 'ms', label: 'Milliseconds (ms)' },
+                          { value: 'us', label: 'Microseconds (us)' },
+                        ]}
+                        onChange={newVal => {
                           const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData
                           updater(node.id, {
                             ...data,
-                            params: { ...params, [key]: e.target.value }
+                            params: { ...params, [key]: newVal }
                           })
                         }}
-                        style={{
-                          width: '100%',
-                          background: 'var(--color-bg-input)',
-                          border: '1px solid var(--color-border)',
-                          borderRadius: 4,
-                          padding: '4px 8px',
-                          color: 'var(--color-text-bright)',
-                          fontSize: 11,
-                          outline: 'none',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <option value="void">void (no return value)</option>
-                        <option value="int">int</option>
-                        <option value="float">float</option>
-                        <option value="bool">bool</option>
-                        <option value="char">char</option>
-                        <option value="String">String</option>
-                      </select>
-                    ) : key === 'variant' ? (
-                      <select
+                      />
+                    ) : key === 'state' || (key === 'value' && (rawNodeType === 'gpio' || rawNodeType === 'pulse_in')) ? (
+                      <CustomSelect
                         value={val}
-                        onChange={e => {
+                        options={[
+                          { value: 'HIGH', label: 'HIGH (5V)' },
+                          { value: 'LOW', label: 'LOW (0V)' },
+                        ]}
+                        onChange={newVal => {
                           const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData
                           updater(node.id, {
                             ...data,
-                            params: { ...params, [key]: e.target.value }
+                            params: { ...params, [key]: newVal }
                           })
                         }}
-                        style={{
-                          width: '100%',
-                          background: 'var(--color-bg-input)',
-                          border: '1px solid var(--color-border)',
-                          borderRadius: 4,
-                          padding: '4px 8px',
-                          color: 'var(--color-text-bright)',
-                          fontSize: 11,
-                          outline: 'none',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <option value="Active Low">Active Low</option>
-                        <option value="Active High">Active High</option>
-                      </select>
-                    ) : key === 'motor' ? (
-                      <select
+                      />
+                    ) : key === 'mode' ? (
+                      <CustomSelect
                         value={val}
-                        onChange={e => {
+                        options={[
+                          { value: 'OUTPUT', label: 'OUTPUT' },
+                          { value: 'INPUT', label: 'INPUT' },
+                          { value: 'INPUT_PULLUP', label: 'INPUT_PULLUP' },
+                        ]}
+                        onChange={newVal => {
                           const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData
                           updater(node.id, {
                             ...data,
-                            params: { ...params, [key]: e.target.value }
+                            params: { ...params, [key]: newVal }
                           })
                         }}
-                        style={{
-                          width: '100%',
-                          background: 'var(--color-bg-input)',
-                          border: '1px solid var(--color-border)',
-                          borderRadius: 4,
-                          padding: '4px 8px',
-                          color: 'var(--color-text-bright)',
-                          fontSize: 11,
-                          outline: 'none',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <option value="Motor A">Motor A</option>
-                        <option value="Motor B">Motor B</option>
-                      </select>
-                    ) : key === 'direction' ? (
-                      <select
-                        value={val}
-                        onChange={e => {
-                          const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData
-                          updater(node.id, {
-                            ...data,
-                            params: { ...params, [key]: e.target.value }
-                          })
-                        }}
-                        style={{
-                          width: '100%',
-                          background: 'var(--color-bg-input)',
-                          border: '1px solid var(--color-border)',
-                          borderRadius: 4,
-                          padding: '4px 8px',
-                          color: 'var(--color-text-bright)',
-                          fontSize: 11,
-                          outline: 'none',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <option value="Forward">Forward</option>
-                        <option value="Backward">Backward</option>
-                        <option value="Stop">Stop</option>
-                      </select>
+                      />
                     ) : (
-                      <div>
-                        <input
-                          value={val}
-                          placeholder={
-                            key === 'arguments' ? 'e.g. int pin, float speed' :
-                            key === 'argValues' ? 'e.g. 13, 255' :
-                            key === 'assignTo' ? 'e.g. result' :
-                            key === 'value' ? 'e.g. 10 or variable' :
-                            ''
-                          }
-                          onChange={e => {
-                            const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData
-                            updater(node.id, {
-                              ...data,
-                              params: { ...params, [key]: e.target.value }
-                            })
-                          }}
-                          style={{
-                            width: '100%',
-                            background: 'var(--color-bg-input)',
-                            border: '1px solid var(--color-border)',
-                            borderRadius: 4,
-                            padding: '4px 8px',
-                            color: 'var(--color-text-bright)',
-                            fontSize: 11,
-                            fontFamily: 'monospace',
-                            outline: 'none',
-                            transition: 'border-color 0.1s',
-                          }}
-                          onFocus={e => e.target.style.borderColor = 'var(--color-border-focus)'}
-                          onBlur={e => e.target.style.borderColor = 'var(--color-border)'}
-                        />
-                        {key === 'arguments' && (
-                          <div style={{ fontSize: 8, color: '#546484', marginTop: 2 }}>
-                            Declare inputs: type and name separated by commas
-                          </div>
-                        )}
-                        {key === 'argValues' && (
-                          <div style={{ fontSize: 8, color: '#546484', marginTop: 2 }}>
-                            Pass values: variables or raw numbers/strings
-                          </div>
-                        )}
-                        {key === 'assignTo' && (
-                          <div style={{ fontSize: 8, color: '#546484', marginTop: 2 }}>
-                            Variable to store function's returned value
-                          </div>
-                        )}
-                      </div>
+                      <input
+                        value={val}
+                        placeholder={`e.g. value for ${key}`}
+                        onChange={e => {
+                          const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData
+                          updater(node.id, {
+                            ...data,
+                            params: { ...params, [key]: e.target.value }
+                          })
+                        }}
+                        style={{
+                          width: '100%',
+                          background: 'var(--color-bg-input)',
+                          border: '1px solid var(--color-border)',
+                          borderRadius: 4,
+                          padding: '5px 8px',
+                          color: 'var(--color-text-bright)',
+                          fontSize: 11,
+                          fontFamily: 'var(--font-mono)',
+                          outline: 'none',
+                          transition: 'border-color 0.15s',
+                        }}
+                        onFocus={e => e.target.style.borderColor = 'var(--color-border-focus)'}
+                        onBlur={e => e.target.style.borderColor = 'var(--color-border)'}
+                      />
                     )}
                   </div>
                 ))
@@ -770,42 +921,42 @@ export default function PropertiesPanel() {
         </div>
       )}
 
-      {/* Accordion 3: Pins (Schema view only) */}
+      {/* Accordion 3: Hardware Signal Pins & Connectors */}
       {pins.length > 0 && (
         <div style={{ borderBottom: '1px solid var(--color-border)' }}>
           <div 
-            onClick={() => toggleSection('pins')}
+            onClick={() => toggleSection('connectors')}
             style={{
-              padding: '8px 12px',
-              background: 'rgba(0,0,0,0.05)',
+              padding: '9px 14px',
+              background: 'rgba(0,0,0,0.1)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               cursor: 'pointer',
-              fontSize: 10,
+              fontSize: 10.5,
               fontWeight: 700,
               color: 'var(--color-text-normal)',
             }}
           >
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Link className="w-3.5 h-3.5 text-[#2ecc71]" /> CONNECTORS
+              <Link className="w-3.5 h-3.5 text-[#2ecc71]" /> SIGNAL PINS
             </span>
-            <span style={{ color: '#555', fontSize: 10 }}>{openSections.pins ? '▼' : '▶'}</span>
+            <span style={{ color: '#555', fontSize: 10 }}>{openSections.connectors ? '▼' : '▶'}</span>
           </div>
-          {openSections.pins && (
-            <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {openSections.connectors && (
+            <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
               {pins.map(pin => (
                 <div key={pin.id} style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '4px 6px',
+                  padding: '5px 8px',
                   fontSize: 10.5,
-                  borderRadius: 3,
-                  background: 'rgba(255,255,255,0.01)',
-                  borderBottom: '1px solid rgba(255,255,255,0.02)',
+                  borderRadius: 4,
+                  background: 'rgba(255,255,255,0.02)',
+                  border: '1px solid rgba(255,255,255,0.03)',
                 }}>
-                  <span style={{ fontFamily: 'monospace', color: 'var(--color-text-dim)' }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', color: '#2ecc71', fontWeight: 600 }}>
                     {pin.id}
                   </span>
                   <span style={{ color: 'var(--color-text-normal)', fontWeight: 600 }}>
@@ -817,83 +968,6 @@ export default function PropertiesPanel() {
           )}
         </div>
       )}
-
-      {/* Accordion 4: Position (Transform) */}
-      <div style={{ borderBottom: '1px solid var(--color-border)' }}>
-        <div 
-          onClick={() => toggleSection('transform')}
-          style={{
-            padding: '8px 12px',
-            background: 'rgba(0,0,0,0.05)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            cursor: 'pointer',
-            fontSize: 10,
-            fontWeight: 700,
-            color: 'var(--color-text-normal)',
-          }}
-        >
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Move className="w-3.5 h-3.5 text-[#e74c3c]" /> TRANSFORM
-          </span>
-          <span style={{ color: '#555', fontSize: 10 }}>{openSections.transform ? '▼' : '▶'}</span>
-        </div>
-        {openSections.transform && (
-          <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', gap: 12 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-                  <span style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: 2,
-                    background: '#e74c3c',
-                    display: 'inline-block',
-                  }} />
-                  <span style={{ fontSize: 9, color: 'var(--color-text-dim)', fontWeight: 600 }}>LOC X</span>
-                </div>
-                <div style={{
-                  fontFamily: 'monospace',
-                  fontSize: 11,
-                  color: 'var(--color-text-bright)',
-                  background: 'var(--color-bg-input)',
-                  padding: '4px 8px',
-                  borderRadius: 4,
-                  border: '1px solid var(--color-border)',
-                  textAlign: 'center',
-                }}>
-                  {originalNode ? Math.round(originalNode.position.x) : 0}
-                </div>
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-                  <span style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: 2,
-                    background: '#2ecc71',
-                    display: 'inline-block',
-                  }} />
-                  <span style={{ fontSize: 9, color: 'var(--color-text-dim)', fontWeight: 600 }}>LOC Y</span>
-                </div>
-                <div style={{
-                  fontFamily: 'monospace',
-                  fontSize: 11,
-                  color: 'var(--color-text-bright)',
-                  background: 'var(--color-bg-input)',
-                  padding: '4px 8px',
-                  borderRadius: 4,
-                  border: '1px solid var(--color-border)',
-                  textAlign: 'center',
-                }}>
-                  {originalNode ? Math.round(originalNode.position.y) : 0}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   )
 }
