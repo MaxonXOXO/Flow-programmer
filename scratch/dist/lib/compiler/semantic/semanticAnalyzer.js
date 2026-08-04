@@ -2,12 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SemanticAnalyzer = void 0;
 const symbolTable_1 = require("../symbols/symbolTable");
+const boards_1 = require("../../registry/boards");
 class SemanticAnalyzer {
-    constructor() {
-        this.errors = [];
-        this.currentFunction = null;
-        this.hasReturnStatement = false;
-    }
+    errors = [];
+    currentFunction = null;
+    hasReturnStatement = false;
     analyze(program, globalScope) {
         this.errors = [];
         this.currentFunction = null;
@@ -298,9 +297,63 @@ class SemanticAnalyzer {
                 }
                 // Validate arguments
                 expr.arguments.forEach(arg => this.validateExpression(arg, scope));
+                // Pin capability validation
+                if (expr.callee === 'analogRead' && expr.arguments.length >= 1) {
+                    const pinArg = expr.arguments[0];
+                    const pinName = this.extractPinName(pinArg);
+                    if (pinName) {
+                        const normalizedPin = /^\d+$/.test(pinName) ? 'D' + pinName : pinName;
+                        if (!(0, boards_1.pinSupports)('arduino_uno', normalizedPin, 'analog')) {
+                            this.errors.push({
+                                severity: 'error',
+                                message: `Pin ${pinName} does not support analog input`,
+                                nodeId: expr.nodeId
+                            });
+                        }
+                    }
+                }
+                else if (expr.callee === 'analogWrite' && expr.arguments.length >= 1) {
+                    const pinArg = expr.arguments[0];
+                    const pinName = this.extractPinName(pinArg);
+                    if (pinName) {
+                        const normalizedPin = /^\d+$/.test(pinName) ? 'D' + pinName : pinName;
+                        if (!(0, boards_1.pinSupports)('arduino_uno', normalizedPin, 'pwm')) {
+                            this.errors.push({
+                                severity: 'error',
+                                message: `Pin ${pinName} does not support PWM capability`,
+                                nodeId: expr.nodeId
+                            });
+                        }
+                    }
+                }
+                else if ((expr.callee === 'digitalWrite' || expr.callee === 'digitalRead') && expr.arguments.length >= 1) {
+                    const pinArg = expr.arguments[0];
+                    const pinName = this.extractPinName(pinArg);
+                    if (pinName) {
+                        const normalizedPin = /^\d+$/.test(pinName) ? 'D' + pinName : pinName;
+                        if (!(0, boards_1.pinSupports)('arduino_uno', normalizedPin, 'digital')) {
+                            this.errors.push({
+                                severity: 'error',
+                                message: `Pin ${pinName} does not support digital capability`,
+                                nodeId: expr.nodeId
+                            });
+                        }
+                    }
+                }
                 break;
             }
         }
+    }
+    extractPinName(expr) {
+        if (!expr)
+            return null;
+        if (expr.kind === 'Literal') {
+            return String(expr.value);
+        }
+        if (expr.kind === 'Identifier') {
+            return expr.name;
+        }
+        return null;
     }
 }
 exports.SemanticAnalyzer = SemanticAnalyzer;

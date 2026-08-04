@@ -96,8 +96,10 @@ function tokenize(input) {
     return tokens;
 }
 class ExpressionParser {
+    tokens;
+    current = 0;
+    nodeId;
     constructor(tokens, nodeId) {
-        this.current = 0;
         this.tokens = tokens;
         this.nodeId = nodeId;
     }

@@ -4,15 +4,13 @@ exports.SimulationEngine = void 0;
 const plugin_1 = require("../../ir/plugin");
 const expressionParser_1 = require("../parser/expressionParser");
 class SimulationEngine {
-    constructor() {
-        this.callStack = [];
-        this.globals = {};
-        this.consoleLogs = [];
-        this.hardwareStates = {};
-        this.isRunning = false;
-        this.maxStackDepth = 100;
-        this.functionDeclarations = {};
-    }
+    callStack = [];
+    globals = {};
+    consoleLogs = [];
+    hardwareStates = {};
+    isRunning = false;
+    maxStackDepth = 100;
+    functionDeclarations = {};
     loadProgram(program, schemaNodes) {
         this.callStack = [];
         this.globals = {};

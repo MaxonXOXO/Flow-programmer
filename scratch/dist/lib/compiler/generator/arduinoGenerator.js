@@ -2,11 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ArduinoUnoGenerator = void 0;
 const plugin_1 = require("../../ir/plugin");
+const packages_1 = require("../packages");
 class ArduinoUnoGenerator {
-    constructor() {
-        this.connections = [];
-        this.declaredVarsGlobal = new Set();
-    }
+    connections = [];
+    declaredVarsGlobal = new Set();
     generate(program, schemaNodes, schemaEdges) {
         this.connections = this.parseConnections(schemaNodes, schemaEdges);
         this.declaredVarsGlobal.clear();
@@ -23,6 +22,11 @@ class ArduinoUnoGenerator {
             if (this.isPowerPin(conn))
                 return;
             const pluginType = (0, plugin_1.mapLabelToPluginType)(conn.componentLabel) || conn.componentType;
+            // Consult Package Execution Resolver and Dispatcher for implementation strategy
+            const resolvedImpl = (0, packages_1.resolvePackageImplementation)(conn.componentId || pluginType);
+            (0, packages_1.dispatchPackageExecution)(resolvedImpl.packageId || pluginType, {
+                instanceName: this.safeVarName(conn.componentLabel),
+            });
             const plugin = plugin_1.pluginRegistry.get(pluginType);
             if (!plugin)
                 return;

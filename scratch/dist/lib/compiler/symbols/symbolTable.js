@@ -2,9 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SymbolTable = void 0;
 class SymbolTable {
+    symbols = new Map();
+    parent = null;
+    scopeType;
     constructor(parent = null, scopeType = 'global') {
-        this.symbols = new Map();
-        this.parent = null;
         this.parent = parent;
         this.scopeType = scopeType;
     }

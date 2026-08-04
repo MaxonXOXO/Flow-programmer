@@ -1,0 +1,47 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ArduinoUno = void 0;
+exports.ArduinoUno = {
+    id: 'arduino_uno',
+    name: 'Arduino Uno',
+    architecture: 'avr',
+    mcu: 'ATmega328P',
+    frequency: '16MHz',
+    pins: {
+        D0: { capabilities: ['digital', 'uart_rx'] },
+        D1: { capabilities: ['digital', 'uart_tx'] },
+        D2: { capabilities: ['digital'] },
+        D3: { capabilities: ['digital', 'pwm'] },
+        D4: { capabilities: ['digital'] },
+        D5: { capabilities: ['digital', 'pwm'] },
+        D6: { capabilities: ['digital', 'pwm'] },
+        D7: { capabilities: ['digital'] },
+        D8: { capabilities: ['digital'] },
+        D9: { capabilities: ['digital', 'pwm'] },
+        D10: { capabilities: ['digital', 'pwm'] },
+        D11: { capabilities: ['digital', 'pwm', 'spi_mosi'] },
+        D12: { capabilities: ['digital', 'spi_miso'] },
+        D13: { capabilities: ['digital', 'spi_sck'] },
+        A0: { capabilities: ['analog', 'digital'] },
+        A1: { capabilities: ['analog', 'digital'] },
+        A2: { capabilities: ['analog', 'digital'] },
+        A3: { capabilities: ['analog', 'digital'] },
+        A4: { capabilities: ['analog', 'digital', 'i2c_sda'] },
+        A5: { capabilities: ['analog', 'digital', 'i2c_scl'] },
+        '5V': { capabilities: ['power'] },
+        '3.3V': { capabilities: ['power'] },
+        GND: { capabilities: ['ground'] },
+        VIN: { capabilities: ['power'] },
+    },
+    buses: {
+        i2c: {
+            sda: 'A4',
+            scl: 'A5',
+        },
+        spi: {
+            miso: 'D12',
+            mosi: 'D11',
+            sck: 'D13',
+        },
+    },
+};

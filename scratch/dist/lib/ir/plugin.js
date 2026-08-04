@@ -96,8 +96,8 @@ function parsePrintArguments(str) {
     return parts.filter(p => p !== '');
 }
 class PluginRegistry {
+    plugins = new Map();
     constructor() {
-        this.plugins = new Map();
         this.registerDefaultPlugins();
     }
     register(plugin) {

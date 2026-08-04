@@ -4,12 +4,12 @@ exports.GraphToASTCompiler = void 0;
 const expressionParser_1 = require("./expressionParser");
 const plugin_1 = require("../../ir/plugin");
 class GraphToASTCompiler {
+    visited = new Set();
+    flowNodes = [];
+    flowEdges = [];
+    subFlows = {};
+    functionSignatures = {};
     constructor(flowNodes, flowEdges, subFlows = {}, functionSignatures = {}) {
-        this.visited = new Set();
-        this.flowNodes = [];
-        this.flowEdges = [];
-        this.subFlows = {};
-        this.functionSignatures = {};
         this.flowNodes = flowNodes;
         this.flowEdges = flowEdges;
         this.subFlows = subFlows;
@@ -120,6 +120,10 @@ class GraphToASTCompiler {
             const type = data?.nodeType || 'start';
             if (type === 'end') {
                 this.visited.add(currentId);
+                break;
+            }
+            if (type === 'return') {
+                this.visited.add(currentId);
                 const retValue = data?.params?.value;
                 body.push({
                     kind: 'ReturnStatement',
@@ -138,6 +142,16 @@ class GraphToASTCompiler {
                     name: varName,
                     varType: rawValue.includes('.') ? 'float' : 'int',
                     value: (0, expressionParser_1.parseExpressionString)(rawValue, currentId)
+                });
+            }
+            else if (type === 'assignment') {
+                const target = data?.params?.target || 'x';
+                const expression = data?.params?.expression || '0';
+                body.push({
+                    kind: 'Assignment',
+                    nodeId: currentId,
+                    name: target,
+                    value: (0, expressionParser_1.parseExpressionString)(expression, currentId)
                 });
             }
             else if (type === 'print') {
