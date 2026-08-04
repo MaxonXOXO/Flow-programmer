@@ -148,8 +148,13 @@ export interface PackageImplementation {
   version?: number;
   /** Entry point if applicable */
   entry?: string;
-  /** Subflow graph data (nodes & edges) when strategy === 'subflow' */
+  /** Subflow graph data (nodes & edges) when strategy === 'subflow' or builtin subflow */
   subflow?: {
+    nodes: any[];
+    edges: any[];
+  } | unknown;
+  /** Internal visual flow graph (nodes & edges) for subflow implementation */
+  graph?: {
     nodes: any[];
     edges: any[];
   } | unknown;

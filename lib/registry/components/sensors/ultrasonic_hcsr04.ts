@@ -1,12 +1,13 @@
 import { PackageDefinition } from '../types';
+import ultrasonicFlowJson from '../../../../flow-packages/ultrasonic_hcsr04.flow.json';
 
 export const UltrasonicHCSR04Package: PackageDefinition = {
   metadata: {
     id: 'ultrasonic_hcsr04',
     name: 'Ultrasonic HC-SR04',
-    description: 'Ultrasonic distance sensor â€” measures distance via echo timing',
+    description: 'Ultrasonic distance sensor — measures distance via echo timing',
     category: 'sensor',
-    icon: 'ðŸ“¡',
+    icon: '📡',
     tags: ['distance', 'ultrasonic', 'hcsr04'],
   },
 
@@ -41,7 +42,6 @@ export const UltrasonicHCSR04Package: PackageDefinition = {
   dependencies: {
     includes: [],
     globals:  [],
-    // pinMode calls are emitted by the compiler using the $trigPin / $echoPin property values
     setup: [
       'pinMode($trigPin, OUTPUT)',
       'pinMode($echoPin, INPUT)',
@@ -51,5 +51,9 @@ export const UltrasonicHCSR04Package: PackageDefinition = {
   implementation: {
     strategy: 'builtin',
     version: 1,
+    graph: {
+      nodes: (ultrasonicFlowJson as any).nodes || [],
+      edges: (ultrasonicFlowJson as any).edges || [],
+    },
   },
 };
