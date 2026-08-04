@@ -39,7 +39,7 @@ export default function EditorPage() {
       <div style={{
         height: 22,
         background: '#151515',
-        borderTop: '1px solid var(--color-border)',
+        borderTop: '1px solid rgba(255, 255, 255, 0.05)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
