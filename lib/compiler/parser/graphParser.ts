@@ -17,6 +17,7 @@ import {
 } from '../ast/ast';
 import { parseExpressionString } from './expressionParser';
 import { pluginRegistry } from '../../ir/plugin';
+import { expandComponentGraphs } from '../packages/componentExpander';
 
 export class GraphToASTCompiler {
   private visited: Set<string> = new Set();
@@ -38,6 +39,13 @@ export class GraphToASTCompiler {
   }
 
   public compile(): ProgramNode {
+    // 0. Expand any component nodes that provide an internal subflow graph (Phase 4)
+    const expanded = expandComponentGraphs(this.flowNodes, this.flowEdges);
+    if (expanded.hasExpandedComponents) {
+      this.flowNodes = expanded.nodes;
+      this.flowEdges = expanded.edges;
+    }
+
     this.visited.clear();
     const body: ProgramStatementNode[] = [];
 
@@ -233,14 +241,17 @@ export class GraphToASTCompiler {
           }
         } as AssignmentNode);
       } else if (type === 'delay') {
+        const duration = data?.params?.duration || data?.params?.ms || '1000';
+        const unit = data?.params?.unit || 'ms';
+        const callee = unit === 'us' ? 'delayMicroseconds' : 'delay';
         body.push({
           kind: 'ExpressionStatement',
           nodeId: currentId,
           expression: {
             kind: 'CallExpression',
             nodeId: currentId,
-            callee: 'delay',
-            arguments: [parseExpressionString(data?.params?.ms || '1000', currentId)]
+            callee: callee,
+            arguments: [parseExpressionString(duration, currentId)]
           }
         } as ExpressionStatementNode);
       } else if (type === 'gpio') {
@@ -257,6 +268,25 @@ export class GraphToASTCompiler {
             ]
           }
         } as ExpressionStatementNode);
+      } else if (type === 'pulse_in') {
+        const varName = data?.params?.var || 'duration';
+        const pin = data?.params?.pin || '10';
+        const pulseVal = data?.params?.value || 'HIGH';
+        body.push({
+          kind: 'VariableDeclaration',
+          nodeId: currentId,
+          name: varName,
+          varType: 'unsigned long',
+          value: {
+            kind: 'CallExpression',
+            nodeId: currentId,
+            callee: 'pulseIn',
+            arguments: [
+              parseExpressionString(pin, currentId),
+              parseExpressionString(pulseVal, currentId)
+            ]
+          }
+        } as VariableDeclarationNode);
       } else if (type === 'sensor') {
         const varName = data?.params?.var || 'sensorVal';
         const pin = data?.params?.pin || 'A0';
