@@ -29,10 +29,39 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
     toggleGrid,
     toggleMinimap,
     toggleProperties,
-    loadProjectState
+    loadProjectState,
+    undo,
+    redo,
+    copySelectedNode,
+    cutSelectedNode,
+    pasteNode,
+    deleteSelectedNode
   } = useFlowStore()
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
+      const isCtrl = e.ctrlKey || e.metaKey;
+      if (isCtrl && e.key.toLowerCase() === 'z') {
+        if (e.shiftKey) redo();
+        else undo();
+      } else if (isCtrl && e.key.toLowerCase() === 'y') {
+        redo();
+      } else if (isCtrl && e.key.toLowerCase() === 'c') {
+        copySelectedNode();
+      } else if (isCtrl && e.key.toLowerCase() === 'x') {
+        cutSelectedNode();
+      } else if (isCtrl && e.key.toLowerCase() === 'v') {
+        pasteNode();
+      } else if (e.key === 'Delete') {
+        deleteSelectedNode();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo, copySelectedNode, cutSelectedNode, pasteNode, deleteSelectedNode]);
 
   const handleSaveProject = () => {
     if (!project) return
@@ -163,6 +192,20 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
       toggleMinimap()
     } else if (action === 'Toggle Properties') {
       toggleProperties()
+    } else if (action === 'Undo') {
+      undo()
+    } else if (action === 'Redo') {
+      redo()
+    } else if (action === 'Cut') {
+      cutSelectedNode()
+    } else if (action === 'Copy') {
+      copySelectedNode()
+    } else if (action === 'Paste') {
+      pasteNode()
+    } else if (action === 'Delete Node') {
+      deleteSelectedNode()
+    } else if (action === 'Reset Zoom') {
+      window.dispatchEvent(new CustomEvent('flow:reset-zoom'))
     }
   }
 
@@ -249,13 +292,14 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
                 />
                 <div style={{
                   position: 'absolute',
-                  top: 24,
+                  top: 26,
                   left: 0,
-                  background: '#2b2b2b',
-                  border: '1px solid #3e3e3e',
-                  borderRadius: 4,
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-                  minWidth: 160,
+                  background: 'rgba(23, 26, 33, 0.95)',
+                  backdropFilter: 'blur(16px)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: 6,
+                  boxShadow: '0 12px 32px rgba(0, 0, 0, 0.5)',
+                  minWidth: 165,
                   zIndex: 20,
                   padding: '4px 0',
                 }}>
@@ -319,50 +363,65 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
       {/* Segmented View Mode Tabs */}
       <div style={{
         display: 'flex',
-        background: '#1a1a1a',
-        border: '1px solid var(--color-border)',
-        borderRadius: 4,
-        padding: 2,
-        gap: 2,
+        background: 'rgba(0, 0, 0, 0.25)',
+        borderRadius: 6,
+        padding: 3,
+        gap: 3,
         margin: '0 8px',
       }}>
         {[
           { id: 'schema', label: 'Schema Designer' },
           { id: 'flow', label: 'Logic Editor' }
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveCanvas(tab.id as 'schema' | 'flow')}
-            style={{
-              padding: '4px 10px',
-              borderRadius: 3,
-              border: 'none',
-              background: activeCanvas === tab.id ? '#3a3a3a' : 'transparent',
-              color: activeCanvas === tab.id ? 'var(--color-text-bright)' : 'var(--color-text-normal)',
-              fontSize: 11,
-              fontWeight: activeCanvas === tab.id ? 600 : 400,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              transition: 'all 0.15s',
-            }}
-          >
-            {tab.id === 'schema' ? (
-              <span style={{ color: activeCanvas === 'schema' ? 'var(--color-accent-blue)' : 'inherit' }}>⎔</span>
-            ) : (
-              <span style={{ color: activeCanvas === 'flow' ? 'var(--color-accent)' : 'inherit' }}>⟳</span>
-            )}
-            {tab.label}
-          </button>
-        ))}
+        ].map(tab => {
+          const isActive = activeCanvas === tab.id
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveCanvas(tab.id as 'schema' | 'flow')}
+              style={{
+                padding: '4px 12px',
+                borderRadius: 4,
+                border: 'none',
+                background: isActive ? 'var(--color-accent)' : 'transparent',
+                color: isActive ? '#ffffff' : 'var(--color-text-normal)',
+                fontSize: 11,
+                fontWeight: isActive ? 700 : 500,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                transition: 'all 0.15s ease',
+                boxShadow: isActive ? '0 2px 8px rgba(0, 0, 0, 0.3)' : 'none',
+              }}
+              onMouseEnter={e => {
+                if (!isActive) {
+                  e.currentTarget.style.color = 'var(--color-text-bright)'
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'
+                }
+              }}
+              onMouseLeave={e => {
+                if (!isActive) {
+                  e.currentTarget.style.color = 'var(--color-text-normal)'
+                  e.currentTarget.style.background = 'transparent'
+                }
+              }}
+            >
+              {tab.id === 'schema' ? (
+                <span style={{ color: isActive ? '#ffffff' : 'var(--color-accent-blue)', fontSize: 12 }}>⎔</span>
+              ) : (
+                <span style={{ color: isActive ? '#ffffff' : 'var(--color-accent-blue)', fontSize: 12 }}>⟳</span>
+              )}
+              {tab.label}
+            </button>
+          )
+        })}
       </div>
 
-      <div style={{ width: 1, height: 18, background: 'var(--color-border)' }} />
+      <div style={{ width: 1, height: 18, background: 'rgba(255, 255, 255, 0.07)' }} />
 
-      {/* Simulation Controls: Run / Stop */}
+      {/* Simulation Controls: Run / Stop (Hidden as feature is in progress) */}
       {activeCanvas === 'flow' && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingLeft: 4 }}>
+        <div style={{ display: 'none', alignItems: 'center', gap: 6, paddingLeft: 4 }}>
           <button
             onClick={() => setSimState({ running: true })}
             disabled={simState.running}
@@ -480,10 +539,9 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
             display: 'flex',
             alignItems: 'center',
             gap: 6,
-            background: '#1a1a1a',
-            border: '1px solid var(--color-border)',
+            background: 'rgba(255, 255, 255, 0.03)',
             borderRadius: 4,
-            padding: '3px 8px',
+            padding: '4px 10px',
             fontSize: 11,
             color: 'var(--color-text-normal)',
           }}>
@@ -499,8 +557,8 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
         <button
           onClick={onCodeOpen}
           style={{
-            background: 'var(--color-bg-panel)',
-            border: '1px solid var(--color-border)',
+            background: 'rgba(255, 255, 255, 0.04)',
+            border: 'none',
             color: 'var(--color-text-normal)',
             fontSize: 11,
             padding: '4px 10px',
@@ -512,15 +570,15 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
             transition: 'all 0.15s',
           }}
           onMouseEnter={e => {
-            e.currentTarget.style.borderColor = '#444'
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'
             e.currentTarget.style.color = 'var(--color-text-bright)'
           }}
           onMouseLeave={e => {
-            e.currentTarget.style.borderColor = 'var(--color-border)'
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)'
             e.currentTarget.style.color = 'var(--color-text-normal)'
           }}
         >
-          <Code className="w-3.5 h-3.5 text-[#e67e22]" /> Code Output
+          <Code className="w-3.5 h-3.5 text-[#e66e19]" /> Code Output
         </button>
 
         <button
