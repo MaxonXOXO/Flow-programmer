@@ -500,14 +500,7 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
         )}
 
         <button
-          onClick={() => {
-            useFlowStore.getState().openDocument({
-              id: 'code_sketch',
-              title: '<> sketch.ino',
-              type: 'code',
-              closable: true,
-            })
-          }}
+          onClick={onCodeOpen}
           style={{
             background: 'rgba(255, 255, 255, 0.04)',
             border: 'none',
