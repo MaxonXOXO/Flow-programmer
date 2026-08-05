@@ -61,6 +61,7 @@ interface FlowStore {
   closeDocument: (id: string) => void
   setActiveDocument: (id: string) => void
   setDocumentDirty: (id: string, dirty: boolean) => void
+  createFunctionNode: (preferredName?: string) => string
 
   // Schema canvas
   schemaNodes: Node[]
@@ -284,6 +285,68 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   setDocumentDirty: (id: string, dirty: boolean) => set((s) => ({
     documents: s.documents.map(d => d.id === id ? { ...d, dirty } : d)
   })),
+
+  createFunctionNode: (preferredName?: string) => {
+    get().pushHistory()
+    const s = get()
+    const existingFnCount = s.flowNodes.filter(n => (n.data as any)?.nodeType === 'function').length
+    const fnName = preferredName || `myFunction_${existingFnCount + 1}`
+    const fnNodeId = `node_fn_${Date.now()}`
+
+    const newFnNode: Node = {
+      id: fnNodeId,
+      type: 'baseNode',
+      position: {
+        x: 250 + (existingFnCount % 5) * 40,
+        y: 150 + (existingFnCount % 5) * 60,
+      },
+      data: {
+        label: `${fnName}()`,
+        nodeType: 'function',
+        icon: '{}',
+        params: {
+          name: fnName,
+          returnType: 'void',
+          parameters: [],
+        },
+      },
+    }
+
+    const subFlows = {
+      ...s.subFlows,
+      [fnNodeId]: {
+        nodes: [
+          {
+            id: `${fnNodeId}-start`,
+            type: 'baseNode',
+            position: { x: 100, y: 200 },
+            data: { label: `${fnName}() Start`, nodeType: 'start', icon: '▶', params: {} },
+          },
+          {
+            id: `${fnNodeId}-end`,
+            type: 'baseNode',
+            position: { x: 600, y: 200 },
+            data: { label: `Return`, nodeType: 'end', icon: '⬛', params: {} },
+          },
+        ],
+        edges: [],
+      },
+    }
+
+    set({
+      flowNodes: [...s.flowNodes, newFnNode],
+      subFlows,
+    })
+
+    get().openDocument({
+      id: `subflow_${fnNodeId}`,
+      title: `ƒ ${fnName}`,
+      type: 'function',
+      targetId: fnNodeId,
+    })
+
+    return fnNodeId
+  },
   simState: {
     running: false,
     step: 0,
