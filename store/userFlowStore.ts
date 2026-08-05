@@ -309,7 +309,9 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
         icon: '{}',
         params: {
           name: fnName,
-          returnType: 'void',
+          returnType: 'int',
+          inputs: [],
+          outputs: [{ name: 'return', type: 'int' }],
           parameters: [],
         },
       },
