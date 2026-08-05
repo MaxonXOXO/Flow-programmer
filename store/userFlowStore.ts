@@ -57,7 +57,7 @@ interface FlowStore {
   // Workspace Documents (Phase 5 Workspace Document & Tab System)
   documents: WorkspaceDocument[]
   activeDocumentId: string
-  openDocument: (doc: Partial<WorkspaceDocument> & { id: string; title: string; type: DocumentType }) => void
+  openDocument: (doc: Partial<WorkspaceDocument> & { id: string; title: string; type: DocumentType }, activate?: boolean) => void
   closeDocument: (id: string) => void
   setActiveDocument: (id: string) => void
   setDocumentDirty: (id: string, dirty: boolean) => void
@@ -245,7 +245,7 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
     })
   },
 
-  openDocument: (docInput) => {
+  openDocument: (docInput, activate = true) => {
     const s = get()
     const existing = s.documents.find(d => d.id === docInput.id)
     let newDocs = s.documents
@@ -264,7 +264,9 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
     }
 
     set({ documents: newDocs })
-    get().setActiveDocument(docInput.id)
+    if (activate) {
+      get().setActiveDocument(docInput.id)
+    }
   },
 
   closeDocument: (id: string) => {
@@ -348,7 +350,7 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
       title: `${fnName}()`,
       type: 'function',
       targetId: fnNodeId,
-    })
+    }, false)
 
     return fnNodeId
   },

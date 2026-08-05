@@ -72,6 +72,51 @@ const pinToNumber = (pin: string): string => {
   return pin
 }
 
+const getMiniMapNodeColor = (node: any) => {
+  const nodeType = (node.data as any)?.nodeType || node.type
+  switch (nodeType) {
+    case 'start':
+    case 'print':
+      return '#2fd18b'
+    case 'end':
+    case 'return':
+    case 'api':
+    case 'input':
+    case 'oled':
+      return '#ff5f9e'
+    case 'condition':
+    case 'sensor':
+    case 'dht':
+    case 'ultrasonic':
+    case 'pir':
+    case 'ldr':
+    case 'ir':
+    case 'flame':
+    case 'soilMoisture':
+    case 'waterLevel':
+    case 'mqGas':
+    case 'vibration':
+      return '#ffb13d'
+    case 'variable':
+    case 'assignment':
+    case 'function':
+    case 'function_call':
+    case 'gpio':
+    case 'lcd':
+      return '#5fa3ff'
+    case 'delay':
+    case 'servo':
+    case 'l298n':
+      return '#a5b3cd'
+    case 'unoNode':
+      return '#2fd18b'
+    case 'componentNode':
+      return '#5fa3ff'
+    default:
+      return '#5fa3ff'
+  }
+}
+
 function FlowCanvasInner() {
   const { 
     flowNodes: mainFlowNodes,
@@ -325,7 +370,7 @@ function FlowCanvasInner() {
         title: `ƒ ${params.name}`,
         type: 'function',
         targetId: newNodeId,
-      })
+      }, false)
     }
   }, [screenToFlowPosition, addActiveFlowNode, schemaNodes, schemaEdges, flowNodes])
 
@@ -658,12 +703,25 @@ function FlowCanvasInner() {
         onNodeDoubleClick={onNodeDoubleClick}
         onPaneClick={() => { setSelectedNode(null); setMenu(null); setQuickEdit(null) }}
         onNodeContextMenu={onNodeContextMenu}
+        proOptions={{ hideAttribution: true }}
         fitView
         style={{ background: 'var(--color-bg-base)' }}
       >
         {showGrid && <Background variant={BackgroundVariant.Lines} gap={20} size={1} color="rgba(255,255,255,0.03)" />}
         <Controls style={{ background: 'var(--color-bg-panel)', border: '1px solid var(--color-border)', color: 'var(--color-text-normal)' }} />
-        {showMinimap && <MiniMap style={{ background: 'var(--color-bg-panel)', border: '1px solid var(--color-border)' }} nodeColor="var(--color-accent)" />}
+        {showMinimap && (
+          <MiniMap 
+            style={{
+              background: '#11141c',
+              border: '1px solid #1e2638',
+              borderRadius: 8,
+            }}
+            maskColor="rgba(15, 17, 25, 0.75)"
+            nodeColor={getMiniMapNodeColor}
+            nodeStrokeColor={getMiniMapNodeColor}
+            nodeBorderRadius={4}
+          />
+        )}
       </ReactFlow>
 
       {/* Floating Neon Context Menu */}
@@ -820,7 +878,7 @@ function FlowCanvasInner() {
             zIndex: 10001,
             minWidth: 240,
             maxWidth: 320,
-            overflow: 'hidden',
+            overflow: 'visible',
           }}
           onClick={(e) => e.stopPropagation()}
         >
