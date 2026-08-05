@@ -6,7 +6,7 @@ import {
   PlayCircle, StopCircle, GitFork, RotateCw, Timer, 
   Binary, Braces, Printer, Type, Activity, Zap, Link,
   Eye, Thermometer, Radio, Sun, Wrench, Tv, Monitor,
-  Flame, Droplets, Waves, Wind, Cpu, Maximize2
+  Flame, Droplets, Waves, Wind, Cpu, Maximize2, Plus, Trash2
 } from 'lucide-react'
 
 interface BaseNodeData {
@@ -101,7 +101,7 @@ export default function BaseNode({ id, data, selected }: NodeProps) {
   const nodeData = data as unknown as BaseNodeData
   const type = nodeData.nodeType || 'start'
   const style = categoryStyles[type] || categoryStyles.start
-  const { simState, subFlows, subFlowStack, flowNodes } = useFlowStore()
+  const { simState, subFlows, subFlowStack, flowNodes, updateAnyFlowNodeData } = useFlowStore()
   const params = nodeData.params || {}
   const hasSubFlow = type === 'function' && subFlows[id] && subFlows[id].nodes.length > 2
 
@@ -119,6 +119,51 @@ export default function BaseNode({ id, data, selected }: NodeProps) {
   })() : null
 
   const actualParams = parentFnNode ? (parentFnNode.data as any)?.params || {} : params
+
+  const handleAddInputOnNode = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const targetId = parentFnNode ? parentFnNode.id : id
+    const targetData = parentFnNode ? parentFnNode.data : data
+    const rawInputs = actualParams.inputs || actualParams.parameters || []
+    let currentInputs: { name: string; type: string }[] = []
+    if (Array.isArray(rawInputs)) currentInputs = rawInputs
+    else if (typeof rawInputs === 'string' && rawInputs.trim() !== '') {
+      try { currentInputs = JSON.parse(rawInputs); } catch(err) {}
+    }
+    const newInputs = [
+      ...currentInputs,
+      { name: `input${currentInputs.length + 1}`, type: 'int' }
+    ]
+    updateAnyFlowNodeData(targetId, {
+      ...targetData,
+      params: {
+        ...actualParams,
+        inputs: newInputs,
+        parameters: newInputs,
+      }
+    })
+  }
+
+  const handleRemoveInputOnNode = (e: React.MouseEvent, indexToRemove: number) => {
+    e.stopPropagation()
+    const targetId = parentFnNode ? parentFnNode.id : id
+    const targetData = parentFnNode ? parentFnNode.data : data
+    const rawInputs = actualParams.inputs || actualParams.parameters || []
+    let currentInputs: { name: string; type: string }[] = []
+    if (Array.isArray(rawInputs)) currentInputs = rawInputs
+    else if (typeof rawInputs === 'string' && rawInputs.trim() !== '') {
+      try { currentInputs = JSON.parse(rawInputs); } catch(err) {}
+    }
+    const newInputs = currentInputs.filter((_, i) => i !== indexToRemove)
+    updateAnyFlowNodeData(targetId, {
+      ...targetData,
+      params: {
+        ...actualParams,
+        inputs: newInputs,
+        parameters: newInputs,
+      }
+    })
+  }
 
   // True if simulation runner is currently executing this specific node block
   const isActive = simState.running && simState.currentNodeId === id
@@ -252,13 +297,61 @@ export default function BaseNode({ id, data, selected }: NodeProps) {
                   </div>
                 </div>
 
-                {/* Input Handles List */}
-                {inputsList.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 2 }}>
+                {/* Input Handles List & Add Input Button on Node */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 2 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontWeight: 600 }}>
-                      Inputs
+                      Inputs ({inputsList.length})
                     </div>
-                    {inputsList.map((input, idx) => (
+                    <button
+                      onClick={handleAddInputOnNode}
+                      title="Add Input Port to Function Node"
+                      style={{
+                        background: 'rgba(56, 189, 248, 0.15)',
+                        border: '1px solid rgba(56, 189, 248, 0.3)',
+                        borderRadius: 3,
+                        padding: '1px 6px',
+                        fontSize: 9,
+                        color: '#38bdf8',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 3,
+                        transition: 'all 0.1s ease',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(56, 189, 248, 0.28)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'rgba(56, 189, 248, 0.15)'}
+                    >
+                      <Plus className="w-2.5 h-2.5" />
+                      <span>Add Input</span>
+                    </button>
+                  </div>
+
+                  {inputsList.length === 0 ? (
+                    <button
+                      onClick={handleAddInputOnNode}
+                      style={{
+                        background: 'rgba(0, 0, 0, 0.2)',
+                        border: '1px dashed rgba(56, 189, 248, 0.3)',
+                        borderRadius: 4,
+                        padding: '6px 8px',
+                        fontSize: 9.5,
+                        color: '#38bdf8',
+                        fontFamily: 'var(--font-mono)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 4,
+                        marginTop: 2,
+                      }}
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>+ Add Input Port</span>
+                    </button>
+                  ) : (
+                    inputsList.map((input, idx) => (
                       <div
                         key={idx}
                         style={{
@@ -300,10 +393,29 @@ export default function BaseNode({ id, data, selected }: NodeProps) {
                         <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--color-text-dim)', marginLeft: 'auto' }}>
                           :{input.type}
                         </span>
+                        <button
+                          onClick={e => handleRemoveInputOnNode(e, idx)}
+                          title={`Remove ${input.name}`}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: '#ef5f5f',
+                            cursor: 'pointer',
+                            padding: '0 2px',
+                            marginLeft: 4,
+                            display: 'flex',
+                            alignItems: 'center',
+                            opacity: 0.6,
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                          onMouseLeave={e => e.currentTarget.style.opacity = '0.6'}
+                        >
+                          <Trash2 className="w-2.5 h-2.5 text-[#ef5f5f]" />
+                        </button>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    ))
+                  )}
+                </div>
 
                 {/* Output Handle */}
                 {returnType !== 'void' && (
