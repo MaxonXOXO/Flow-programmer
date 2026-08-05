@@ -204,10 +204,10 @@ export default function ProjectExplorer() {
         )}
 
         {/* ==========================================
-            3. FUNCTIONS SECTION
+            3. SUBFLOWS (FUNCTIONS) SECTION
         ========================================== */}
         <TreeSectionHeader
-          title="Functions"
+          title="Subflows"
           icon="ƒ"
           expanded={sections.functions}
           onToggle={() => toggleSection('functions')}
@@ -217,7 +217,7 @@ export default function ProjectExplorer() {
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {functionNodes.length === 0 ? (
               <div style={{ paddingLeft: 28, paddingTop: 4, paddingBottom: 4, color: 'var(--color-text-dim)', fontSize: 10, fontStyle: 'italic' }}>
-                No functions defined
+                No subflows defined
               </div>
             ) : (
               functionNodes.map(fn => {
@@ -247,10 +247,10 @@ export default function ProjectExplorer() {
         )}
 
         {/* ==========================================
-            4. COMPONENTS SECTION
+            4. PACKAGES SECTION
         ========================================== */}
         <TreeSectionHeader
-          title="Components"
+          title="Packages"
           icon="📦"
           expanded={sections.components}
           onToggle={() => toggleSection('components')}
@@ -290,11 +290,11 @@ export default function ProjectExplorer() {
         )}
 
         {/* ==========================================
-            5. GENERATED CODE SECTION
+            5. GENERATED CODE SECTION (READ-ONLY)
         ========================================== */}
         <TreeSectionHeader
           title="Generated"
-          icon="<>"
+          icon="⚙"
           expanded={sections.generated}
           onToggle={() => toggleSection('generated')}
         />
@@ -303,12 +303,45 @@ export default function ProjectExplorer() {
             <TreeItem
               title="sketch.ino"
               icon="<>"
-              iconColor="#e66e19"
+              iconColor="#f97316"
+              badgeText="Generated"
               isActive={activeDocumentId === 'code_sketch'}
               onClick={() => {
                 openDocument({
                   id: 'code_sketch',
                   title: '<> sketch.ino',
+                  type: 'code',
+                  closable: true,
+                })
+              }}
+              depth={2}
+            />
+            <TreeItem
+              title="wiring.md"
+              icon="📄"
+              iconColor="#38bdf8"
+              badgeText="Generated"
+              isActive={activeDocumentId === 'code_wiring'}
+              onClick={() => {
+                openDocument({
+                  id: 'code_wiring',
+                  title: '📄 wiring.md',
+                  type: 'code',
+                  closable: true,
+                })
+              }}
+              depth={2}
+            />
+            <TreeItem
+              title="pinmap.json"
+              icon="⚙"
+              iconColor="#a855f7"
+              badgeText="Generated"
+              isActive={activeDocumentId === 'code_pinmap'}
+              onClick={() => {
+                openDocument({
+                  id: 'code_pinmap',
+                  title: '⚙ pinmap.json',
                   type: 'code',
                   closable: true,
                 })
@@ -378,6 +411,7 @@ function TreeItem({
   title,
   icon,
   iconColor,
+  badgeText,
   isActive,
   onClick,
   depth = 1,
@@ -385,6 +419,7 @@ function TreeItem({
   title: string
   icon: string
   iconColor?: string
+  badgeText?: string
   isActive: boolean
   onClick: () => void
   depth?: number
@@ -424,9 +459,25 @@ function TreeItem({
       <span style={{ fontSize: 11, color: iconColor || 'inherit', display: 'flex', alignItems: 'center' }}>
         {icon}
       </span>
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
         {title}
       </span>
+      {badgeText && (
+        <span
+          style={{
+            fontSize: 8.5,
+            fontWeight: 700,
+            color: 'var(--color-text-dim)',
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            padding: '0 4px',
+            borderRadius: 3,
+            marginLeft: 'auto',
+          }}
+        >
+          🔒 {badgeText}
+        </span>
+      )}
     </div>
   )
 }
