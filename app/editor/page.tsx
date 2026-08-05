@@ -38,7 +38,13 @@ export default function EditorPage() {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <WorkspaceTabBar />
           <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-            {activeDocument?.type === 'schema' ? <SchemaCanvas /> : <FlowCanvas />}
+            {activeDocument?.type === 'schema' ? (
+              <SchemaCanvas />
+            ) : activeDocument?.type === 'code' ? (
+              <CodePanel isInline={true} />
+            ) : (
+              <FlowCanvas />
+            )}
           </div>
         </div>
 
