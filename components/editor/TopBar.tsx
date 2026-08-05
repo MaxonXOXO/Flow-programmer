@@ -5,8 +5,10 @@ import { Play, Square, Code, LogOut, Cpu, Zap, Box, X } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { SimulationEngine } from '@/lib/compiler/runtime/simulationEngine'
 import { GraphToASTCompiler } from '@/lib/compiler/parser/graphParser'
+import { exportProjectFromState, serializeProject, importProject, extractStoreState } from '@/lib/project/projectManager'
 
 export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const { 
     simState, 
     setSimState, 
@@ -33,34 +35,47 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
     toggleGrid,
     toggleMinimap,
     toggleProperties,
-    loadProjectState,
     undo,
     redo,
     copySelectedNode,
     cutSelectedNode,
     pasteNode,
-    deleteSelectedNode
+    deleteSelectedNode,
+    loadProjectState
   } = useFlowStore()
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Keyboard shortcut listeners for Undo / Redo / Cut / Copy / Paste / Delete
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
-      const isCtrl = e.ctrlKey || e.metaKey;
-      if (isCtrl && e.key.toLowerCase() === 'z') {
-        if (e.shiftKey) redo();
-        else undo();
-      } else if (isCtrl && e.key.toLowerCase() === 'y') {
-        redo();
-      } else if (isCtrl && e.key.toLowerCase() === 'c') {
-        copySelectedNode();
-      } else if (isCtrl && e.key.toLowerCase() === 'x') {
-        cutSelectedNode();
-      } else if (isCtrl && e.key.toLowerCase() === 'v') {
-        pasteNode();
-      } else if (e.key === 'Delete') {
-        deleteSelectedNode();
+      // Don't trigger shortcuts if focus is inside an input or textarea
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
+        return
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        if (e.shiftKey) {
+          e.preventDefault()
+          redo()
+        } else {
+          e.preventDefault()
+          undo()
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault()
+        redo()
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+        e.preventDefault()
+        copySelectedNode()
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x') {
+        e.preventDefault()
+        cutSelectedNode()
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+        e.preventDefault()
+        pasteNode()
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault()
+        deleteSelectedNode()
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -69,8 +84,7 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
 
   const handleSaveProject = () => {
     if (!project) return
-    const projectState = {
-      version: "1.5",
+    const flowProject = exportProjectFromState({
       project,
       schemaNodes,
       schemaEdges,
@@ -78,11 +92,12 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
       flowEdges,
       subFlows,
       componentPackages
-    }
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projectState, null, 2))
+    })
+    const jsonStr = serializeProject(flowProject)
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonStr)
     const downloadAnchorNode = document.createElement('a')
     downloadAnchorNode.setAttribute("href", dataStr)
-    downloadAnchorNode.setAttribute("download", `${project.name || 'project'}_flow.json`)
+    downloadAnchorNode.setAttribute("download", `${project.name || 'project'}.flow`)
     document.body.appendChild(downloadAnchorNode)
     downloadAnchorNode.click()
     downloadAnchorNode.remove()
@@ -94,24 +109,13 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
 
     const reader = new FileReader()
     reader.onload = (event) => {
-      try {
-        const parsed = JSON.parse(event.target?.result as string)
-        if (parsed && parsed.project && parsed.schemaNodes && parsed.flowNodes) {
-          loadProjectState({
-            project: parsed.project,
-            schemaNodes: parsed.schemaNodes,
-            schemaEdges: parsed.schemaEdges || [],
-            flowNodes: parsed.flowNodes,
-            flowEdges: parsed.flowEdges || [],
-            subFlows: parsed.subFlows || {},
-            componentPackages: parsed.componentPackages || {},
-          })
-          localStorage.setItem('fp_project', JSON.stringify(parsed.project))
-        } else {
-          alert("Invalid project file structure.")
-        }
-      } catch (err) {
-        alert("Failed to parse project file.")
+      const content = event.target?.result as string
+      const result = importProject(content)
+      if (result.success && result.project) {
+        loadProjectState(extractStoreState(result.project))
+        localStorage.setItem('fp_project', JSON.stringify({ name: result.project.metadata.name, platform: result.project.board.id }))
+      } else {
+        alert(`Failed to load project file:\n\n${(result.errors || ['Invalid project format.']).join('\n')}`)
       }
     }
     reader.readAsText(file)
@@ -544,6 +548,14 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
           <LogOut className="w-3.5 h-3.5" /> Exit
         </button>
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".flow,.json"
+        onChange={handleFileChange}
+        style={{ display: 'none' }}
+      />
     </div>
   )
 }
