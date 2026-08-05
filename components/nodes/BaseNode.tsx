@@ -228,79 +228,274 @@ export default function BaseNode({ id, data, selected }: NodeProps) {
       {/* Node Parameters Body Drawer */}
       <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
         {type === 'function' || isSubFlowStart ? (
-          <>
-            <div>
-              <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', marginBottom: 3, fontWeight: 600 }}>
-                returns
+          (() => {
+            const rawInputs = actualParams.inputs || actualParams.parameters || []
+            let inputsList: { name: string; type: string }[] = []
+            if (Array.isArray(rawInputs)) inputsList = rawInputs
+            else if (typeof rawInputs === 'string' && rawInputs.trim() !== '') {
+              try { inputsList = JSON.parse(rawInputs); } catch(e) {}
+            }
+
+            const returnType = actualParams.returnType || 'void'
+            const fnName = actualParams.name || 'myFn'
+            const sigStr = `${returnType} ${fnName}(${inputsList.map(p => `${p.type} ${p.name}`).join(', ')})`
+
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {/* Signature Preview */}
+                <div>
+                  <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', marginBottom: 3, fontWeight: 600 }}>
+                    Signature
+                  </div>
+                  <div style={{ background: 'rgba(0, 0, 0, 0.4)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 4, padding: '4px 8px', fontSize: 10, color: '#60a5fa', fontFamily: 'var(--font-mono)', whiteSpace: 'normal', wordBreak: 'break-all' }}>
+                    {sigStr}
+                  </div>
+                </div>
+
+                {/* Input Handles List */}
+                {inputsList.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 2 }}>
+                    <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontWeight: 600 }}>
+                      Inputs
+                    </div>
+                    {inputsList.map((input, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          position: 'relative',
+                          display: 'flex',
+                          alignItems: 'center',
+                          height: 22,
+                          background: 'rgba(56, 189, 248, 0.08)',
+                          border: '1px solid rgba(56, 189, 248, 0.2)',
+                          borderRadius: 4,
+                          paddingLeft: 8,
+                          paddingRight: 6,
+                          marginLeft: -12,
+                          marginRight: 0,
+                        }}
+                      >
+                        <Handle
+                          type="target"
+                          position={Position.Left}
+                          id={`input_${input.name}`}
+                          style={{
+                            position: 'absolute',
+                            left: 0,
+                            top: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            width: 8,
+                            height: 8,
+                            background: '#07090d',
+                            border: '2px solid #38bdf8',
+                            borderRadius: '50%',
+                            cursor: 'pointer',
+                            boxShadow: '0 0 6px rgba(56, 189, 248, 0.6)',
+                            zIndex: 20,
+                          }}
+                        />
+                        <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: '#38bdf8', fontWeight: 600 }}>
+                          {input.name}
+                        </span>
+                        <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--color-text-dim)', marginLeft: 'auto' }}>
+                          :{input.type}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Output Handle */}
+                {returnType !== 'void' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 2 }}>
+                    <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontWeight: 600 }}>
+                      Outputs
+                    </div>
+                    <div
+                      style={{
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        height: 22,
+                        background: 'rgba(168, 85, 247, 0.08)',
+                        border: '1px solid rgba(168, 85, 247, 0.2)',
+                        borderRadius: 4,
+                        paddingLeft: 6,
+                        paddingRight: 8,
+                        marginLeft: 0,
+                        marginRight: -12,
+                      }}
+                    >
+                      <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: '#a855f7', fontWeight: 600 }}>
+                        return
+                      </span>
+                      <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--color-text-dim)' }}>
+                        :{returnType}
+                      </span>
+                      <Handle
+                        type="source"
+                        position={Position.Right}
+                        id="return"
+                        style={{
+                          position: 'absolute',
+                          right: 0,
+                          top: '50%',
+                          transform: 'translate(50%, -50%)',
+                          width: 8,
+                          height: 8,
+                          background: '#07090d',
+                          border: '2px solid #a855f7',
+                          borderRadius: '50%',
+                          cursor: 'pointer',
+                          boxShadow: '0 0 6px rgba(168, 85, 247, 0.6)',
+                          zIndex: 20,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
-              <div style={{ background: 'var(--color-bg-input)', border: '1px solid var(--color-border)', borderRadius: 4, padding: '4px 8px', fontSize: 11, color: 'var(--color-text-bright)', fontFamily: 'var(--font-mono)' }}>
-                {actualParams.returnType || 'void'}
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', marginBottom: 3, fontWeight: 600 }}>
-                parameters
-              </div>
-              <div style={{ background: 'var(--color-bg-input)', border: '1px solid var(--color-border)', borderRadius: 4, padding: '4px 8px', fontSize: 11, color: 'var(--color-text-bright)', fontFamily: 'var(--font-mono)', whiteSpace: 'normal', wordBreak: 'break-all' }}>
-                {(() => {
-                  const pVal = actualParams.parameters;
-                  let list: { name: string, type: string }[] = [];
-                  if (Array.isArray(pVal)) list = pVal;
-                  else if (typeof pVal === 'string' && pVal.trim() !== '') {
-                    try { list = JSON.parse(pVal); } catch(e) {}
-                  }
-                  if (list.length === 0) return 'none';
-                  return list.map(p => `${p.type} ${p.name}`).join(', ');
-                })()}
-              </div>
-            </div>
-          </>
+            )
+          })()
         ) : type === 'function_call' ? (
-          <>
-            <div>
-              <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', marginBottom: 3, fontWeight: 600 }}>
-                function
-              </div>
-              <div style={{ background: 'var(--color-bg-input)', border: '1px solid var(--color-border)', borderRadius: 4, padding: '4px 8px', fontSize: 11, color: 'var(--color-text-bright)', fontFamily: 'var(--font-mono)' }}>
-                {params.functionName ? `${params.functionName}()` : 'none'}
-              </div>
-            </div>
-            {params.assignTo && (
-              <div>
-                <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', marginBottom: 3, fontWeight: 600 }}>
-                  assign to
+          (() => {
+            const targetFnName = params.functionName || ''
+            let targetFnNode = flowNodes.find((n: any) => n.data?.nodeType === 'function' && n.data?.params?.name === targetFnName)
+            if (!targetFnNode) {
+              for (const sfId of Object.keys(subFlows)) {
+                const found = subFlows[sfId].nodes.find((n: any) => n.data?.nodeType === 'function' && n.data?.params?.name === targetFnName)
+                if (found) { targetFnNode = found; break }
+              }
+            }
+
+            const fnParams = targetFnNode ? (targetFnNode.data as any)?.params || {} : {}
+            const rawInputs = fnParams.inputs || fnParams.parameters || []
+            let inputsList: { name: string; type: string }[] = []
+            if (Array.isArray(rawInputs)) inputsList = rawInputs
+            else if (typeof rawInputs === 'string' && rawInputs.trim() !== '') {
+              try { inputsList = JSON.parse(rawInputs); } catch(e) {}
+            }
+
+            const returnType = fnParams.returnType || params.returnType || 'void'
+
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div>
+                  <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', marginBottom: 3, fontWeight: 600 }}>
+                    Target Function
+                  </div>
+                  <div style={{ background: 'var(--color-bg-input)', border: '1px solid var(--color-border)', borderRadius: 4, padding: '4px 8px', fontSize: 11, color: '#3b82f6', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                    {targetFnName ? `${targetFnName}()` : '(Select Function)'}
+                  </div>
                 </div>
-                <div style={{ background: 'var(--color-bg-input)', border: '1px solid var(--color-border)', borderRadius: 4, padding: '4px 8px', fontSize: 11, color: 'var(--color-text-bright)', fontFamily: 'var(--font-mono)' }}>
-                  {params.assignTo}
-                </div>
+
+                {/* Input Handles for Function Call */}
+                {inputsList.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 2 }}>
+                    <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontWeight: 600 }}>
+                      Inputs
+                    </div>
+                    {inputsList.map((input, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          position: 'relative',
+                          display: 'flex',
+                          alignItems: 'center',
+                          height: 22,
+                          background: 'rgba(56, 189, 248, 0.08)',
+                          border: '1px solid rgba(56, 189, 248, 0.2)',
+                          borderRadius: 4,
+                          paddingLeft: 8,
+                          paddingRight: 6,
+                          marginLeft: -12,
+                          marginRight: 0,
+                        }}
+                      >
+                        <Handle
+                          type="target"
+                          position={Position.Left}
+                          id={`input_${input.name}`}
+                          style={{
+                            position: 'absolute',
+                            left: 0,
+                            top: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            width: 8,
+                            height: 8,
+                            background: '#07090d',
+                            border: '2px solid #38bdf8',
+                            borderRadius: '50%',
+                            cursor: 'pointer',
+                            boxShadow: '0 0 6px rgba(56, 189, 248, 0.6)',
+                            zIndex: 20,
+                          }}
+                        />
+                        <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: '#38bdf8', fontWeight: 600 }}>
+                          {input.name}
+                        </span>
+                        <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--color-text-dim)', marginLeft: 'auto' }}>
+                          :{input.type}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Output Handle for Function Call */}
+                {returnType !== 'void' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 2 }}>
+                    <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontWeight: 600 }}>
+                      Outputs
+                    </div>
+                    <div
+                      style={{
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        height: 22,
+                        background: 'rgba(168, 85, 247, 0.08)',
+                        border: '1px solid rgba(168, 85, 247, 0.2)',
+                        borderRadius: 4,
+                        paddingLeft: 6,
+                        paddingRight: 8,
+                        marginLeft: 0,
+                        marginRight: -12,
+                      }}
+                    >
+                      <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: '#a855f7', fontWeight: 600 }}>
+                        {params.assignTo || 'return'}
+                      </span>
+                      <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--color-text-dim)' }}>
+                        :{returnType}
+                      </span>
+                      <Handle
+                        type="source"
+                        position={Position.Right}
+                        id="return"
+                        style={{
+                          position: 'absolute',
+                          right: 0,
+                          top: '50%',
+                          transform: 'translate(50%, -50%)',
+                          width: 8,
+                          height: 8,
+                          background: '#07090d',
+                          border: '2px solid #a855f7',
+                          borderRadius: '50%',
+                          cursor: 'pointer',
+                          boxShadow: '0 0 6px rgba(168, 85, 247, 0.6)',
+                          zIndex: 20,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-            <div>
-              <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', marginBottom: 3, fontWeight: 600 }}>
-                arguments
-              </div>
-              <div style={{ background: 'var(--color-bg-input)', border: '1px solid var(--color-border)', borderRadius: 4, padding: '4px 8px', fontSize: 11, color: 'var(--color-text-bright)', fontFamily: 'var(--font-mono)', whiteSpace: 'normal', wordBreak: 'break-all' }}>
-                {(() => {
-                  const argsVal = params.arguments;
-                  let list: any[] = [];
-                  if (Array.isArray(argsVal)) list = argsVal;
-                  else if (typeof argsVal === 'string' && argsVal.trim() !== '') {
-                    try {
-                      const parsed = JSON.parse(argsVal);
-                      if (Array.isArray(parsed)) list = parsed;
-                      else return argsVal;
-                    } catch(e) {
-                      return argsVal;
-                    }
-                  } else {
-                    return 'none';
-                  }
-                  if (list.length === 0) return 'none';
-                  return list.map(arg => typeof arg === 'object' ? (arg.value !== undefined ? arg.value : '') : String(arg)).join(', ');
-                })()}
-              </div>
-            </div>
-          </>
+            )
+          })()
         ) : (
           Object.entries(params).map(([key, val]) => (
             <div key={key}>
