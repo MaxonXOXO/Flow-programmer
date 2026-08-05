@@ -15,7 +15,7 @@ import {
 
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false })
 
-export default function CodePanel({ onClose }: { onClose: () => void }) {
+export default function CodePanel({ onClose, isInline }: { onClose?: () => void; isInline?: boolean }) {
   const { schemaNodes, schemaEdges, flowNodes, flowEdges, subFlows, project, setFlowNodes, setFlowEdges } = useFlowStore()
   
   const [generatedSketch, setGeneratedSketch] = useState<{ main: string; files: Record<string, string> }>({ main: '', files: {} })
@@ -200,29 +200,18 @@ export default function CodePanel({ onClose }: { onClose: () => void }) {
     }, 1500)
   }
 
-  return (
+  const innerContent = (
     <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'rgba(10,10,10,0.75)',
-      zIndex: 1000,
+      width: '100%',
+      height: '100%',
+      background: '#12141a',
+      border: isInline ? 'none' : '1px solid var(--color-border)',
+      borderRadius: isInline ? 0 : 8,
       display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backdropFilter: 'blur(3px)',
+      flexDirection: 'column',
+      overflow: 'hidden',
     }}>
-      <div style={{
-        width: '80vw',
-        height: '85vh',
-        background: '#1a1a1a',
-        border: '1px solid var(--color-border)',
-        borderRadius: 8,
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        boxShadow: '0 12px 48px rgba(0,0,0,0.8)',
-      }}>
-        {/* Title Bar */}
+      {/* Title Bar */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -688,6 +677,29 @@ export default function CodePanel({ onClose }: { onClose: () => void }) {
           </div>
 
         </div>
+      </div>
+    )
+
+  if (isInline) {
+    return innerContent
+  }
+
+  return (
+    <div style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(10,10,10,0.75)',
+      zIndex: 1000,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backdropFilter: 'blur(3px)',
+    }}>
+      <div style={{
+        width: '80vw',
+        height: '85vh',
+      }}>
+        {innerContent}
       </div>
     </div>
   )
