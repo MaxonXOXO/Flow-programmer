@@ -10,6 +10,7 @@ import { useFlowStore } from '@/store/userFlowStore'
 import PropertiesPanel from '@/components/editor/PropertiesPanel'
 import CodePanel from '@/components/editor/CodePanel'
 import WorkspaceTabBar from '@/components/editor/WorkspaceTabBar'
+import ActivityBar from '@/components/editor/ActivityBar'
 
 export default function EditorPage() {
   const { setProject } = useFlowStore()
@@ -30,6 +31,7 @@ export default function EditorPage() {
       <TopBar onCodeOpen={() => setCodeOpen(true)} />
       
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        <ActivityBar />
         {showSidebar && <Sidebar />}
         
         {/* Center Canvas Area with VS Code Style Tab Bar at Top */}
