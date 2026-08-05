@@ -298,8 +298,16 @@ function FlowCanvasInner() {
       setNotification(msg)
     }
 
+    const newNodeId = `node-${Date.now()}`
+    if (nodeConfig.nodeType === 'function') {
+      const existingFns = flowNodes.filter(n => (n.data as any)?.nodeType === 'function').length
+      const fnName = params.name && params.name !== 'myFn' ? params.name : `myFn_${existingFns + 1}`
+      params.name = fnName
+      nodeConfig.label = `${fnName}()`
+    }
+
     addActiveFlowNode({
-      id: `node-${Date.now()}`,
+      id: newNodeId,
       type: 'baseNode',
       position,
       data: {
@@ -309,6 +317,15 @@ function FlowCanvasInner() {
         params,
       },
     })
+
+    if (nodeConfig.nodeType === 'function') {
+      useFlowStore.getState().openDocument({
+        id: `subflow_${newNodeId}`,
+        title: `ƒ ${params.name}`,
+        type: 'function',
+        targetId: newNodeId,
+      })
+    }
   }, [screenToFlowPosition, addActiveFlowNode, schemaNodes, schemaEdges, flowNodes])
 
   const onDragOver = useCallback((e: React.DragEvent) => {
