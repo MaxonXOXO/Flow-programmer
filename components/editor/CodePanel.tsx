@@ -694,39 +694,103 @@ export default function CodePanel({ onClose }: { onClose: () => void }) {
 }
 
 export function InlineCodeEditor() {
-  const { schemaNodes, schemaEdges, flowNodes, flowEdges, subFlows } = useFlowStore()
-  const [code, setCode] = useState<string>('')
+  const { schemaNodes, schemaEdges, flowNodes, flowEdges, subFlows, activeDocumentId, project } = useFlowStore()
+  const [content, setContent] = useState<string>('')
+  const [language, setLanguage] = useState<string>('cpp')
+  const [filename, setFilename] = useState<string>('sketch.ino')
 
   useEffect(() => {
     try {
-      const compiler = new GraphToASTCompiler(flowNodes, flowEdges, subFlows)
-      const program = compiler.compile()
-      const generator = new ArduinoUnoGenerator()
-      const generated = generator.generate(program, schemaNodes, schemaEdges)
-      setCode(generated.main)
+      if (activeDocumentId === 'code_wiring') {
+        setLanguage('markdown')
+        setFilename('wiring.md')
+        if (schemaEdges.length === 0) {
+          setContent(`# System Wiring Manual\n\nNo active connection wires found in the Schema Designer.\nGo to the Schema Designer and connect sensor pins to the Arduino Uno pin rails.`)
+        } else {
+          let md = `# System Wiring Manual\n\n`
+          md += `Follow this table to wire your physical hardware components to the **${project?.platform.toUpperCase() || 'ARDUINO UNO'}** development board.\n\n`
+          md += `| Component Pin | Wire Connection | Target Board Pin |\n`
+          md += `| :--- | :---: | :--- |\n`
+          schemaEdges.forEach(edge => {
+            const sourceNode = schemaNodes.find(n => n.id === edge.source)
+            const targetNode = schemaNodes.find(n => n.id === edge.target)
+            const sourceName = sourceNode?.data?.label || edge.source
+            const targetName = targetNode?.data?.label || edge.target
+            md += `| **${sourceName}** (${edge.sourceHandle || 'Pin'}) | ──> | **${targetName}** (${edge.targetHandle || 'Pin'}) |\n`
+          })
+          setContent(md)
+        }
+      } else if (activeDocumentId === 'code_pinmap') {
+        setLanguage('json')
+        setFilename('pinmap.json')
+        const pinMap = schemaNodes.map(n => ({
+          component: n.data?.label || n.id,
+          type: n.data?.componentType || 'mcu',
+          pins: schemaEdges
+            .filter(e => e.source === n.id || e.target === n.id)
+            .map(e => ({
+              port: e.source === n.id ? e.sourceHandle : e.targetHandle,
+              connectedTo: e.source === n.id ? e.target : e.source
+            }))
+        }))
+        setContent(JSON.stringify({ targetBoard: project?.platform || 'arduino_uno', components: pinMap }, null, 2))
+      } else {
+        setLanguage('cpp')
+        setFilename('sketch.ino')
+        const compiler = new GraphToASTCompiler(flowNodes, flowEdges, subFlows)
+        const program = compiler.compile()
+        const generator = new ArduinoUnoGenerator()
+        const generated = generator.generate(program, schemaNodes, schemaEdges)
+        setContent(generated.main)
+      }
     } catch (e: any) {
-      setCode(`/* Compilation Error: ${e.message} */`)
+      setContent(`/* Compilation Error: ${e.message} */`)
     }
-  }, [schemaNodes, schemaEdges, flowNodes, flowEdges, subFlows])
+  }, [schemaNodes, schemaEdges, flowNodes, flowEdges, subFlows, activeDocumentId, project])
 
   return (
-    <div style={{ width: '100%', height: '100%', background: '#1e1e1e', overflow: 'hidden' }}>
-      <MonacoEditor
-        height="100%"
-        language="cpp"
-        theme="vs-dark"
-        value={code}
-        options={{
-          readOnly: true,
-          minimap: { enabled: true },
-          fontSize: 13,
-          lineNumbers: 'on',
-          scrollBeyondLastLine: false,
-          automaticLayout: true,
-          fontFamily: 'Consolas, "Courier New", monospace',
-          padding: { top: 12, bottom: 12 },
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#1e1e1e', overflow: 'hidden' }}>
+      {/* Subtle Read-Only Banner */}
+      <div
+        style={{
+          height: 24,
+          padding: '0 12px',
+          background: 'rgba(249, 115, 22, 0.08)',
+          borderBottom: '1px solid rgba(249, 115, 22, 0.15)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontSize: 10,
+          color: '#f97316',
+          userSelect: 'none',
         }}
-      />
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
+          <span>🔒</span>
+          <span>{filename}</span>
+          <span style={{ opacity: 0.5 }}>— Generated Document (Read Only)</span>
+        </div>
+        <span style={{ fontSize: 9, opacity: 0.7, fontFamily: 'monospace' }}>Auto-compiled AST</span>
+      </div>
+
+      <div style={{ flex: 1, position: 'relative' }}>
+        <MonacoEditor
+          height="100%"
+          language={language}
+          theme="vs-dark"
+          value={content}
+          options={{
+            readOnly: true,
+            minimap: { enabled: true },
+            fontSize: 13,
+            lineNumbers: 'on',
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            fontFamily: 'Consolas, "Courier New", monospace',
+            padding: { top: 12, bottom: 12 },
+          }}
+        />
+      </div>
     </div>
   )
 }
