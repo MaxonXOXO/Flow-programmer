@@ -28,6 +28,14 @@ export default function WorkspaceTabBar() {
     createFunctionNode()
   }
 
+  const getTabColor = (type: string, id: string) => {
+    if (type === 'schema') return '#94a3b8' // ⚪ Schema (slate/white)
+    if (id === 'main_flow' || type === 'flow') return '#f59e0b' // 🟡 Main Flow (amber yellow)
+    if (type === 'function') return '#a855f7' // 🟣 Function/Subflow (purple)
+    if (type === 'code' || id.startsWith('code_')) return '#f97316' // 🟠 Code/Generated (orange)
+    return '#3b82f6'
+  }
+
   return (
     <div
       style={{
@@ -48,6 +56,7 @@ export default function WorkspaceTabBar() {
       <div style={{ display: 'flex', alignItems: 'center', height: '100%', gap: 0 }}>
         {documents.map((doc) => {
           const isActive = activeDocumentId === doc.id
+          const tabColor = getTabColor(doc.type, doc.id)
           return (
             <div
               key={doc.id}
@@ -60,7 +69,7 @@ export default function WorkspaceTabBar() {
                 padding: '0 12px',
                 background: isActive ? 'var(--color-bg-base)' : 'transparent',
                 borderRight: '1px solid rgba(255, 255, 255, 0.06)',
-                borderTop: isActive ? '2px solid var(--color-accent)' : '2px solid transparent',
+                borderTop: isActive ? `2px solid ${tabColor}` : '2px solid transparent',
                 color: isActive ? 'var(--color-text-bright)' : 'var(--color-text-dim)',
                 fontSize: 11,
                 fontWeight: isActive ? 600 : 400,
@@ -82,6 +91,19 @@ export default function WorkspaceTabBar() {
                 }
               }}
             >
+              {/* Document Type Indicator Dot */}
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  background: tabColor,
+                  opacity: isActive ? 1 : 0.5,
+                  boxShadow: isActive ? `0 0 6px ${tabColor}` : 'none',
+                  transition: 'all 0.15s',
+                }}
+              />
+
               {/* Document Icon */}
               <span style={{
                 fontSize: 12,
@@ -89,15 +111,15 @@ export default function WorkspaceTabBar() {
                 alignItems: 'center',
               }}>
                 {doc.type === 'schema' ? (
-                  <span style={{ color: isActive ? '#60a5fa' : 'var(--color-text-dim)', fontSize: 13, fontWeight: 700 }}>⎔</span>
+                  <span style={{ color: isActive ? '#94a3b8' : 'var(--color-text-dim)', fontSize: 13, fontWeight: 700 }}>⎔</span>
                 ) : doc.type === 'flow' ? (
-                  <Zap className="w-3.5 h-3.5 text-[#fbbf24]" />
+                  <Zap className="w-3.5 h-3.5 text-[#f59e0b]" />
                 ) : doc.type === 'function' ? (
                   <span style={{ color: '#a855f7', fontWeight: 800, fontSize: 12 }}>ƒ</span>
                 ) : doc.type === 'subflow' ? (
                   <Box className="w-3.5 h-3.5 text-[#3b82f6]" />
                 ) : doc.type === 'code' ? (
-                  <Code className="w-3.5 h-3.5 text-[#e66e19]" />
+                  <Code className="w-3.5 h-3.5 text-[#f97316]" />
                 ) : (
                   <span style={{ color: '#22c55e' }}>▶</span>
                 )}
