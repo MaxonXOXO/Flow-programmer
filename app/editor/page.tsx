@@ -8,7 +8,7 @@ import TopBar from '@/components/editor/TopBar'
 import SchemaCanvas from '@/components/schema/SchemaCanvas'
 import { useFlowStore } from '@/store/userFlowStore'
 import PropertiesPanel from '@/components/editor/PropertiesPanel'
-import CodePanel from '@/components/editor/CodePanel'
+import CodePanel, { InlineCodeEditor } from '@/components/editor/CodePanel'
 import WorkspaceTabBar from '@/components/editor/WorkspaceTabBar'
 import ActivityBar from '@/components/editor/ActivityBar'
 
@@ -41,7 +41,7 @@ export default function EditorPage() {
             {activeDocument?.type === 'schema' ? (
               <SchemaCanvas />
             ) : activeDocument?.type === 'code' ? (
-              <CodePanel isInline={true} />
+              <InlineCodeEditor />
             ) : (
               <FlowCanvas />
             )}
