@@ -445,9 +445,10 @@ function FlowCanvasInner() {
       onDrop={onDrop}
       onDragOver={onDragOver}
     >
-      {/* Component Package Header Bar */}
+      {/* Component Package Header Bar (Hidden in favor of WorkspaceTabBar tabs) */}
       {activePackage && (
         <div style={{
+          display: 'none',
           position: 'absolute',
           top: 10,
           left: '50%',
@@ -459,7 +460,6 @@ function FlowCanvasInner() {
           boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 20px rgba(47,209,139,0.12)',
           padding: '8px 16px',
           zIndex: 100,
-          display: 'flex',
           alignItems: 'center',
           gap: 16,
           fontFamily: 'var(--font-sans)',
@@ -519,9 +519,10 @@ function FlowCanvasInner() {
         </div>
       )}
 
-      {/* Sub-flow Breadcrumb Navigation Bar */}
+      {/* Sub-flow Breadcrumb Navigation Bar (Hidden in favor of WorkspaceTabBar tabs) */}
       {isInSubFlow && (
         <div style={{
+          display: 'none',
           position: 'absolute',
           top: 10,
           left: '50%',
@@ -533,7 +534,6 @@ function FlowCanvasInner() {
           boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(95,163,255,0.08)',
           padding: '6px 14px',
           zIndex: 100,
-          display: 'flex',
           alignItems: 'center',
           gap: 6,
           fontFamily: 'var(--font-sans)',
