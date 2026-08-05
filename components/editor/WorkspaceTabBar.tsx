@@ -1,7 +1,7 @@
 'use client'
 
 import { useFlowStore } from '@/store/userFlowStore'
-import { Zap, Box, Code, X, Plus } from 'lucide-react'
+import { Zap, Box, FileCode, FileText, FileJson, X, Plus, Cpu, Braces } from 'lucide-react'
 
 export default function WorkspaceTabBar() {
   const { documents, activeDocumentId, setActiveDocument, closeDocument, openDocument, createFunctionNode, flowNodes, subFlows } = useFlowStore()
@@ -18,10 +18,10 @@ export default function WorkspaceTabBar() {
       const rawName = (fnNode?.data as any)?.params?.name || (fnNode?.data as any)?.label
       if (rawName) {
         const cleanName = String(rawName).replace(/\(\)$/, '')
-        return `ƒ ${cleanName}`
+        return `${cleanName}()`
       }
     }
-    return doc.title
+    return String(doc.title).replace(/^(ƒ|<>|📄|⚙|📦)\s*/, '')
   }
 
   const handleAddNewFunction = () => {
@@ -29,10 +29,10 @@ export default function WorkspaceTabBar() {
   }
 
   const getTabColor = (type: string, id: string) => {
-    if (type === 'schema') return '#94a3b8' // ⚪ Schema (slate/white)
-    if (id === 'main_flow' || type === 'flow') return '#f59e0b' // 🟡 Main Flow (amber yellow)
-    if (type === 'function') return '#a855f7' // 🟣 Function/Subflow (purple)
-    if (type === 'code' || id.startsWith('code_')) return '#f97316' // 🟠 Code/Generated (orange)
+    if (type === 'schema') return '#94a3b8' // Schema (slate/white)
+    if (id === 'main_flow' || type === 'flow') return '#f59e0b' // Main Flow (amber yellow)
+    if (type === 'function') return '#a855f7' // Function/Subflow (purple)
+    if (type === 'code' || id.startsWith('code_')) return '#f97316' // Code/Generated (orange)
     return '#3b82f6'
   }
 
@@ -111,17 +111,21 @@ export default function WorkspaceTabBar() {
                 alignItems: 'center',
               }}>
                 {doc.type === 'schema' ? (
-                  <span style={{ color: isActive ? '#94a3b8' : 'var(--color-text-dim)', fontSize: 13, fontWeight: 700 }}>⎔</span>
+                  <Cpu className="w-3.5 h-3.5 text-[#94a3b8]" />
                 ) : doc.type === 'flow' ? (
                   <Zap className="w-3.5 h-3.5 text-[#f59e0b]" />
                 ) : doc.type === 'function' ? (
-                  <span style={{ color: '#a855f7', fontWeight: 800, fontSize: 12 }}>ƒ</span>
+                  <Braces className="w-3.5 h-3.5 text-[#a855f7]" />
                 ) : doc.type === 'subflow' ? (
                   <Box className="w-3.5 h-3.5 text-[#3b82f6]" />
+                ) : doc.id === 'code_wiring' ? (
+                  <FileText className="w-3.5 h-3.5 text-[#38bdf8]" />
+                ) : doc.id === 'code_pinmap' ? (
+                  <FileJson className="w-3.5 h-3.5 text-[#a855f7]" />
                 ) : doc.type === 'code' ? (
-                  <Code className="w-3.5 h-3.5 text-[#f97316]" />
+                  <FileCode className="w-3.5 h-3.5 text-[#f97316]" />
                 ) : (
-                  <span style={{ color: '#22c55e' }}>▶</span>
+                  <Box className="w-3.5 h-3.5 text-[#22c55e]" />
                 )}
               </span>
 
