@@ -2,7 +2,21 @@
 
 import { useState } from 'react'
 import { useFlowStore } from '@/store/userFlowStore'
-import { ChevronDown, ChevronRight, Zap, Code, Box, Cpu } from 'lucide-react'
+import { 
+  ChevronDown, 
+  ChevronRight, 
+  FolderTree, 
+  Cpu, 
+  Zap, 
+  Braces, 
+  Package, 
+  Settings, 
+  FileCode, 
+  FileText, 
+  FileJson, 
+  Lock, 
+  Layers 
+} from 'lucide-react'
 
 export default function ProjectExplorer() {
   const {
@@ -115,7 +129,7 @@ export default function ProjectExplorer() {
             marginBottom: 4,
           }}
         >
-          <span style={{ fontSize: 13 }}>📁</span>
+          <FolderTree className="w-3.5 h-3.5 text-[#38bdf8]" />
           <span>{project?.name || 'Smart Monitor'}</span>
           <span style={{ fontSize: 9, color: 'var(--color-text-dim)', marginLeft: 'auto', fontFamily: 'var(--font-mono)' }}>
             {project?.platform.toUpperCase() || 'ARDUINO'}
@@ -127,7 +141,7 @@ export default function ProjectExplorer() {
         ========================================== */}
         <TreeSectionHeader
           title="Hardware"
-          icon="🖥"
+          icon={<Cpu className="w-3.5 h-3.5 text-[#60a5fa]" />}
           expanded={sections.hardware}
           onToggle={() => toggleSection('hardware')}
         />
@@ -136,8 +150,7 @@ export default function ProjectExplorer() {
             {/* Board Node */}
             <TreeItem
               title="Arduino Uno"
-              icon="⎔"
-              iconColor="#60a5fa"
+              icon={<Cpu className="w-3.5 h-3.5 text-[#60a5fa]" />}
               isActive={activeDocumentId === 'schema'}
               onClick={() => {
                 openDocument({
@@ -156,8 +169,7 @@ export default function ProjectExplorer() {
                 <TreeItem
                   key={comp.id}
                   title={label}
-                  icon="📦"
-                  iconColor="#38bdf8"
+                  icon={<Layers className="w-3.5 h-3.5 text-[#38bdf8]" />}
                   isActive={false}
                   onClick={() => {
                     openDocument({
@@ -179,7 +191,7 @@ export default function ProjectExplorer() {
         ========================================== */}
         <TreeSectionHeader
           title="Logic"
-          icon="⚡"
+          icon={<Zap className="w-3.5 h-3.5 text-[#f59e0b]" />}
           expanded={sections.logic}
           onToggle={() => toggleSection('logic')}
         />
@@ -187,8 +199,7 @@ export default function ProjectExplorer() {
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <TreeItem
               title="Main Flow"
-              icon="⚡"
-              iconColor="#fbbf24"
+              icon={<Zap className="w-3.5 h-3.5 text-[#f59e0b]" />}
               isActive={activeDocumentId === 'main_flow'}
               onClick={() => {
                 openDocument({
@@ -208,7 +219,7 @@ export default function ProjectExplorer() {
         ========================================== */}
         <TreeSectionHeader
           title="Subflows"
-          icon="ƒ"
+          icon={<Braces className="w-3.5 h-3.5 text-[#a855f7]" />}
           expanded={sections.functions}
           onToggle={() => toggleSection('functions')}
           badge={functionNodes.length}
@@ -227,8 +238,7 @@ export default function ProjectExplorer() {
                   <TreeItem
                     key={fn.id}
                     title={`${fn.name}()`}
-                    icon="ƒ"
-                    iconColor="#a855f7"
+                    icon={<Braces className="w-3.5 h-3.5 text-[#a855f7]" />}
                     isActive={isActive}
                     onClick={() => {
                       openDocument({
@@ -251,7 +261,7 @@ export default function ProjectExplorer() {
         ========================================== */}
         <TreeSectionHeader
           title="Packages"
-          icon="📦"
+          icon={<Package className="w-3.5 h-3.5 text-[#3b82f6]" />}
           expanded={sections.components}
           onToggle={() => toggleSection('components')}
           badge={packageList.length}
@@ -270,8 +280,7 @@ export default function ProjectExplorer() {
                   <TreeItem
                     key={pkg.id}
                     title={pkg.name}
-                    icon="📦"
-                    iconColor="#3b82f6"
+                    icon={<Package className="w-3.5 h-3.5 text-[#3b82f6]" />}
                     isActive={isActive}
                     onClick={() => {
                       openDocument({
@@ -294,7 +303,7 @@ export default function ProjectExplorer() {
         ========================================== */}
         <TreeSectionHeader
           title="Generated"
-          icon="⚙"
+          icon={<Settings className="w-3.5 h-3.5 text-[#f97316]" />}
           expanded={sections.generated}
           onToggle={() => toggleSection('generated')}
         />
@@ -302,8 +311,7 @@ export default function ProjectExplorer() {
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <TreeItem
               title="sketch.ino"
-              icon="<>"
-              iconColor="#f97316"
+              icon={<FileCode className="w-3.5 h-3.5 text-[#f97316]" />}
               badgeText="Generated"
               isActive={activeDocumentId === 'code_sketch'}
               onClick={() => {
@@ -318,8 +326,7 @@ export default function ProjectExplorer() {
             />
             <TreeItem
               title="wiring.md"
-              icon="📄"
-              iconColor="#38bdf8"
+              icon={<FileText className="w-3.5 h-3.5 text-[#38bdf8]" />}
               badgeText="Generated"
               isActive={activeDocumentId === 'code_wiring'}
               onClick={() => {
@@ -334,8 +341,7 @@ export default function ProjectExplorer() {
             />
             <TreeItem
               title="pinmap.json"
-              icon="⚙"
-              iconColor="#a855f7"
+              icon={<FileJson className="w-3.5 h-3.5 text-[#a855f7]" />}
               badgeText="Generated"
               isActive={activeDocumentId === 'code_pinmap'}
               onClick={() => {
@@ -363,7 +369,7 @@ function TreeSectionHeader({
   badge,
 }: {
   title: string
-  icon: string
+  icon: React.ReactNode
   expanded: boolean
   onToggle: () => void
   badge?: number
@@ -387,6 +393,7 @@ function TreeSectionHeader({
       <span style={{ color: 'var(--color-text-dim)', display: 'flex', alignItems: 'center' }}>
         {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
       </span>
+      <span style={{ display: 'flex', alignItems: 'center' }}>{icon}</span>
       <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-bright)' }}>{title}</span>
       {badge !== undefined && badge > 0 && (
         <span
@@ -410,15 +417,13 @@ function TreeSectionHeader({
 function TreeItem({
   title,
   icon,
-  iconColor,
   badgeText,
   isActive,
   onClick,
   depth = 1,
 }: {
   title: string
-  icon: string
-  iconColor?: string
+  icon: React.ReactNode
   badgeText?: string
   isActive: boolean
   onClick: () => void
@@ -456,7 +461,7 @@ function TreeItem({
         }
       }}
     >
-      <span style={{ fontSize: 11, color: iconColor || 'inherit', display: 'flex', alignItems: 'center' }}>
+      <span style={{ display: 'flex', alignItems: 'center' }}>
         {icon}
       </span>
       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
@@ -473,9 +478,13 @@ function TreeItem({
             padding: '0 4px',
             borderRadius: 3,
             marginLeft: 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 3,
           }}
         >
-          🔒 {badgeText}
+          <Lock className="w-2.5 h-2.5" />
+          <span>{badgeText}</span>
         </span>
       )}
     </div>
