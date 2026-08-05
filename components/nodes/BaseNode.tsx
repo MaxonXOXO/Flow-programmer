@@ -282,146 +282,116 @@ export default function BaseNode({ id, data, selected }: NodeProps) {
             }
 
             const returnType = actualParams.returnType || 'void'
-            const fnName = actualParams.name || 'myFn'
-            const sigStr = `${returnType} ${fnName}(${inputsList.map(p => `${p.type} ${p.name}`).join(', ')})`
 
             return (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {/* Signature Preview */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {/* Returns Type (Previous Clean Style) */}
                 <div>
-                  <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', marginBottom: 3, fontWeight: 600 }}>
-                    Signature
+                  <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', marginBottom: 2, fontWeight: 600 }}>
+                    returns
                   </div>
-                  <div style={{ background: 'rgba(0, 0, 0, 0.4)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 4, padding: '4px 8px', fontSize: 10, color: '#60a5fa', fontFamily: 'var(--font-mono)', whiteSpace: 'normal', wordBreak: 'break-all' }}>
-                    {sigStr}
+                  <div style={{ background: 'var(--color-bg-input)', border: '1px solid var(--color-border)', borderRadius: 4, padding: '3px 8px', fontSize: 10.5, color: 'var(--color-text-bright)', fontFamily: 'var(--font-mono)' }}>
+                    {returnType}
                   </div>
                 </div>
 
-                {/* Input Handles List & Add Input Button on Node */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 2 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontWeight: 600 }}>
-                      Inputs ({inputsList.length})
-                    </div>
-                    <button
-                      onClick={handleAddInputOnNode}
-                      title="Add Input Port to Function Node"
-                      style={{
-                        background: 'rgba(56, 189, 248, 0.15)',
-                        border: '1px solid rgba(56, 189, 248, 0.3)',
-                        borderRadius: 3,
-                        padding: '1px 6px',
-                        fontSize: 9,
-                        color: '#38bdf8',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 3,
-                        transition: 'all 0.1s ease',
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(56, 189, 248, 0.28)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'rgba(56, 189, 248, 0.15)'}
-                    >
-                      <Plus className="w-2.5 h-2.5" />
-                      <span>Add Input</span>
-                    </button>
+                {/* Input Handles List (Clean - No Blue Background Box) */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 2 }}>
+                  <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontWeight: 600 }}>
+                    Inputs ({inputsList.length})
                   </div>
 
-                  {inputsList.length === 0 ? (
-                    <button
-                      onClick={handleAddInputOnNode}
+                  {inputsList.map((input, idx) => (
+                    <div
+                      key={idx}
                       style={{
-                        background: 'rgba(0, 0, 0, 0.2)',
-                        border: '1px dashed rgba(56, 189, 248, 0.3)',
-                        borderRadius: 4,
-                        padding: '6px 8px',
-                        fontSize: 9.5,
-                        color: '#38bdf8',
-                        fontFamily: 'var(--font-mono)',
-                        cursor: 'pointer',
+                        position: 'relative',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 4,
-                        marginTop: 2,
+                        height: 20,
+                        marginLeft: -12,
+                        paddingLeft: 12,
+                        paddingRight: 4,
                       }}
                     >
-                      <Plus className="w-3 h-3" />
-                      <span>+ Add Input Port</span>
-                    </button>
-                  ) : (
-                    inputsList.map((input, idx) => (
-                      <div
-                        key={idx}
+                      <Handle
+                        type="target"
+                        position={Position.Left}
+                        id={`input_${input.name}`}
                         style={{
-                          position: 'relative',
+                          position: 'absolute',
+                          left: 0,
+                          top: '50%',
+                          transform: 'translate(-50%, -50%)',
+                          width: 8,
+                          height: 8,
+                          background: '#07090d',
+                          border: '2px solid #38bdf8',
+                          borderRadius: '50%',
+                          cursor: 'pointer',
+                          boxShadow: '0 0 6px rgba(56, 189, 248, 0.6)',
+                          zIndex: 20,
+                        }}
+                      />
+                      <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: '#38bdf8', fontWeight: 600 }}>
+                        {input.name}
+                      </span>
+                      <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--color-text-dim)', marginLeft: 'auto' }}>
+                        :{input.type}
+                      </span>
+                      <button
+                        onClick={e => handleRemoveInputOnNode(e, idx)}
+                        title={`Remove ${input.name}`}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#ef5f5f',
+                          cursor: 'pointer',
+                          padding: '0 2px',
+                          marginLeft: 4,
                           display: 'flex',
                           alignItems: 'center',
-                          height: 22,
-                          background: 'rgba(56, 189, 248, 0.08)',
-                          border: '1px solid rgba(56, 189, 248, 0.2)',
-                          borderRadius: 4,
-                          paddingLeft: 8,
-                          paddingRight: 6,
-                          marginLeft: -12,
-                          marginRight: 0,
+                          opacity: 0.5,
                         }}
+                        onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                        onMouseLeave={e => e.currentTarget.style.opacity = '0.5'}
                       >
-                        <Handle
-                          type="target"
-                          position={Position.Left}
-                          id={`input_${input.name}`}
-                          style={{
-                            position: 'absolute',
-                            left: 0,
-                            top: '50%',
-                            transform: 'translate(-50%, -50%)',
-                            width: 8,
-                            height: 8,
-                            background: '#07090d',
-                            border: '2px solid #38bdf8',
-                            borderRadius: '50%',
-                            cursor: 'pointer',
-                            boxShadow: '0 0 6px rgba(56, 189, 248, 0.6)',
-                            zIndex: 20,
-                          }}
-                        />
-                        <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: '#38bdf8', fontWeight: 600 }}>
-                          {input.name}
-                        </span>
-                        <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--color-text-dim)', marginLeft: 'auto' }}>
-                          :{input.type}
-                        </span>
-                        <button
-                          onClick={e => handleRemoveInputOnNode(e, idx)}
-                          title={`Remove ${input.name}`}
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: '#ef5f5f',
-                            cursor: 'pointer',
-                            padding: '0 2px',
-                            marginLeft: 4,
-                            display: 'flex',
-                            alignItems: 'center',
-                            opacity: 0.6,
-                          }}
-                          onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-                          onMouseLeave={e => e.currentTarget.style.opacity = '0.6'}
-                        >
-                          <Trash2 className="w-2.5 h-2.5 text-[#ef5f5f]" />
-                        </button>
-                      </div>
-                    ))
-                  )}
+                        <Trash2 className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* Add Input Option at Bottom Panel */}
+                  <button
+                    onClick={handleAddInputOnNode}
+                    style={{
+                      background: 'transparent',
+                      border: '1px dashed rgba(56, 189, 248, 0.3)',
+                      borderRadius: 4,
+                      padding: '3px 6px',
+                      fontSize: 9.5,
+                      color: '#38bdf8',
+                      fontFamily: 'var(--font-mono)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 4,
+                      marginTop: 3,
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(56, 189, 248, 0.1)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Add Input</span>
+                  </button>
                 </div>
 
-                {/* Output Handle */}
+                {/* Output Handle for returnType */}
                 {returnType !== 'void' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 2 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 2 }}>
                     <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontWeight: 600 }}>
-                      Outputs
+                      Output
                     </div>
                     <div
                       style={{
@@ -429,14 +399,9 @@ export default function BaseNode({ id, data, selected }: NodeProps) {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        height: 22,
-                        background: 'rgba(168, 85, 247, 0.08)',
-                        border: '1px solid rgba(168, 85, 247, 0.2)',
-                        borderRadius: 4,
-                        paddingLeft: 6,
-                        paddingRight: 8,
-                        marginLeft: 0,
+                        height: 20,
                         marginRight: -12,
+                        paddingRight: 12,
                       }}
                     >
                       <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: '#a855f7', fontWeight: 600 }}>

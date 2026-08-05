@@ -15,7 +15,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import { useFlowStore } from '@/store/userFlowStore'
 import BaseNode from '@/components/nodes/BaseNode'
-import { Edit2, Copy, Trash2, Sliders, X, Check } from 'lucide-react'
+import { Edit2, Copy, Trash2, Sliders, X, Check, Plus } from 'lucide-react'
 
 interface ContextMenuState {
   nodeId: string
@@ -27,7 +27,7 @@ interface QuickEditState {
   nodeId: string
   x: number
   y: number
-  params: Record<string, string>
+  params: Record<string, any>
 }
 
 interface ConnectionInfo {
@@ -861,56 +861,224 @@ function FlowCanvasInner() {
 
           {/* Parameter Fields */}
           <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {Object.entries(quickEdit.params).map(([key, val]) => (
-              <div key={key}>
-                <label style={{
-                  display: 'block',
-                  fontSize: 9,
-                  color: '#546484',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  marginBottom: 4,
-                  fontFamily: 'var(--font-mono)',
-                }}>
-                  {key}
-                </label>
-                <input
-                  autoFocus={Object.keys(quickEdit.params).indexOf(key) === 0}
-                  value={val}
-                  onChange={(e) => {
-                    setQuickEdit(prev => prev ? {
-                      ...prev,
-                      params: { ...prev.params, [key]: e.target.value }
-                    } : null)
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleSaveQuickEdit()
-                    if (e.key === 'Escape') setQuickEdit(null)
-                  }}
-                  style={{
-                    width: '100%',
-                    background: '#07090d',
-                    border: '1px solid #1e2638',
-                    borderRadius: 4,
-                    padding: '6px 10px',
-                    color: '#f0f4fc',
-                    fontSize: 12,
+            {Object.entries(quickEdit.params).map(([key, val]) => {
+              if (key === 'inputs' || key === 'parameters') {
+                let inputsList: { name: string; type: string }[] = []
+                if (Array.isArray(val)) inputsList = val
+                else if (typeof val === 'string' && val.trim() !== '') {
+                  try { inputsList = JSON.parse(val); } catch(e) {}
+                }
+
+                return (
+                  <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <label style={{ fontSize: 9, color: '#546484', fontWeight: 700, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
+                        Inputs ({inputsList.length})
+                      </label>
+                      <button
+                        onClick={() => {
+                          const newInputs = [...inputsList, { name: `input${inputsList.length + 1}`, type: 'int' }]
+                          setQuickEdit(prev => prev ? {
+                            ...prev,
+                            params: { ...prev.params, inputs: newInputs, parameters: newInputs }
+                          } : null)
+                        }}
+                        style={{
+                          background: 'rgba(56, 189, 248, 0.15)',
+                          border: '1px solid rgba(56, 189, 248, 0.3)',
+                          borderRadius: 3,
+                          padding: '2px 6px',
+                          fontSize: 9,
+                          color: '#38bdf8',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 3,
+                        }}
+                      >
+                        <Plus className="w-2.5 h-2.5" />
+                        <span>Add Input</span>
+                      </button>
+                    </div>
+
+                    {inputsList.length === 0 ? (
+                      <div style={{ fontSize: 10, color: '#546484', fontStyle: 'italic', fontFamily: 'var(--font-mono)' }}>
+                        (No inputs defined)
+                      </div>
+                    ) : (
+                      inputsList.map((input, idx) => (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <input
+                            value={input.name}
+                            placeholder="Input Name"
+                            onChange={(e) => {
+                              const newInputs = [...inputsList]
+                              newInputs[idx] = { ...newInputs[idx], name: e.target.value }
+                              setQuickEdit(prev => prev ? {
+                                ...prev,
+                                params: { ...prev.params, inputs: newInputs, parameters: newInputs }
+                              } : null)
+                            }}
+                            style={{
+                              flex: 1,
+                              background: '#07090d',
+                              border: '1px solid #1e2638',
+                              borderRadius: 4,
+                              padding: '4px 6px',
+                              color: '#f0f4fc',
+                              fontSize: 11,
+                              fontFamily: 'var(--font-mono)',
+                              outline: 'none',
+                            }}
+                          />
+                          <select
+                            value={input.type || 'int'}
+                            onChange={(e) => {
+                              const newInputs = [...inputsList]
+                              newInputs[idx] = { ...newInputs[idx], type: e.target.value }
+                              setQuickEdit(prev => prev ? {
+                                ...prev,
+                                params: { ...prev.params, inputs: newInputs, parameters: newInputs }
+                              } : null)
+                            }}
+                            style={{
+                              background: '#07090d',
+                              border: '1px solid #1e2638',
+                              borderRadius: 4,
+                              padding: '4px 6px',
+                              color: '#38bdf8',
+                              fontSize: 11,
+                              fontFamily: 'var(--font-mono)',
+                              outline: 'none',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <option value="int">int</option>
+                            <option value="float">float</option>
+                            <option value="bool">bool</option>
+                            <option value="char">char</option>
+                            <option value="String">String</option>
+                            <option value="long">long</option>
+                            <option value="void">void</option>
+                          </select>
+                          <button
+                            onClick={() => {
+                              const newInputs = inputsList.filter((_, i) => i !== idx)
+                              setQuickEdit(prev => prev ? {
+                                ...prev,
+                                params: { ...prev.params, inputs: newInputs, parameters: newInputs }
+                              } : null)
+                            }}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#ef5f5f',
+                              cursor: 'pointer',
+                              padding: 2,
+                              display: 'flex',
+                              alignItems: 'center',
+                            }}
+                          >
+                            <Trash2 className="w-3 h-3 text-[#ef5f5f]" />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )
+              }
+
+              if (key === 'returnType') {
+                return (
+                  <div key={key}>
+                    <label style={{ fontSize: 9, color: '#546484', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4, display: 'block', fontFamily: 'var(--font-mono)' }}>
+                      RETURN TYPE
+                    </label>
+                    <select
+                      value={val || 'void'}
+                      onChange={(e) => {
+                        setQuickEdit(prev => prev ? {
+                          ...prev,
+                          params: { ...prev.params, [key]: e.target.value }
+                        } : null)
+                      }}
+                      style={{
+                        width: '100%',
+                        background: '#07090d',
+                        border: '1px solid #1e2638',
+                        borderRadius: 4,
+                        padding: '6px 10px',
+                        color: '#a855f7',
+                        fontSize: 12,
+                        fontFamily: 'var(--font-mono)',
+                        outline: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <option value="void">void</option>
+                      <option value="int">int</option>
+                      <option value="float">float</option>
+                      <option value="bool">bool</option>
+                      <option value="char">char</option>
+                      <option value="String">String</option>
+                      <option value="long">long</option>
+                    </select>
+                  </div>
+                )
+              }
+
+              return (
+                <div key={key}>
+                  <label style={{
+                    display: 'block',
+                    fontSize: 9,
+                    color: '#546484',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    marginBottom: 4,
                     fontFamily: 'var(--font-mono)',
-                    outline: 'none',
-                    transition: 'border-color 0.15s, box-shadow 0.15s',
-                  }}
-                  onFocus={e => {
-                    e.target.style.borderColor = '#5fa3ff'
-                    e.target.style.boxShadow = '0 0 0 2px rgba(95,163,255,0.15)'
-                  }}
-                  onBlur={e => {
-                    e.target.style.borderColor = '#1e2638'
-                    e.target.style.boxShadow = 'none'
-                  }}
-                />
-              </div>
-            ))}
+                  }}>
+                    {key}
+                  </label>
+                  <input
+                    autoFocus={Object.keys(quickEdit.params).indexOf(key) === 0}
+                    value={val}
+                    onChange={(e) => {
+                      setQuickEdit(prev => prev ? {
+                        ...prev,
+                        params: { ...prev.params, [key]: e.target.value }
+                      } : null)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveQuickEdit()
+                      if (e.key === 'Escape') setQuickEdit(null)
+                    }}
+                    style={{
+                      width: '100%',
+                      background: '#07090d',
+                      border: '1px solid #1e2638',
+                      borderRadius: 4,
+                      padding: '6px 10px',
+                      color: '#f0f4fc',
+                      fontSize: 12,
+                      fontFamily: 'var(--font-mono)',
+                      outline: 'none',
+                      transition: 'border-color 0.15s, box-shadow 0.15s',
+                    }}
+                    onFocus={e => {
+                      e.target.style.borderColor = '#5fa3ff'
+                      e.target.style.boxShadow = '0 0 0 2px rgba(95,163,255,0.15)'
+                    }}
+                    onBlur={e => {
+                      e.target.style.borderColor = '#1e2638'
+                      e.target.style.boxShadow = 'none'
+                    }}
+                  />
+                </div>
+              )
+            })}
           </div>
 
           {/* Footer Buttons */}
