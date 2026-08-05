@@ -65,12 +65,12 @@ export class GraphToASTCompiler {
       const returnType = data?.params?.returnType || 'void';
       
       let parametersList: Parameter[] = [];
-      const paramsVal = data?.params?.parameters;
-      if (Array.isArray(paramsVal)) {
-        parametersList = paramsVal.map((p: any) => ({ dataType: p.type || 'int', name: p.name }));
-      } else if (typeof paramsVal === 'string' && paramsVal.trim() !== '') {
+      const inputsVal = data?.params?.inputs || data?.params?.parameters;
+      if (Array.isArray(inputsVal)) {
+        parametersList = inputsVal.map((p: any) => ({ dataType: p.type || 'int', name: p.name }));
+      } else if (typeof inputsVal === 'string' && inputsVal.trim() !== '') {
         try {
-          const parsed = JSON.parse(paramsVal);
+          const parsed = JSON.parse(inputsVal);
           if (Array.isArray(parsed)) {
             parametersList = parsed.map((p: any) => ({ dataType: p.type || 'int', name: p.name }));
           }
@@ -328,26 +328,40 @@ export class GraphToASTCompiler {
         const returnType = signature ? signature.returnType : (data?.params?.returnType || 'void');
 
         let argsExprs: ExpressionNode[] = [];
-        const argsVal = type === 'function_call' ? data?.params?.arguments : data?.params?.argValues;
 
-        if (Array.isArray(argsVal)) {
-          argsExprs = argsVal.map((arg: any) => {
-            const valStr = typeof arg === 'object' ? (arg.value !== undefined ? arg.value : '') : String(arg);
-            return parseExpressionString(valStr || '0', currentId);
-          });
-        } else if (typeof argsVal === 'string' && argsVal.trim() !== '') {
-          try {
-            const parsed = JSON.parse(argsVal);
-            if (Array.isArray(parsed)) {
-              argsExprs = parsed.map((arg: any) => {
-                const valStr = typeof arg === 'object' ? (arg.value !== undefined ? arg.value : '') : String(arg);
-                return parseExpressionString(valStr || '0', currentId);
-              });
-            } else {
-              argsExprs = argsVal.split(',').map((a: string) => parseExpressionString(a.trim() || '0', currentId));
+        // Inspect signature parameters and connected input handle edges
+        const fnParams = signature?.params || [];
+        if (fnParams.length > 0) {
+          argsExprs = fnParams.map((p, idx) => {
+            // Check if there is an edge connecting to input_${p.name} or input_${idx}
+            const edge = this.flowEdges.find(e => 
+              e.target === currentId && 
+              (e.targetHandle === `input_${p.name}` || e.targetHandle === `input_${idx}`)
+            );
+            if (edge) {
+              const srcNode = this.flowNodes.find(n => n.id === edge.source);
+              if (srcNode) {
+                const srcData = srcNode.data as any;
+                const srcVar = srcData?.params?.var || srcData?.params?.assignTo || srcData?.label || 'val';
+                return parseExpressionString(srcVar, currentId);
+              }
             }
-          } catch (e) {
-            argsExprs = argsVal.split(',').map((a: string) => parseExpressionString(a.trim() || '0', currentId));
+
+            // Fallback to explicit argument values or defaults
+            const argsVal = type === 'function_call' ? data?.params?.arguments : data?.params?.argValues;
+            if (Array.isArray(argsVal) && argsVal[idx] !== undefined) {
+              const valStr = typeof argsVal[idx] === 'object' ? (argsVal[idx].value !== undefined ? argsVal[idx].value : '') : String(argsVal[idx]);
+              return parseExpressionString(valStr || '0', currentId);
+            }
+            return parseExpressionString('0', currentId);
+          });
+        } else {
+          const argsVal = type === 'function_call' ? data?.params?.arguments : data?.params?.argValues;
+          if (Array.isArray(argsVal)) {
+            argsExprs = argsVal.map((arg: any) => {
+              const valStr = typeof arg === 'object' ? (arg.value !== undefined ? arg.value : '') : String(arg);
+              return parseExpressionString(valStr || '0', currentId);
+            });
           }
         }
 
