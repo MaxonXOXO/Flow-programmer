@@ -144,11 +144,14 @@ interface FlowStore {
 
   // Layout states
   showSidebar: boolean
+  activeSidebarPanel: 'explorer' | 'components'
   showGrid: boolean
   showMinimap: boolean
   showProperties: boolean
 
   toggleSidebar: () => void
+  setActiveSidebarPanel: (panel: 'explorer' | 'components') => void
+  toggleSidebarPanel: (panel: 'explorer' | 'components') => void
   toggleGrid: () => void
   toggleMinimap: () => void
   toggleProperties: () => void
@@ -354,11 +357,19 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
     currentNodeId: null,
   },
   showSidebar: true,
+  activeSidebarPanel: 'explorer',
   showGrid: true,
   showMinimap: true,
   showProperties: true,
 
   toggleSidebar: () => set((s) => ({ showSidebar: !s.showSidebar })),
+  setActiveSidebarPanel: (panel) => set({ activeSidebarPanel: panel, showSidebar: true }),
+  toggleSidebarPanel: (panel) => set((s) => {
+    if (s.showSidebar && s.activeSidebarPanel === panel) {
+      return { showSidebar: false }
+    }
+    return { showSidebar: true, activeSidebarPanel: panel }
+  }),
   toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
   toggleMinimap: () => set((s) => ({ showMinimap: !s.showMinimap })),
   toggleProperties: () => set((s) => ({ showProperties: !s.showProperties })),
