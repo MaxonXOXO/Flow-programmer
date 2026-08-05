@@ -4,7 +4,25 @@ import { useFlowStore } from '@/store/userFlowStore'
 import { Zap, Box, Code, X, Plus } from 'lucide-react'
 
 export default function WorkspaceTabBar() {
-  const { documents, activeDocumentId, setActiveDocument, closeDocument, openDocument } = useFlowStore()
+  const { documents, activeDocumentId, setActiveDocument, closeDocument, openDocument, flowNodes, subFlows } = useFlowStore()
+
+  const getDocumentDisplayTitle = (doc: typeof documents[0]) => {
+    if (doc.type === 'function' && doc.targetId) {
+      let fnNode = flowNodes.find(n => n.id === doc.targetId)
+      if (!fnNode) {
+        for (const sfId of Object.keys(subFlows)) {
+          const found = subFlows[sfId].nodes.find(n => n.id === doc.targetId)
+          if (found) { fnNode = found; break }
+        }
+      }
+      const rawName = (fnNode?.data as any)?.params?.name || (fnNode?.data as any)?.label
+      if (rawName) {
+        const cleanName = String(rawName).replace(/\(\)$/, '')
+        return `ƒ ${cleanName}`
+      }
+    }
+    return doc.title
+  }
 
   const handleAddNewFunction = () => {
     const fnId = `fn_${Date.now()}`
@@ -92,7 +110,7 @@ export default function WorkspaceTabBar() {
               </span>
 
               {/* Title */}
-              <span>{doc.title}</span>
+              <span>{getDocumentDisplayTitle(doc)}</span>
 
               {/* Dirty indicator */}
               {doc.dirty && (

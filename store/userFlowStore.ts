@@ -300,9 +300,21 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   toggleMinimap: () => set((s) => ({ showMinimap: !s.showMinimap })),
   toggleProperties: () => set((s) => ({ showProperties: !s.showProperties })),
 
-  updateFlowNodeData: (id, data) => set((s) => ({
-    flowNodes: s.flowNodes.map(n => n.id === id ? { ...n, data } : n)
-  })),
+  updateFlowNodeData: (id, data) => set((s) => {
+    const fnName = (data.params as any)?.name || (data as any)?.label
+    const cleanFnName = fnName ? String(fnName).replace(/\(\)$/, '') : null
+    const newDocs = cleanFnName ? s.documents.map(d => {
+      if (d.targetId === id || d.id === `subflow_${id}`) {
+        return { ...d, title: `ƒ ${cleanFnName}` }
+      }
+      return d
+    }) : s.documents
+
+    return {
+      flowNodes: s.flowNodes.map(n => n.id === id ? { ...n, data } : n),
+      documents: newDocs,
+    }
+  }),
   updateSchemaNodeData: (id, data) => set((s) => ({
     schemaNodes: s.schemaNodes.map(n => n.id === id ? { ...n, data } : n)
   })),
@@ -698,6 +710,15 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   }),
 
   updateAnyFlowNodeData: (id, data) => set((s) => {
+    const fnName = (data.params as any)?.name || (data as any)?.label
+    const cleanFnName = fnName ? String(fnName).replace(/\(\)$/, '') : null
+    const newDocs = cleanFnName ? s.documents.map(d => {
+      if (d.targetId === id || d.id === `subflow_${id}`) {
+        return { ...d, title: `ƒ ${cleanFnName}` }
+      }
+      return d
+    }) : s.documents
+
     let updated = false
     const nextFlowNodes = s.flowNodes.map(n => {
       if (n.id === id) { updated = true; return { ...n, data } }
@@ -705,7 +726,7 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
     })
 
     if (updated) {
-      return { flowNodes: nextFlowNodes }
+      return { flowNodes: nextFlowNodes, documents: newDocs }
     }
 
     const nextSubFlows = { ...s.subFlows }
@@ -723,7 +744,7 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
     }
 
     if (subFlowUpdated) {
-      return { subFlows: nextSubFlows }
+      return { subFlows: nextSubFlows, documents: newDocs }
     }
 
     const nextPackages = { ...s.componentPackages }
@@ -742,7 +763,7 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
     }
 
     if (packageUpdated) {
-      return { componentPackages: nextPackages }
+      return { componentPackages: nextPackages, documents: newDocs }
     }
 
     return s
