@@ -9,6 +9,7 @@ import SchemaCanvas from '@/components/schema/SchemaCanvas'
 import { useFlowStore } from '@/store/userFlowStore'
 import PropertiesPanel from '@/components/editor/PropertiesPanel'
 import CodePanel from '@/components/editor/CodePanel'
+import WorkspaceTabBar from '@/components/editor/WorkspaceTabBar'
 
 export default function EditorPage() {
   const { setProject } = useFlowStore()
@@ -30,9 +31,15 @@ export default function EditorPage() {
       
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {showSidebar && <Sidebar />}
-        <div style={{ flex: 1 }}>
-          {activeDocument?.type === 'schema' ? <SchemaCanvas /> : <FlowCanvas />}
+        
+        {/* Center Canvas Area with VS Code Style Tab Bar at Top */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <WorkspaceTabBar />
+          <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+            {activeDocument?.type === 'schema' ? <SchemaCanvas /> : <FlowCanvas />}
+          </div>
         </div>
+
         {showProperties && <PropertiesPanel />}
       </div>
       
