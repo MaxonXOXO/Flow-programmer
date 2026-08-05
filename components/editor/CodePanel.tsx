@@ -222,15 +222,19 @@ export default function CodePanel({ onClose, isInline }: { onClose?: () => void;
           userSelect: 'none',
         }}>
           {/* Mock macOS Window Controls */}
-          <div style={{ display: 'flex', gap: 6, marginRight: 4 }}>
-            <button onClick={onClose} style={{ width: 11, height: 11, borderRadius: '50%', background: '#ff5f56', border: 'none', cursor: 'pointer' }} />
-            <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#ffbd2e', border: 'none' }} />
-            <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#27c93f', border: 'none' }} />
-          </div>
+          {!isInline && (
+            <>
+              <div style={{ display: 'flex', gap: 6, marginRight: 4 }}>
+                {onClose && <button onClick={onClose} style={{ width: 11, height: 11, borderRadius: '50%', background: '#ff5f56', border: 'none', cursor: 'pointer' }} />}
+                <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#ffbd2e', border: 'none' }} />
+                <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#27c93f', border: 'none' }} />
+              </div>
 
-          <span style={{ fontSize: 11, color: 'var(--color-text-dim)', fontWeight: 600 }}>WORKSPACE IDE</span>
-          <div style={{ width: 1, height: 14, background: 'var(--color-border)' }} />
-          <span style={{ fontSize: 11, color: 'var(--color-text-bright)', fontFamily: 'monospace' }}>
+              <span style={{ fontSize: 11, color: 'var(--color-text-dim)', fontWeight: 600 }}>WORKSPACE IDE</span>
+              <div style={{ width: 1, height: 14, background: 'var(--color-border)' }} />
+            </>
+          )}
+          <span style={{ fontSize: 11, color: 'var(--color-text-bright)', fontFamily: 'monospace', fontWeight: 600 }}>
             {project?.name || 'sketch_project'}
           </span>
           <span style={{
@@ -326,21 +330,23 @@ export default function CodePanel({ onClose, isInline }: { onClose?: () => void;
             >
               <Download className="w-3 h-3 stroke-[2.5]" /> Download File
             </button>
-            <button
-              onClick={onClose}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--color-text-dim)',
-                fontSize: 11,
-                cursor: 'pointer',
-                padding: 4,
-              }}
-              onMouseEnter={e => e.currentTarget.style.color = '#fff'}
-              onMouseLeave={e => e.currentTarget.style.color = 'var(--color-text-dim)'}
-            >
-              <X className="w-4 h-4" />
-            </button>
+            {!isInline && onClose && (
+              <button
+                onClick={onClose}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--color-text-dim)',
+                  fontSize: 11,
+                  cursor: 'pointer',
+                  padding: 4,
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = '#fff'}
+                onMouseLeave={e => e.currentTarget.style.color = 'var(--color-text-dim)'}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -348,143 +354,146 @@ export default function CodePanel({ onClose, isInline }: { onClose?: () => void;
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           
           {/* IDE Explorer Sidebar */}
-          <div style={{
-            width: 180,
-            background: 'var(--color-bg-panel)',
-            borderRight: '1px solid var(--color-border)',
-            display: 'flex',
-            flexDirection: 'column',
-            userSelect: 'none',
-          }}>
+          {!isInline && (
             <div style={{
-              padding: '6px 12px',
-              fontSize: 9,
-              fontWeight: 700,
-              color: 'var(--color-text-dim)',
-              letterSpacing: '0.8px',
+              width: 180,
+              background: 'var(--color-bg-panel)',
+              borderRight: '1px solid var(--color-border)',
+              display: 'flex',
+              flexDirection: 'column',
+              userSelect: 'none',
             }}>
-              PROJECT WORKSPACE
-            </div>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', padding: '0 4px' }}>
               <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '5px 8px',
-                fontSize: 11,
-                color: 'var(--color-text-normal)',
-                fontWeight: 600,
+                padding: '6px 12px',
+                fontSize: 9,
+                fontWeight: 700,
+                color: 'var(--color-text-dim)',
+                letterSpacing: '0.8px',
               }}>
-                <Folder className="w-3.5 h-3.5 text-[#e67e22] fill-current" /> src
+                PROJECT WORKSPACE
               </div>
               
-              {/* File item 1: sketch.ino */}
-              <button
-                onClick={() => setActiveTab('ino')}
-                style={{
+              <div style={{ display: 'flex', flexDirection: 'column', padding: '0 4px' }}>
+                <div style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: 6,
-                  padding: '5px 8px 5px 20px',
-                  background: activeTab === 'ino' ? '#2d2d2d' : 'transparent',
-                  border: 'none',
-                  borderRadius: 4,
-                  width: '100%',
-                  textAlign: 'left',
+                  padding: '5px 8px',
                   fontSize: 11,
-                  fontFamily: 'monospace',
-                  color: activeTab === 'ino' ? 'var(--color-text-bright)' : 'var(--color-text-normal)',
-                  cursor: 'pointer',
-                }}
-              >
-                <FileCode className="w-3.5 h-3.5 text-[#3d8bff]" /> sketch.ino
-              </button>
+                  color: 'var(--color-text-normal)',
+                  fontWeight: 600,
+                }}>
+                  <Folder className="w-3.5 h-3.5 text-[#e67e22] fill-current" /> src
+                </div>
+                
+                {/* File item 1: sketch.ino */}
+                <button
+                  onClick={() => setActiveTab('ino')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '5px 8px 5px 20px',
+                    background: activeTab === 'ino' ? '#2d2d2d' : 'transparent',
+                    border: 'none',
+                    borderRadius: 4,
+                    width: '100%',
+                    textAlign: 'left',
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                    color: activeTab === 'ino' ? 'var(--color-text-bright)' : 'var(--color-text-normal)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <FileCode className="w-3.5 h-3.5 text-[#3d8bff]" /> sketch.ino
+                </button>
 
-              {/* Function files */}
-              {Object.keys(generatedSketch.files).map(fileName => {
-                const tabKey = `fn:${fileName}`
-                return (
-                  <button
-                    key={fileName}
-                    onClick={() => setActiveTab(tabKey)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      padding: '5px 8px 5px 20px',
-                      background: activeTab === tabKey ? '#2d2d2d' : 'transparent',
-                      border: 'none',
-                      borderRadius: 4,
-                      width: '100%',
-                      textAlign: 'left',
-                      fontSize: 11,
-                      fontFamily: 'monospace',
-                      color: activeTab === tabKey ? 'var(--color-text-bright)' : 'var(--color-text-normal)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <FileCode className="w-3.5 h-3.5 text-[#a5b3cd]" /> {fileName}
-                  </button>
-                )
-              })}
+                {/* Function files */}
+                {Object.keys(generatedSketch.files).map(fileName => {
+                  const tabKey = `fn:${fileName}`
+                  return (
+                    <button
+                      key={fileName}
+                      onClick={() => setActiveTab(tabKey)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '5px 8px 5px 20px',
+                        background: activeTab === tabKey ? '#2d2d2d' : 'transparent',
+                        border: 'none',
+                        borderRadius: 4,
+                        width: '100%',
+                        textAlign: 'left',
+                        fontSize: 11,
+                        fontFamily: 'monospace',
+                        color: activeTab === tabKey ? 'var(--color-text-bright)' : 'var(--color-text-normal)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <FileCode className="w-3.5 h-3.5 text-[#a855f7]" /> {fileName}
+                    </button>
+                  )
+                })}
 
-              {/* File item 2: diagram.json */}
-              <button
-                onClick={() => setActiveTab('json')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '5px 8px 5px 20px',
-                  background: activeTab === 'json' ? '#2d2d2d' : 'transparent',
-                  border: 'none',
-                  borderRadius: 4,
-                  width: '100%',
-                  textAlign: 'left',
-                  fontSize: 11,
-                  fontFamily: 'monospace',
-                  color: activeTab === 'json' ? 'var(--color-text-bright)' : 'var(--color-text-normal)',
-                  cursor: 'pointer',
-                }}
-              >
-                <FileJson className="w-3.5 h-3.5 text-[#e67e22]" /> diagram.json
-              </button>
+                {/* File item 2: diagram.json */}
+                <button
+                  onClick={() => setActiveTab('json')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '5px 8px 5px 20px',
+                    background: activeTab === 'json' ? '#2d2d2d' : 'transparent',
+                    border: 'none',
+                    borderRadius: 4,
+                    width: '100%',
+                    textAlign: 'left',
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                    color: activeTab === 'json' ? 'var(--color-text-bright)' : 'var(--color-text-normal)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <FileJson className="w-3.5 h-3.5 text-[#e67e22]" /> diagram.json
+                </button>
 
-              {/* File item 3: wiring_guide.md */}
-              <button
-                onClick={() => setActiveTab('md')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '5px 8px 5px 20px',
-                  background: activeTab === 'md' ? '#2d2d2d' : 'transparent',
-                  border: 'none',
-                  borderRadius: 4,
-                  width: '100%',
-                  textAlign: 'left',
-                  fontSize: 11,
-                  fontFamily: 'monospace',
-                  color: activeTab === 'md' ? 'var(--color-text-bright)' : 'var(--color-text-normal)',
-                  cursor: 'pointer',
-                }}
-              >
-                <FileText className="w-3.5 h-3.5 text-[#2ecc71]" /> wiring.md
-              </button>
+                {/* File item 3: wiring_guide.md */}
+                <button
+                  onClick={() => setActiveTab('md')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '5px 8px 5px 20px',
+                    background: activeTab === 'md' ? '#2d2d2d' : 'transparent',
+                    border: 'none',
+                    borderRadius: 4,
+                    width: '100%',
+                    textAlign: 'left',
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                    color: activeTab === 'md' ? 'var(--color-text-bright)' : 'var(--color-text-normal)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <FileText className="w-3.5 h-3.5 text-[#2ecc71]" /> wiring.md
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Right Editor Area */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#1e1e1e' }}>
-            {/* Editor File Tabs Row */}
-            <div style={{
-              display: 'flex',
-              background: '#151515',
-              borderBottom: '1px solid var(--color-border)',
-              height: 30,
-              userSelect: 'none',
-            }}>
+            {/* Editor File Tabs Row (only when NOT inline) */}
+            {!isInline && (
+              <div style={{
+                display: 'flex',
+                background: '#151515',
+                borderBottom: '1px solid var(--color-border)',
+                height: 30,
+                userSelect: 'none',
+              }}>
               {[
                 { key: 'ino', label: 'sketch.ino', icon: <FileCode className="w-3.5 h-3.5 text-[#3d8bff]" /> },
                 ...Object.keys(generatedSketch.files).map(fileName => ({
@@ -517,6 +526,7 @@ export default function CodePanel({ onClose, isInline }: { onClose?: () => void;
                 </div>
               ))}
             </div>
+            )}
 
             {/* Monaco Editor / Text Area */}
             <div style={{ flex: 1, position: 'relative', height: '100%', minHeight: 0 }}>
