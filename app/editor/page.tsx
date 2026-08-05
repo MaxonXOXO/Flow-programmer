@@ -21,7 +21,8 @@ export default function EditorPage() {
     setProject(JSON.parse(raw))
   }, [router, setProject])
 
-  const { selectedNodeId, simState, project, activeCanvas, showSidebar, showProperties, subFlowStack } = useFlowStore()
+  const { selectedNodeId, simState, project, documents, activeDocumentId, activeCanvas, showSidebar, showProperties, subFlowStack } = useFlowStore()
+  const activeDocument = documents.find(d => d.id === activeDocumentId) || documents[0]
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', background: 'var(--color-bg-base)' }}>
@@ -30,7 +31,7 @@ export default function EditorPage() {
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {showSidebar && <Sidebar />}
         <div style={{ flex: 1 }}>
-          {activeCanvas === 'schema' ? <SchemaCanvas /> : <FlowCanvas />}
+          {activeDocument?.type === 'schema' ? <SchemaCanvas /> : <FlowCanvas />}
         </div>
         {showProperties && <PropertiesPanel />}
       </div>
@@ -73,7 +74,7 @@ export default function EditorPage() {
           <span style={{ margin: '0 6px' }}>|</span>
           Target: <span style={{ color: 'var(--color-text-normal)', fontWeight: 600 }}>{project?.platform.toUpperCase() || 'Arduino'}</span>
           <span style={{ margin: '0 6px' }}>|</span>
-          View: <span style={{ color: 'var(--color-text-normal)', fontWeight: 600 }}>{activeCanvas.toUpperCase()}</span>
+          View: <span style={{ color: 'var(--color-text-normal)', fontWeight: 600 }}>{(activeDocument?.title || activeCanvas).toUpperCase()}</span>
           {subFlowStack.length > 0 && (
             <>
               <span style={{ margin: '0 6px' }}>|</span>
