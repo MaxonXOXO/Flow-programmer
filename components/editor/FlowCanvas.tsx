@@ -15,6 +15,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import { useFlowStore } from '@/store/userFlowStore'
 import BaseNode from '@/components/nodes/BaseNode'
+import CustomSelect from '@/components/ui/CustomSelect'
 import { Edit2, Copy, Trash2, Sliders, X, Check, Plus } from 'lucide-react'
 
 interface ContextMenuState {
@@ -936,36 +937,27 @@ function FlowCanvasInner() {
                               outline: 'none',
                             }}
                           />
-                          <select
+                          <CustomSelect
                             value={input.type || 'int'}
-                            onChange={(e) => {
+                            options={[
+                              { value: 'int', label: 'int' },
+                              { value: 'float', label: 'float' },
+                              { value: 'bool', label: 'bool' },
+                              { value: 'char', label: 'char' },
+                              { value: 'String', label: 'String' },
+                              { value: 'long', label: 'long' },
+                              { value: 'void', label: 'void' },
+                            ]}
+                            onChange={(newVal) => {
                               const newInputs = [...inputsList]
-                              newInputs[idx] = { ...newInputs[idx], type: e.target.value }
+                              newInputs[idx] = { ...newInputs[idx], type: newVal }
                               setQuickEdit(prev => prev ? {
                                 ...prev,
                                 params: { ...prev.params, inputs: newInputs, parameters: newInputs }
                               } : null)
                             }}
-                            style={{
-                              background: '#07090d',
-                              border: '1px solid #1e2638',
-                              borderRadius: 4,
-                              padding: '4px 6px',
-                              color: '#38bdf8',
-                              fontSize: 11,
-                              fontFamily: 'var(--font-mono)',
-                              outline: 'none',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            <option value="int">int</option>
-                            <option value="float">float</option>
-                            <option value="bool">bool</option>
-                            <option value="char">char</option>
-                            <option value="String">String</option>
-                            <option value="long">long</option>
-                            <option value="void">void</option>
-                          </select>
+                            style={{ width: 85 }}
+                          />
                           <button
                             onClick={() => {
                               const newInputs = inputsList.filter((_, i) => i !== idx)
@@ -999,35 +991,24 @@ function FlowCanvasInner() {
                     <label style={{ fontSize: 9, color: '#546484', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4, display: 'block', fontFamily: 'var(--font-mono)' }}>
                       RETURN TYPE
                     </label>
-                    <select
+                    <CustomSelect
                       value={val || 'void'}
-                      onChange={(e) => {
+                      options={[
+                        { value: 'void', label: 'void' },
+                        { value: 'int', label: 'int' },
+                        { value: 'float', label: 'float' },
+                        { value: 'bool', label: 'bool' },
+                        { value: 'char', label: 'char' },
+                        { value: 'String', label: 'String' },
+                        { value: 'long', label: 'long' },
+                      ]}
+                      onChange={(newVal) => {
                         setQuickEdit(prev => prev ? {
                           ...prev,
-                          params: { ...prev.params, [key]: e.target.value }
+                          params: { ...prev.params, [key]: newVal }
                         } : null)
                       }}
-                      style={{
-                        width: '100%',
-                        background: '#07090d',
-                        border: '1px solid #1e2638',
-                        borderRadius: 4,
-                        padding: '6px 10px',
-                        color: '#a855f7',
-                        fontSize: 12,
-                        fontFamily: 'var(--font-mono)',
-                        outline: 'none',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <option value="void">void</option>
-                      <option value="int">int</option>
-                      <option value="float">float</option>
-                      <option value="bool">bool</option>
-                      <option value="char">char</option>
-                      <option value="String">String</option>
-                      <option value="long">long</option>
-                    </select>
+                    />
                   </div>
                 )
               }

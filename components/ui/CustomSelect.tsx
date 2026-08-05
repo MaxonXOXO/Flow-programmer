@@ -14,6 +14,7 @@ export interface CustomSelectProps {
   onChange: (value: string) => void
   placeholder?: string
   style?: React.CSSProperties
+  dropdownZIndex?: number
 }
 
 export default function CustomSelect({
@@ -22,6 +23,7 @@ export default function CustomSelect({
   onChange,
   placeholder = 'Select option...',
   style,
+  dropdownZIndex = 100000,
 }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -93,12 +95,13 @@ export default function CustomSelect({
             top: 'calc(100% + 4px)',
             left: 0,
             right: 0,
-            background: 'rgba(23, 26, 33, 0.96)',
+            minWidth: '100%',
+            background: 'rgba(17, 20, 28, 0.96)',
             backdropFilter: 'blur(16px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
             borderRadius: 6,
-            boxShadow: '0 12px 32px rgba(0, 0, 0, 0.6)',
-            zIndex: 100,
+            boxShadow: '0 12px 32px rgba(0, 0, 0, 0.8)',
+            zIndex: dropdownZIndex,
             maxHeight: 200,
             overflowY: 'auto',
             padding: '4px',
