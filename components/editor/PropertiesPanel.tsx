@@ -480,249 +480,287 @@ export default function PropertiesPanel() {
           {openSections.params && (
             <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
               {rawNodeType === 'function' ? (
-                <>
-                  {/* Function Name */}
-                  <div>
-                    <div style={{ fontSize: 9.5, color: 'var(--color-text-dim)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>
-                      Function Identifier
-                    </div>
-                    <input
-                      value={params.name || ''}
-                      onChange={e => {
-                        const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData
-                        updater(node.id, {
-                          ...data,
-                          params: { ...params, name: e.target.value }
-                        })
-                      }}
-                      style={{
-                        width: '100%',
-                        background: 'var(--color-bg-input)',
-                        border: '1px solid var(--color-border)',
-                        borderRadius: 4,
-                        padding: '5px 8px',
-                        color: 'var(--color-text-bright)',
-                        fontSize: 11,
-                        fontFamily: 'var(--font-mono)',
-                        outline: 'none',
-                      }}
-                    />
-                  </div>
+                (() => {
+                  const fnName = params.name || 'getDistance'
+                  const returnType = params.returnType || 'int'
+                  
+                  const rawInputs = params.inputs || params.parameters || []
+                  let currentInputs: { name: string; type: string }[] = []
+                  if (Array.isArray(rawInputs)) currentInputs = rawInputs
+                  else if (typeof rawInputs === 'string' && rawInputs.trim() !== '') {
+                    try { currentInputs = JSON.parse(rawInputs); } catch(e) {}
+                  }
 
-                  {/* Return Type */}
-                  <div>
-                    <div style={{ fontSize: 9.5, color: 'var(--color-text-dim)', fontWeight: 700, marginBottom: 4 }}>
-                      Return Type
-                    </div>
-                    <CustomSelect
-                      value={params.returnType || 'void'}
-                      options={[
-                        { value: 'void', label: 'void (No return value)' },
-                        { value: 'int', label: 'int (Integer)' },
-                        { value: 'float', label: 'float (Decimal)' },
-                        { value: 'bool', label: 'bool (True/False)' },
-                        { value: 'char', label: 'char (Character)' },
-                        { value: 'String', label: 'String (Text)' },
-                      ]}
-                      onChange={val => {
-                        const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData
-                        updater(node.id, {
-                          ...data,
-                          params: { ...params, returnType: val }
-                        })
-                      }}
-                    />
-                  </div>
+                  const signatureStr = `${returnType} ${fnName}(${currentInputs.map(p => `${p.type} ${p.name || 'arg'}`).join(', ')})`
 
-                  {/* Parameters Editor */}
-                  <div style={{ marginTop: 4 }}>
-                    {(() => {
-                      const pVal = params.parameters;
-                      let currentParams: { name: string, type: string }[] = [];
-                      if (Array.isArray(pVal)) currentParams = pVal;
-                      else if (typeof pVal === 'string' && pVal.trim() !== '') {
-                        try { currentParams = JSON.parse(pVal); } catch(e) {}
+                  const updateInputs = (newInputs: { name: string; type: string }[]) => {
+                    const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData
+                    updater(node.id, {
+                      ...data,
+                      params: {
+                        ...params,
+                        inputs: newInputs,
+                        parameters: newInputs,
                       }
+                    })
+                  }
 
-                      const retType = params.returnType || 'void';
-                      const fnName = params.name || 'myFn';
-                      const signatureStr = `${retType} ${fnName}(${currentParams.map(p => `${p.type} ${p.name || 'arg'}`).join(', ')})`;
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      {/* Name */}
+                      <div>
+                        <div style={{ fontSize: 9.5, color: 'var(--color-text-dim)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>
+                          Name
+                        </div>
+                        <input
+                          value={params.name || ''}
+                          onChange={e => {
+                            const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData
+                            updater(node.id, {
+                              ...data,
+                              params: { ...params, name: e.target.value }
+                            })
+                          }}
+                          placeholder="e.g. getDistance"
+                          style={{
+                            width: '100%',
+                            background: 'var(--color-bg-input)',
+                            border: '1px solid var(--color-border)',
+                            borderRadius: 4,
+                            padding: '5px 8px',
+                            color: 'var(--color-text-bright)',
+                            fontSize: 11,
+                            fontFamily: 'var(--font-mono)',
+                            outline: 'none',
+                          }}
+                        />
+                      </div>
 
-                      return (
-                        <>
-                          {/* Live Function Signature Preview */}
-                          <div style={{ marginBottom: 12 }}>
-                            <div style={{ fontSize: 9.5, color: 'var(--color-text-dim)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>
-                              C++ Signature Preview
-                            </div>
-                            <div style={{
-                              background: 'rgba(0, 0, 0, 0.4)',
+                      {/* Return Type */}
+                      <div>
+                        <div style={{ fontSize: 9.5, color: 'var(--color-text-dim)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>
+                          Return Type
+                        </div>
+                        <CustomSelect
+                          value={returnType}
+                          options={[
+                            { value: 'void', label: 'void (No return value)' },
+                            { value: 'int', label: 'int (Integer)' },
+                            { value: 'float', label: 'float (Decimal)' },
+                            { value: 'bool', label: 'bool (True/False)' },
+                            { value: 'char', label: 'char (Character)' },
+                            { value: 'String', label: 'String (Text)' },
+                            { value: 'long', label: 'long (Large Integer)' },
+                          ]}
+                          onChange={val => {
+                            const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData
+                            updater(node.id, {
+                              ...data,
+                              params: { 
+                                ...params, 
+                                returnType: val,
+                                outputs: val === 'void' ? [] : [{ name: 'return', type: val }]
+                              }
+                            })
+                          }}
+                        />
+                      </div>
+
+                      <div style={{ height: 1, background: 'rgba(255, 255, 255, 0.08)', margin: '2px 0' }} />
+
+                      {/* Live Function Signature Preview */}
+                      <div>
+                        <div style={{ fontSize: 9.5, color: 'var(--color-text-dim)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>
+                          Signature Preview
+                        </div>
+                        <div style={{
+                          background: 'rgba(0, 0, 0, 0.4)',
+                          border: '1px solid rgba(255, 255, 255, 0.08)',
+                          borderRadius: 4,
+                          padding: '6px 8px',
+                          fontSize: 10,
+                          fontFamily: 'var(--font-mono)',
+                          color: '#60a5fa',
+                          wordBreak: 'break-all',
+                          lineHeight: 1.4,
+                        }}>
+                          {signatureStr}
+                        </div>
+                      </div>
+
+                      <div style={{ height: 1, background: 'rgba(255, 255, 255, 0.08)', margin: '2px 0' }} />
+
+                      {/* Inputs Section */}
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-text-bright)' }}>
+                            Inputs ({currentInputs.length})
+                          </span>
+                          <button
+                            onClick={() => {
+                              const newInputs = [
+                                ...currentInputs,
+                                { name: `input${currentInputs.length + 1}`, type: 'int' }
+                              ]
+                              updateInputs(newInputs)
+                            }}
+                            style={{
+                              background: '#2563eb',
+                              border: 'none',
                               borderRadius: 4,
-                              padding: '6px 8px',
+                              padding: '3px 8px',
                               fontSize: 10,
-                              fontFamily: 'var(--font-mono)',
-                              color: '#60a5fa',
-                              wordBreak: 'break-all',
-                              lineHeight: 1.4,
-                            }}>
-                              {signatureStr}
-                            </div>
-                          </div>
+                              color: '#ffffff',
+                              cursor: 'pointer',
+                              fontWeight: 700,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                            }}
+                          >
+                            <Plus className="w-3 h-3" /> Add Input
+                          </button>
+                        </div>
 
-                          {/* Section Header */}
-                          <div style={{ fontSize: 9.5, color: 'var(--color-text-dim)', fontWeight: 700, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span>Input Parameters ({currentParams.length})</span>
-                            <button
-                              onClick={() => {
-                                const newParams = [...currentParams, { name: `arg${currentParams.length}`, type: 'int' }];
-                                const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData;
-                                updater(node.id, {
-                                  ...data,
-                                  params: { ...params, parameters: newParams }
-                                });
-                              }}
-                              style={{
-                                background: 'var(--color-accent)',
-                                border: 'none',
-                                borderRadius: 4,
-                                padding: '3px 8px',
-                                fontSize: 10,
-                                color: '#ffffff',
-                                cursor: 'pointer',
-                                fontWeight: 700,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 4,
-                              }}
-                            >
-                              <Plus className="w-3 h-3" /> Add Param
-                            </button>
+                        {currentInputs.length === 0 ? (
+                          <div style={{
+                            fontSize: 10,
+                            color: 'var(--color-text-dim)',
+                            fontStyle: 'italic',
+                            padding: '10px 8px',
+                            textAlign: 'center',
+                            background: 'rgba(0, 0, 0, 0.2)',
+                            borderRadius: 6,
+                            border: '1px dashed rgba(255, 255, 255, 0.08)',
+                          }}>
+                            (No inputs yet)
                           </div>
-
-                          {/* Stacked Parameter Cards */}
+                        ) : (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            {currentParams.length === 0 ? (
-                              <div style={{
-                                fontSize: 10,
-                                color: 'var(--color-text-dim)',
-                                fontStyle: 'italic',
-                                padding: '12px 8px',
-                                textAlign: 'center',
-                                background: 'rgba(0,0,0,0.15)',
-                                borderRadius: 6,
-                              }}>
-                                No input parameters defined. Click "+ Add Param" to add function arguments.
-                              </div>
-                            ) : (
-                              currentParams.map((param, idx) => (
-                                <div 
-                                  key={idx} 
-                                  style={{
-                                    background: 'rgba(0, 0, 0, 0.25)',
-                                    borderRadius: 6,
-                                    padding: '8px 10px',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: 6,
-                                  }}
-                                >
-                                  {/* Card Top: Index Badge & Delete */}
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--color-accent)', textTransform: 'uppercase' }}>
-                                      Parameter #{idx + 1}
-                                    </span>
-                                    <button
-                                      onClick={() => {
-                                        const newParams = currentParams.filter((_, i) => i !== idx);
-                                        const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData;
-                                        updater(node.id, {
-                                          ...data,
-                                          params: { ...params, parameters: newParams }
-                                        });
-                                      }}
-                                      title="Remove Parameter"
-                                      style={{
-                                        background: 'transparent',
-                                        border: 'none',
-                                        color: '#ef5f5f',
-                                        cursor: 'pointer',
-                                        padding: 2,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                      }}
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5 text-[#ef5f5f]" />
-                                    </button>
-                                  </div>
-
-                                  {/* Name Input */}
-                                  <div>
-                                    <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontWeight: 600, marginBottom: 2 }}>
-                                      Parameter Name
-                                    </div>
-                                    <input
-                                      value={param.name}
-                                      placeholder="e.g. distance"
-                                      onChange={e => {
-                                        const newParams = [...currentParams];
-                                        newParams[idx] = { ...newParams[idx], name: e.target.value };
-                                        const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData;
-                                        updater(node.id, {
-                                          ...data,
-                                          params: { ...params, parameters: newParams }
-                                        });
-                                      }}
-                                      style={{
-                                        width: '100%',
-                                        background: 'rgba(0, 0, 0, 0.3)',
-                                        border: '1px solid rgba(255, 255, 255, 0.12)',
-                                        borderRadius: 4,
-                                        padding: '5px 8px',
-                                        color: 'var(--color-text-bright)',
-                                        fontSize: 11,
-                                        fontFamily: 'var(--font-mono)',
-                                        outline: 'none',
-                                        transition: 'all 0.15s ease',
-                                      }}
-                                      onFocus={e => { e.currentTarget.style.borderColor = 'var(--color-border-focus)' }}
-                                      onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)' }}
-                                    />
-                                  </div>
-
-                                  {/* Type Select */}
-                                  <div>
-                                    <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontWeight: 600, marginBottom: 2 }}>
-                                      Data Type
-                                    </div>
-                                    <CustomSelect
-                                      value={param.type}
-                                      options={[
-                                        { value: 'int', label: 'int (Integer)' },
-                                        { value: 'float', label: 'float (Decimal)' },
-                                        { value: 'bool', label: 'bool (Boolean)' },
-                                        { value: 'char', label: 'char (Character)' },
-                                        { value: 'String', label: 'String (Text)' },
-                                      ]}
-                                      onChange={val => {
-                                        const newParams = [...currentParams];
-                                        newParams[idx] = { ...newParams[idx], type: val };
-                                        const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData;
-                                        updater(node.id, {
-                                          ...data,
-                                          params: { ...params, parameters: newParams }
-                                        });
-                                      }}
-                                    />
-                                  </div>
+                            {currentInputs.map((input, idx) => (
+                              <div
+                                key={idx}
+                                style={{
+                                  background: 'rgba(0, 0, 0, 0.25)',
+                                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                                  borderRadius: 6,
+                                  padding: '8px 10px',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: 6,
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                  <span style={{ fontSize: 9, fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase' }}>
+                                    Input #{idx + 1}
+                                  </span>
+                                  <button
+                                    onClick={() => {
+                                      const newInputs = currentInputs.filter((_, i) => i !== idx)
+                                      updateInputs(newInputs)
+                                    }}
+                                    title="Remove Input"
+                                    style={{
+                                      background: 'transparent',
+                                      border: 'none',
+                                      color: '#ef5f5f',
+                                      cursor: 'pointer',
+                                      padding: 2,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                    }}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 text-[#ef5f5f]" />
+                                  </button>
                                 </div>
-                              ))
-                            )}
+
+                                <div>
+                                  <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontWeight: 600, marginBottom: 2 }}>
+                                    Name
+                                  </div>
+                                  <input
+                                    value={input.name}
+                                    placeholder="e.g. triggerPin"
+                                    onChange={e => {
+                                      const newInputs = [...currentInputs]
+                                      newInputs[idx] = { ...newInputs[idx], name: e.target.value }
+                                      updateInputs(newInputs)
+                                    }}
+                                    style={{
+                                      width: '100%',
+                                      background: 'rgba(0, 0, 0, 0.3)',
+                                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                                      borderRadius: 4,
+                                      padding: '5px 8px',
+                                      color: 'var(--color-text-bright)',
+                                      fontSize: 11,
+                                      fontFamily: 'var(--font-mono)',
+                                      outline: 'none',
+                                    }}
+                                  />
+                                </div>
+
+                                <div>
+                                  <div style={{ fontSize: 8.5, color: 'var(--color-text-dim)', fontWeight: 600, marginBottom: 2 }}>
+                                    Type
+                                  </div>
+                                  <CustomSelect
+                                    value={input.type || 'int'}
+                                    options={[
+                                      { value: 'int', label: 'int (Integer)' },
+                                      { value: 'float', label: 'float (Decimal)' },
+                                      { value: 'bool', label: 'bool (True/False)' },
+                                      { value: 'char', label: 'char (Character)' },
+                                      { value: 'String', label: 'String (Text)' },
+                                      { value: 'long', label: 'long (Large Integer)' },
+                                    ]}
+                                    onChange={val => {
+                                      const newInputs = [...currentInputs]
+                                      newInputs[idx] = { ...newInputs[idx], type: val }
+                                      updateInputs(newInputs)
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                </>
+                        )}
+                      </div>
+
+                      <div style={{ height: 1, background: 'rgba(255, 255, 255, 0.08)', margin: '2px 0' }} />
+
+                      {/* Outputs Section */}
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-text-bright)', marginBottom: 6 }}>
+                          Outputs
+                        </div>
+                        {returnType === 'void' ? (
+                          <div style={{ fontSize: 10, color: 'var(--color-text-dim)', fontStyle: 'italic', padding: '6px 8px', background: 'rgba(0,0,0,0.15)', borderRadius: 4 }}>
+                            (No return output)
+                          </div>
+                        ) : (
+                          <div style={{
+                            background: 'rgba(168, 85, 247, 0.1)',
+                            border: '1px solid rgba(168, 85, 247, 0.25)',
+                            borderRadius: 6,
+                            padding: '6px 10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            fontSize: 11,
+                            fontFamily: 'var(--font-mono)',
+                            color: '#e9d5ff',
+                          }}>
+                            <span>return</span>
+                            <span style={{ fontSize: 9.5, fontWeight: 700, color: '#a855f7', background: 'rgba(168, 85, 247, 0.2)', padding: '1px 6px', borderRadius: 3 }}>
+                              {returnType}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })()
               ) : rawNodeType === 'function_call' ? (
                 (() => {
                   const definedFunctions: { id: string, name: string, returnType: string, parameters: { name: string, type: string }[] }[] = [];
