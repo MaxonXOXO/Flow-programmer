@@ -416,6 +416,9 @@ function FlowCanvasInner() {
       const params = data.params || {}
       
       const paramsToEdit = { ...params }
+      if (!paramsToEdit.inputs && paramsToEdit.parameters) {
+        paramsToEdit.inputs = paramsToEdit.parameters
+      }
       delete paramsToEdit.parameters
       delete paramsToEdit.arguments
       
@@ -862,7 +865,8 @@ function FlowCanvasInner() {
           {/* Parameter Fields */}
           <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
             {Object.entries(quickEdit.params).map(([key, val]) => {
-              if (key === 'inputs' || key === 'parameters') {
+              if (key === 'parameters') return null
+              if (key === 'inputs') {
                 let inputsList: { name: string; type: string }[] = []
                 if (Array.isArray(val)) inputsList = val
                 else if (typeof val === 'string' && val.trim() !== '') {
