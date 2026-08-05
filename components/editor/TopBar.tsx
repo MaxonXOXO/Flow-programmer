@@ -1,7 +1,7 @@
 'use client'
 
 import { useFlowStore } from '@/store/userFlowStore'
-import { Play, Square, Code, LogOut, Cpu } from 'lucide-react'
+import { Play, Square, Code, LogOut, Cpu, Zap, Box, X } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { SimulationEngine } from '@/lib/compiler/runtime/simulationEngine'
 import { GraphToASTCompiler } from '@/lib/compiler/parser/graphParser'
@@ -14,6 +14,10 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
     project, 
     activeCanvas, 
     setActiveCanvas,
+    documents,
+    activeDocumentId,
+    setActiveDocument,
+    closeDocument,
     flowNodes,
     flowEdges,
     schemaNodes,
@@ -358,61 +362,126 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
         ))}
       </div>
 
-      <div style={{ width: 1, height: 18, background: 'var(--color-border)' }} />
+      <div style={{ width: 1, height: 18, background: 'rgba(255, 255, 255, 0.08)' }} />
 
-      {/* Segmented View Mode Tabs */}
+      {/* Workspace Document Tab Strip (Phase 5 IDE Workspace) */}
       <div style={{
         display: 'flex',
-        background: 'rgba(0, 0, 0, 0.25)',
-        borderRadius: 6,
-        padding: 3,
-        gap: 3,
+        alignItems: 'flex-end',
+        gap: 2,
+        height: '100%',
+        paddingTop: 4,
         margin: '0 8px',
+        userSelect: 'none',
       }}>
-        {[
-          { id: 'schema', label: 'Schema Designer' },
-          { id: 'flow', label: 'Logic Editor' }
-        ].map(tab => {
-          const isActive = activeCanvas === tab.id
+        {documents.map((doc) => {
+          const isActive = activeDocumentId === doc.id
           return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveCanvas(tab.id as 'schema' | 'flow')}
+            <div
+              key={doc.id}
+              onClick={() => setActiveDocument(doc.id)}
               style={{
-                padding: '4px 12px',
-                borderRadius: 4,
-                border: 'none',
-                background: isActive ? 'var(--color-accent)' : 'transparent',
-                color: isActive ? '#ffffff' : 'var(--color-text-normal)',
-                fontSize: 11,
-                fontWeight: isActive ? 700 : 500,
-                cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 6,
-                transition: 'all 0.15s ease',
-                boxShadow: isActive ? '0 2px 8px rgba(0, 0, 0, 0.3)' : 'none',
+                padding: '5px 12px 6px',
+                borderRadius: '6px 6px 0 0',
+                background: isActive ? 'var(--color-bg-panel)' : 'transparent',
+                borderTop: isActive ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid transparent',
+                borderLeft: isActive ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid transparent',
+                borderRight: isActive ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid transparent',
+                borderBottom: isActive ? '2px solid var(--color-accent)' : '2px solid transparent',
+                color: isActive ? 'var(--color-text-bright)' : 'var(--color-text-normal)',
+                fontSize: 11,
+                fontWeight: isActive ? 600 : 400,
+                cursor: 'pointer',
+                transition: 'all 0.12s ease',
+                position: 'relative',
+                marginBottom: -1,
               }}
-              onMouseEnter={e => {
+              onMouseEnter={(e) => {
                 if (!isActive) {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)'
                   e.currentTarget.style.color = 'var(--color-text-bright)'
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'
                 }
               }}
-              onMouseLeave={e => {
+              onMouseLeave={(e) => {
                 if (!isActive) {
-                  e.currentTarget.style.color = 'var(--color-text-normal)'
                   e.currentTarget.style.background = 'transparent'
+                  e.currentTarget.style.color = 'var(--color-text-normal)'
                 }
               }}
             >
-              {tab.id === 'schema' ? (
-                <span style={{ color: isActive ? '#ffffff' : 'var(--color-accent-blue)', fontSize: 12 }}>⎔</span>
-              ) : (
-                <span style={{ color: isActive ? '#ffffff' : 'var(--color-accent-blue)', fontSize: 12 }}>⟳</span>
+              {/* Document Icon */}
+              <span style={{
+                fontSize: 12,
+                color: isActive ? 'var(--color-accent-blue)' : 'var(--color-text-dim)',
+                display: 'flex',
+                alignItems: 'center',
+              }}>
+                {doc.type === 'schema' ? (
+                  <span style={{ color: isActive ? '#60a5fa' : 'inherit' }}>○</span>
+                ) : doc.type === 'flow' ? (
+                  <Zap className="w-3.5 h-3.5 text-[#fbbf24]" />
+                ) : doc.type === 'function' ? (
+                  <span style={{ color: '#a855f7', fontWeight: 'bold' }}>ƒ</span>
+                ) : doc.type === 'subflow' ? (
+                  <Box className="w-3.5 h-3.5 text-[#3b82f6]" />
+                ) : doc.type === 'code' ? (
+                  <Code className="w-3.5 h-3.5 text-[#e66e19]" />
+                ) : (
+                  <span>▶</span>
+                )}
+              </span>
+
+              {/* Title */}
+              <span style={{ whiteSpace: 'nowrap' }}>{doc.title}</span>
+
+              {/* Dirty indicator */}
+              {doc.dirty && (
+                <span style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  background: 'var(--color-accent)',
+                  marginLeft: 2,
+                }} />
               )}
-              {tab.label}
-            </button>
+
+              {/* Close Button if closable */}
+              {doc.closable !== false && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    closeDocument(doc.id)
+                  }}
+                  title="Close Tab"
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--color-text-dim)',
+                    fontSize: 10,
+                    cursor: 'pointer',
+                    borderRadius: 3,
+                    padding: '1px 3px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginLeft: 2,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(239, 95, 95, 0.2)'
+                    e.currentTarget.style.color = '#ef5f5f'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.color = 'var(--color-text-dim)'
+                  }}
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
           )
         })}
       </div>
