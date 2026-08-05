@@ -77,6 +77,14 @@ body {
   background-color: var(--color-bg-base) !important;
 }
 
+.react-flow__edges {
+  z-index: 10 !important;
+}
+
+.react-flow__nodes {
+  z-index: 5 !important;
+}
+
 .react-flow__edge-path {
   stroke: color-mix(in srgb, var(--color-text-dim) 38%, transparent);
   stroke-width: 2px !important;
@@ -96,12 +104,29 @@ body {
   filter: drop-shadow(0 0 3px color-mix(in srgb, var(--color-accent) 50%, transparent));
 }
 
-.react-flow__controls,
-.react-flow__minimap {
+.react-flow__controls {
   background: var(--color-bg-panel) !important;
   border: 1px solid var(--color-border) !important;
   border-radius: 6px !important;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3) !important;
+}
+
+.react-flow__minimap {
+  background: #11141c !important;
+  border: 1px solid #1e2638 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6) !important;
+  overflow: hidden !important;
+}
+
+.react-flow__minimap-mask {
+  fill: rgba(15, 17, 25, 0.7) !important;
+  stroke: rgba(95, 163, 255, 0.35) !important;
+  stroke-width: 1px !important;
+}
+
+.react-flow__attribution {
+  display: none !important;
 }
 
 .react-flow__controls-button {

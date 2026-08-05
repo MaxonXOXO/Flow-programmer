@@ -48,7 +48,7 @@ function getComponentVectorIcon(emoji: string, color: string) {
 }
 
 export default function ComponentNode({ id, data, selected }: NodeProps) {
-  const { updateSchemaNodeData } = useFlowStore()
+  const { schemaNodes, updateSchemaNodeData } = useFlowStore()
   
   // Accept ComponentDefinition from data.definition, fallback to legacy schema properties
   const definition = data.definition as ComponentDefinition | undefined
@@ -60,6 +60,17 @@ export default function ComponentNode({ id, data, selected }: NodeProps) {
   const params = data.params as Record<string, string> | undefined
 
   const styles = categoryStyles[componentType] || categoryStyles.sensor
+
+  // Dynamic orientation calculation: Pins always face Arduino Uno
+  const thisNode = schemaNodes.find(n => n.id === id)
+  const unoNode = schemaNodes.find(n => n.id === 'arduino-uno' || n.type === 'unoNode')
+  
+  const compX = thisNode ? thisNode.position.x : 0
+  const unoX = unoNode ? unoNode.position.x : 350
+
+  // If component is to the LEFT of Arduino (compX < unoX), pins face RIGHT towards Arduino.
+  // If component is to the RIGHT of Arduino (compX >= unoX), pins face LEFT towards Arduino.
+  const pinsOnRight = compX < unoX
 
   return (
     <div style={{
@@ -95,39 +106,78 @@ export default function ComponentNode({ id, data, selected }: NodeProps) {
         </div>
       </div>
 
-      {/* Pins section */}
+      {/* Pins section - Dynamic orientation facing Arduino Uno */}
       <div style={{ padding: '6px 0', display: 'flex', flexDirection: 'column', gap: 2 }}>
         {pins.map(pin => (
-          <div key={pin.id} style={{
-            display: 'flex',
-            alignItems: 'center',
-            padding: '3px 10px',
-            gap: 8,
-            position: 'relative',
-            height: 20,
-          }}>
-            <Handle
-              type="target"
-              position={Position.Left}
-              id={pin.id}
-              style={{
-                position: 'relative',
-                transform: 'none',
-                left: 'auto',
-                top: 'auto',
-                width: 7,
-                height: 7,
-                background: '#ffd043', // Gold solder joint pad
-                border: '1px solid #111',
-                borderRadius: 1, // square copper pad
-                flexShrink: 0,
-                boxShadow: '0 0 3px rgba(255,208,67,0.5)',
-              }}
-            />
-            <span style={{ fontSize: 9.5, color: 'var(--color-text-normal)' }}>{pin.label}</span>
-            <span style={{ fontSize: 8, color: 'var(--color-text-dim)', marginLeft: 'auto', fontFamily: 'var(--font-mono)' }}>
-              [{pin.id}]
-            </span>
+          <div
+            key={pin.id}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: pinsOnRight ? 'flex-end' : 'flex-start',
+              padding: '3px 10px',
+              gap: 6,
+              position: 'relative',
+              height: 20,
+            }}
+          >
+            {pinsOnRight ? (
+              <>
+                <span style={{ fontSize: 8, color: 'var(--color-text-dim)', marginRight: 'auto', fontFamily: 'var(--font-mono)' }}>
+                  [{pin.id}]
+                </span>
+                <span style={{ fontSize: 9.5, color: 'var(--color-text-normal)', fontWeight: 600 }}>
+                  {pin.label}
+                </span>
+                <Handle
+                  type="source"
+                  position={Position.Right}
+                  id={pin.id}
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: '50%',
+                    transform: 'translate(50%, -50%)',
+                    width: 9,
+                    height: 9,
+                    background: '#0f172a',
+                    border: '2px solid #ffd043',
+                    borderRadius: '50%',
+                    cursor: 'pointer',
+                    boxShadow: '0 0 6px rgba(255, 208, 67, 0.6)',
+                    zIndex: 30,
+                  }}
+                />
+              </>
+            ) : (
+              <>
+                <Handle
+                  type="source"
+                  position={Position.Left}
+                  id={pin.id}
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: 9,
+                    height: 9,
+                    background: '#0f172a',
+                    border: '2px solid #ffd043',
+                    borderRadius: '50%',
+                    cursor: 'pointer',
+                    boxShadow: '0 0 6px rgba(255, 208, 67, 0.6)',
+                    zIndex: 30,
+                  }}
+                />
+                <span style={{ fontSize: 9.5, color: 'var(--color-text-normal)', fontWeight: 600 }}>
+                  {pin.label}
+                </span>
+                <span style={{ fontSize: 8, color: 'var(--color-text-dim)', marginLeft: 'auto', fontFamily: 'var(--font-mono)' }}>
+                  [{pin.id}]
+                </span>
+              </>
+            )}
           </div>
         ))}
       </div>

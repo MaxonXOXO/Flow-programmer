@@ -59,6 +59,11 @@ function SchemaCanvasInner() {
     componentNode: ComponentNode,
   }), [])
 
+  const defaultEdgeOptions = useMemo(() => ({
+    style: { strokeWidth: 2.5, stroke: '#5fa3ff', zIndex: 1000 },
+    zIndex: 1000,
+  }), [])
+
   const onConnect = useCallback(
     (connection: Connection) => {
       pushHistory()
@@ -165,6 +170,9 @@ function SchemaCanvasInner() {
         onPaneClick={() => { setSelectedNode(null); setMenu(null) }}
         onNodeContextMenu={onNodeContextMenu}
         connectionMode={ConnectionMode.Loose}
+        elevateEdgesOnSelect={true}
+        defaultEdgeOptions={defaultEdgeOptions}
+        proOptions={{ hideAttribution: true }}
         fitView
         style={{ background: 'var(--color-bg-base)' }}
       >

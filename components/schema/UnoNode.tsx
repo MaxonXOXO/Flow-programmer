@@ -33,36 +33,6 @@ export default function UnoNode({ selected }: NodeProps) {
       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     }}>
 
-      {/* USB Port Outline - sticking out on the top left */}
-      <div style={{
-        position: 'absolute',
-        left: -16,
-        top: 36,
-        width: 16,
-        height: 28,
-        background: 'linear-gradient(90deg, #64748b, #94a3b8)',
-        border: '1.5px solid #142c22',
-        borderRight: 'none',
-        borderRadius: '3px 0 0 3px',
-        boxShadow: 'inset 2px 0 4px rgba(255,255,255,0.3), inset -2px 0 4px rgba(0,0,0,0.4), -4px 4px 8px rgba(0,0,0,0.5)',
-        zIndex: -1,
-      }} />
-
-      {/* Power barrel jack outline - sticking out on the bottom left */}
-      <div style={{
-        position: 'absolute',
-        left: -14,
-        bottom: 25,
-        width: 14,
-        height: 24,
-        background: 'linear-gradient(90deg, #0f172a, #1e293b)',
-        border: '1.5px solid #142c22',
-        borderRight: 'none',
-        borderRadius: '3px 0 0 3px',
-        boxShadow: 'inset 0 0 6px rgba(0,0,0,0.8), -4px 4px 8px rgba(0,0,0,0.5)',
-        zIndex: -1,
-      }} />
-
       {/* Silkscreen Brand Border */}
       <div style={{
         position: 'absolute',
