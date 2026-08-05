@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 
 import { getAllComponents } from '@/lib/registry/components'
+import ProjectExplorer from '@/components/editor/ProjectExplorer'
 
 const NODE_TYPES = [
   {
@@ -120,7 +121,7 @@ function getLucideIcon(emoji: string, color: string = 'currentColor') {
 }
 
 export default function Sidebar() {
-  const { activeCanvas } = useFlowStore()
+  const { activeCanvas, activeSidebarPanel } = useFlowStore()
   const [search, setSearch] = useState('')
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
 
@@ -186,6 +187,23 @@ export default function Sidebar() {
     e.dataTransfer.setData('application/flownode', payload)
     e.dataTransfer.effectAllowed = 'move'
   }, [activeCanvas])
+
+  if (activeSidebarPanel === 'explorer') {
+    return (
+      <div style={{
+        width: 220,
+        height: '100%',
+        background: 'var(--color-bg-panel)',
+        borderRight: '1px solid var(--color-border)',
+        display: 'flex',
+        flexDirection: 'column',
+        flexShrink: 0,
+        userSelect: 'none',
+      }}>
+        <ProjectExplorer />
+      </div>
+    )
+  }
 
   return (
     <div style={{
