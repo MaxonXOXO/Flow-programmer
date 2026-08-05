@@ -343,7 +343,7 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
 
     get().openDocument({
       id: `subflow_${fnNodeId}`,
-      title: `ƒ ${fnName}`,
+      title: `${fnName}()`,
       type: 'function',
       targetId: fnNodeId,
     })
