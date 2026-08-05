@@ -38,10 +38,30 @@ interface ComponentPackageData {
   validationErrors?: Array<{ rule: string; message: string; nodeId?: string }>
 }
 
+export type DocumentType = 'schema' | 'flow' | 'function' | 'subflow' | 'code' | 'simulator'
+
+export interface WorkspaceDocument {
+  id: string
+  title: string
+  type: DocumentType
+  icon?: string
+  closable: boolean
+  dirty?: boolean
+  targetId?: string
+}
+
 interface FlowStore {
   updateFlowNodeData: (id: string, data: Record<string, unknown>) => void
   updateSchemaNodeData: (id: string, data: Record<string, unknown>) => void
   
+  // Workspace Documents (Phase 5 Workspace Document & Tab System)
+  documents: WorkspaceDocument[]
+  activeDocumentId: string
+  openDocument: (doc: Partial<WorkspaceDocument> & { id: string; title: string; type: DocumentType }) => void
+  closeDocument: (id: string) => void
+  setActiveDocument: (id: string) => void
+  setDocumentDirty: (id: string, dirty: boolean) => void
+
   // Schema canvas
   schemaNodes: Node[]
   schemaEdges: Edge[]
@@ -150,7 +170,28 @@ function getCurrentSubFlowId(stack: string[]): string | null {
   return stack.length > 0 ? stack[stack.length - 1] : null
 }
 
+const DEFAULT_DOCUMENTS: WorkspaceDocument[] = [
+  {
+    id: 'schema',
+    title: 'Schema Designer',
+    type: 'schema',
+    icon: '○',
+    closable: false,
+    dirty: false,
+  },
+  {
+    id: 'main_flow',
+    title: 'Main Flow',
+    type: 'flow',
+    icon: '⚡',
+    closable: false,
+    dirty: false,
+  },
+]
+
 export const useFlowStore = create<FlowStore>((set, get) => ({
+  documents: DEFAULT_DOCUMENTS,
+  activeDocumentId: 'schema',
   schemaNodes: [
     {
       id: 'arduino-uno',
@@ -170,6 +211,79 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   selectedNodeId: null,
   project: null,
   activeCanvas: 'schema',
+
+  setActiveDocument: (id: string) => {
+    const s = get()
+    const doc = s.documents.find(d => d.id === id) || s.documents[0]
+    if (!doc) return
+
+    const canvas = doc.type === 'schema' ? 'schema' : 'flow'
+
+    if (doc.type === 'function' || doc.type === 'subflow') {
+      if (doc.targetId) {
+        if (s.subFlows[doc.targetId]) {
+          if (s.subFlowStack[s.subFlowStack.length - 1] !== doc.targetId) {
+            set({ subFlowStack: [doc.targetId], activePackageId: null })
+          }
+        } else if (s.componentPackages[doc.targetId]) {
+          set({ activePackageId: doc.targetId, subFlowStack: [] })
+        }
+      }
+    } else if (doc.type === 'flow') {
+      if (s.subFlowStack.length > 0 || s.activePackageId) {
+        set({ subFlowStack: [], activePackageId: null })
+      }
+    }
+
+    set({
+      activeDocumentId: doc.id,
+      activeCanvas: canvas,
+    })
+  },
+
+  openDocument: (docInput) => {
+    const s = get()
+    const existing = s.documents.find(d => d.id === docInput.id)
+    let newDocs = s.documents
+
+    if (!existing) {
+      const newDoc: WorkspaceDocument = {
+        id: docInput.id,
+        title: docInput.title,
+        type: docInput.type,
+        icon: docInput.icon,
+        closable: docInput.closable !== undefined ? docInput.closable : true,
+        dirty: docInput.dirty || false,
+        targetId: docInput.targetId,
+      }
+      newDocs = [...s.documents, newDoc]
+    }
+
+    set({ documents: newDocs })
+    get().setActiveDocument(docInput.id)
+  },
+
+  closeDocument: (id: string) => {
+    const s = get()
+    const targetDoc = s.documents.find(d => d.id === id)
+    if (!targetDoc || targetDoc.closable === false) return
+
+    const targetIdx = s.documents.findIndex(d => d.id === id)
+    const newDocs = s.documents.filter(d => d.id !== id)
+
+    let nextActiveId = s.activeDocumentId
+    if (s.activeDocumentId === id) {
+      const nextDoc = newDocs[Math.max(0, targetIdx - 1)]
+      nextActiveId = nextDoc ? nextDoc.id : 'schema'
+    }
+
+    set({ documents: newDocs })
+    get().setActiveDocument(nextActiveId)
+  },
+
+  setDocumentDirty: (id: string, dirty: boolean) => set((s) => ({
+    documents: s.documents.map(d => d.id === id ? { ...d, dirty } : d)
+  })),
   simState: {
     running: false,
     step: 0,
@@ -241,24 +355,22 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   })),
 
   // ===== SUB-FLOW NAVIGATION =====
-  enterSubFlow: (nodeId: string) => set((s) => {
-    // Ensure a sub-flow entry exists for this node
-    const existing = s.subFlows[nodeId]
-    if (!existing) {
-      // Get the function name from the parent node (search flowNodes and nested subflows)
-      let parentNode = s.flowNodes.find(n => n.id === nodeId)
-      if (!parentNode) {
-        for (const sfId of Object.keys(s.subFlows)) {
-          const found = s.subFlows[sfId].nodes.find(n => n.id === nodeId)
-          if (found) {
-            parentNode = found
-            break
-          }
+  enterSubFlow: (nodeId: string) => {
+    const s = get()
+    let parentNode = s.flowNodes.find(n => n.id === nodeId)
+    if (!parentNode) {
+      for (const sfId of Object.keys(s.subFlows)) {
+        const found = s.subFlows[sfId].nodes.find(n => n.id === nodeId)
+        if (found) {
+          parentNode = found
+          break
         }
       }
-      const fnName = (parentNode?.data as any)?.params?.name || 'myFn'
- 
-      // Seed with Start and End nodes
+    }
+    const fnName = (parentNode?.data as any)?.params?.name || 'myFn'
+
+    const existing = s.subFlows[nodeId]
+    if (!existing) {
       const subFlows = {
         ...s.subFlows,
         [nodeId]: {
@@ -279,17 +391,25 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
           edges: [],
         }
       }
-      return {
+      set({
         subFlows,
         subFlowStack: [...s.subFlowStack, nodeId],
         selectedNodeId: null,
-      }
+      })
+    } else {
+      set({
+        subFlowStack: [...s.subFlowStack, nodeId],
+        selectedNodeId: null,
+      })
     }
-    return {
-      subFlowStack: [...s.subFlowStack, nodeId],
-      selectedNodeId: null,
-    }
-  }),
+
+    get().openDocument({
+      id: `subflow_${nodeId}`,
+      title: `ƒ ${fnName}`,
+      type: 'function',
+      targetId: nodeId,
+    })
+  },
 
   exitSubFlow: () => set((s) => {
     if (s.subFlowStack.length === 0) return s
@@ -305,7 +425,8 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   }),
 
   // ===== COMPONENT PACKAGE NAVIGATION =====
-  openComponentPackage: (packageId: string) => set((s) => {
+  openComponentPackage: (packageId: string) => {
+    const s = get()
     let pkg = s.componentPackages[packageId]
     if (!pkg) {
       if (packageExists(packageId)) {
@@ -334,17 +455,23 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
       }
     }
 
-    return {
+    set({
       componentPackages: {
         ...s.componentPackages,
         [packageId]: pkg,
       },
       activePackageId: packageId,
-      activeCanvas: 'flow',
       subFlowStack: [],
       selectedNodeId: null,
-    }
-  }),
+    })
+
+    get().openDocument({
+      id: `pkg_${packageId}`,
+      title: `📦 ${packageId}`,
+      type: 'subflow',
+      targetId: packageId,
+    })
+  },
 
   exitComponentPackage: () => set({
     activePackageId: null,
