@@ -7,6 +7,7 @@ import {
   ChevronRight, 
   Cpu, 
   Zap, 
+  Workflow,
   Braces, 
   Package, 
   Settings, 
@@ -229,7 +230,7 @@ export default function ProjectExplorer() {
         <div style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', paddingBottom: 6, marginBottom: 6 }}>
           <TreeSectionHeader
             title="Logic"
-            icon={<Zap className="w-3.5 h-3.5 text-[#f59e0b]" />}
+            icon={<Workflow className="w-3.5 h-3.5 text-[#f59e0b]" />}
             expanded={sections.logic}
             onToggle={() => toggleSection('logic')}
           />
@@ -436,26 +437,26 @@ function TreeSectionHeader({
       <span style={{ color: 'var(--color-text-dim)', display: 'flex', alignItems: 'center' }}>
         {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
       </span>
-      <span style={{ display: 'flex', alignItems: 'center' }}>{icon}</span>
       <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-bright)' }}>{title}</span>
       
-      {rightContent && <div style={{ marginLeft: 'auto' }}>{rightContent}</div>}
-
-      {!rightContent && badge !== undefined && badge > 0 && (
-        <span
-          style={{
-            fontSize: 9,
-            fontWeight: 700,
-            background: 'rgba(255, 255, 255, 0.08)',
-            color: 'var(--color-text-dim)',
-            padding: '0 5px',
-            borderRadius: 8,
-            marginLeft: 'auto',
-          }}
-        >
-          {badge}
-        </span>
-      )}
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+        {rightContent}
+        {icon && <span style={{ display: 'flex', alignItems: 'center' }}>{icon}</span>}
+        {badge !== undefined && badge > 0 && (
+          <span
+            style={{
+              fontSize: 9,
+              fontWeight: 700,
+              background: 'rgba(255, 255, 255, 0.08)',
+              color: 'var(--color-text-dim)',
+              padding: '0 5px',
+              borderRadius: 8,
+            }}
+          >
+            {badge}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
