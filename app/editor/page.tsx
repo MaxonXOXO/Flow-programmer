@@ -11,6 +11,7 @@ import PropertiesPanel from '@/components/editor/PropertiesPanel'
 import CodePanel, { InlineCodeEditor } from '@/components/editor/CodePanel'
 import WorkspaceTabBar from '@/components/editor/WorkspaceTabBar'
 import ActivityBar from '@/components/editor/ActivityBar'
+import PreferencesModal from '@/components/settings/PreferencesModal'
 
 export default function EditorPage() {
   const { setProject } = useFlowStore()
@@ -119,6 +120,7 @@ export default function EditorPage() {
       </div>
 
       {codeOpen && <CodePanel onClose={() => setCodeOpen(false)} />}
+      <PreferencesModal />
     </div>
   )
 }

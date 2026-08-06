@@ -9,6 +9,8 @@ import {
 } from 'lucide-react'
 
 import { importProject, extractStoreState } from '@/lib/project/projectManager'
+import { useSettingsStore } from '@/store/useSettingsStore'
+import PreferencesModal from '@/components/settings/PreferencesModal'
 
 interface SavedProject { name: string; platform: string; createdAt: number }
 
@@ -101,7 +103,18 @@ export default function SplashScreen() {
           <button onClick={() => alert('Template library is coming soon.')} style={{ ...buttonBase, width: '100%', padding: '8px 10px', border: 'none', background: 'transparent', color: 'var(--color-text-normal)', display: 'flex', gap: 9, alignItems: 'center', fontSize: 12, textAlign: 'left' }}><BookOpen size={15} /> Templates</button>
         </nav>
         <div style={{ marginTop: 'auto', padding: 12, borderTop: '1px solid var(--color-border)' }}>
-          {[{ label: 'Documentation', icon: BookOpen }, { label: 'Settings', icon: Settings }].map(item => { const Icon = item.icon; return <button key={item.label} onClick={() => alert(`${item.label} is coming soon.`)} style={{ ...buttonBase, width: '100%', padding: '7px 9px', border: 'none', background: 'transparent', color: 'var(--color-text-dim)', display: 'flex', gap: 9, alignItems: 'center', fontSize: 11, textAlign: 'left' }}><Icon size={14} />{item.label}</button> })}
+          {[{ label: 'Documentation', icon: BookOpen }, { label: 'Settings', icon: Settings }].map(item => { 
+            const Icon = item.icon; 
+            return (
+              <button 
+                key={item.label} 
+                onClick={() => item.label === 'Settings' ? useSettingsStore.getState().openPreferences() : window.open('https://github.com/MaxonXOXO/Flow-programmer', '_blank')} 
+                style={{ ...buttonBase, width: '100%', padding: '7px 9px', border: 'none', background: 'transparent', color: 'var(--color-text-dim)', display: 'flex', gap: 9, alignItems: 'center', fontSize: 11, textAlign: 'left' }}
+              >
+                <Icon size={14} />{item.label}
+              </button>
+            ) 
+          })}
           <div style={{ color: 'var(--color-text-dim)', fontSize: 10, padding: '11px 9px 2px', display: 'flex', alignItems: 'center', gap: 7 }}><Moon size={13} /> Dark theme</div>
         </div>
       </aside>
@@ -172,6 +185,7 @@ export default function SplashScreen() {
         onChange={handleFileChange}
         style={{ display: 'none' }}
       />
+      <PreferencesModal />
     </main>
   )
 }

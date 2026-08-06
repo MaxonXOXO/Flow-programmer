@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from 'react'
 import { SimulationEngine } from '@/lib/compiler/runtime/simulationEngine'
 import { GraphToASTCompiler } from '@/lib/compiler/parser/graphParser'
 import { exportProjectFromState, serializeProject, importProject, extractStoreState } from '@/lib/project/projectManager'
+import { useSettingsStore } from '@/store/useSettingsStore'
 
 export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -53,7 +54,10 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
         return
       }
 
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+      if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+        e.preventDefault()
+        useSettingsStore.getState().openPreferences()
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         if (e.shiftKey) {
           e.preventDefault()
           redo()
@@ -184,7 +188,7 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
     if (action === 'Export Arduino C++') {
       onCodeOpen()
     } else if (action === 'Preferences') {
-      alert('Preferences Panel: Coming soon!')
+      useSettingsStore.getState().openPreferences()
     } else if (action === 'New Project') {
       localStorage.removeItem('fp_project')
       window.location.href = '/'
