@@ -107,18 +107,16 @@ export default function EditorSettings() {
           badge="Coming Soon"
           disabled
         />
-      </SettingsSection>
 
-      {/* Bottom Category Action */}
-      <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid rgba(255, 255, 255, 0.06)', display: 'flex', justifyContent: 'flex-end' }}>
         <SettingsButton
           title="Reset Editor Category"
           description="Restore default values for all preferences in this category."
+          icon={<RotateCcw className="w-4 h-4 text-[#ff5f9e]" />}
           buttonText="Restore Editor Defaults"
           variant="secondary"
           onClick={() => resetCategory('editor')}
         />
-      </div>
+      </SettingsSection>
     </div>
   )
 }

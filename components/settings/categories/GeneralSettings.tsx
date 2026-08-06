@@ -7,7 +7,7 @@ import SettingsToggle from '../controls/SettingsToggle'
 import SettingsDropdown from '../controls/SettingsDropdown'
 import SettingsNumberInput from '../controls/SettingsNumberInput'
 import SettingsButton from '../controls/SettingsButton'
-import { Monitor, RefreshCw, Save, AlertTriangle, ListFilter } from 'lucide-react'
+import { Monitor, RefreshCw, Save, AlertTriangle, ListFilter, RotateCcw } from 'lucide-react'
 
 export default function GeneralSettings() {
   const { settings, updateSetting, resetCategory, isModified } = useSettingsStore()
@@ -70,18 +70,16 @@ export default function GeneralSettings() {
           unit="projects"
           onChange={(val) => updateSetting('general', 'recentLimit', val)}
         />
-      </SettingsSection>
 
-      {/* Bottom Category Action */}
-      <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid rgba(255, 255, 255, 0.06)', display: 'flex', justifyContent: 'flex-end' }}>
         <SettingsButton
           title="Reset General Category"
           description="Restore default values for all preferences in this category."
+          icon={<RotateCcw className="w-4 h-4 text-[#ff5f9e]" />}
           buttonText="Restore General Defaults"
           variant="secondary"
           onClick={() => resetCategory('general')}
         />
-      </div>
+      </SettingsSection>
     </div>
   )
 }

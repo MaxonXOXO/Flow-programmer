@@ -7,7 +7,7 @@ import SettingsToggle from '../controls/SettingsToggle'
 import SettingsDropdown from '../controls/SettingsDropdown'
 import SettingsCard from '../controls/SettingsCard'
 import SettingsButton from '../controls/SettingsButton'
-import { Cpu, Zap, FileCode, Terminal, Folder } from 'lucide-react'
+import { Cpu, Zap, FileCode, Terminal, Folder, RotateCcw } from 'lucide-react'
 
 export default function CompilerSettings() {
   const { settings, updateSetting, resetCategory, isModified } = useSettingsStore()
@@ -99,18 +99,16 @@ export default function CompilerSettings() {
           badge="Coming Soon"
           disabled
         />
-      </SettingsSection>
 
-      {/* Bottom Category Action */}
-      <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid rgba(255, 255, 255, 0.06)', display: 'flex', justifyContent: 'flex-end' }}>
         <SettingsButton
           title="Reset Compiler Category"
           description="Restore default values for all preferences in this category."
+          icon={<RotateCcw className="w-4 h-4 text-[#ff5f9e]" />}
           buttonText="Restore Compiler Defaults"
           variant="secondary"
           onClick={() => resetCategory('compiler')}
         />
-      </div>
+      </SettingsSection>
     </div>
   )
 }

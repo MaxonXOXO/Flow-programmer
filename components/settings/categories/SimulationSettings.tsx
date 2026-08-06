@@ -86,18 +86,16 @@ export default function SimulationSettings() {
           badge="Coming Soon"
           disabled
         />
-      </SettingsSection>
 
-      {/* Bottom Category Action */}
-      <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid rgba(255, 255, 255, 0.06)', display: 'flex', justifyContent: 'flex-end' }}>
         <SettingsButton
           title="Reset Simulation Category"
           description="Restore default values for all preferences in this category."
+          icon={<RotateCcw className="w-4 h-4 text-[#ff5f9e]" />}
           buttonText="Restore Simulation Defaults"
           variant="secondary"
           onClick={() => resetCategory('simulation')}
         />
-      </div>
+      </SettingsSection>
     </div>
   )
 }

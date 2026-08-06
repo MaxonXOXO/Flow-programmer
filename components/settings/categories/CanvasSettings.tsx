@@ -9,7 +9,7 @@ import SettingsSlider from '../controls/SettingsSlider'
 import SettingsNumberInput from '../controls/SettingsNumberInput'
 import SettingsCard from '../controls/SettingsCard'
 import SettingsButton from '../controls/SettingsButton'
-import { Grid, Compass, MousePointer, Spline, Activity } from 'lucide-react'
+import { Grid, Compass, MousePointer, Spline, Activity, RotateCcw } from 'lucide-react'
 
 export default function CanvasSettings() {
   const { settings, updateSetting, resetCategory, isModified } = useSettingsStore()
@@ -120,18 +120,16 @@ export default function CanvasSettings() {
           checked={cv.connectionPreview}
           onChange={(checked) => updateSetting('canvas', 'connectionPreview', checked)}
         />
-      </SettingsSection>
 
-      {/* Bottom Category Action */}
-      <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid rgba(255, 255, 255, 0.06)', display: 'flex', justifyContent: 'flex-end' }}>
         <SettingsButton
           title="Reset Canvas Category"
           description="Restore default values for all preferences in this category."
+          icon={<RotateCcw className="w-4 h-4 text-[#ff5f9e]" />}
           buttonText="Restore Canvas Defaults"
           variant="secondary"
           onClick={() => resetCategory('canvas')}
         />
-      </div>
+      </SettingsSection>
     </div>
   )
 }

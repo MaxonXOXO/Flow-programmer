@@ -8,7 +8,7 @@ import SettingsDropdown from '../controls/SettingsDropdown'
 import SettingsSlider from '../controls/SettingsSlider'
 import SettingsCard from '../controls/SettingsCard'
 import SettingsButton from '../controls/SettingsButton'
-import { Sun, Palette, Sliders, Maximize2, Zap } from 'lucide-react'
+import { Sun, Palette, Sliders, Maximize2, Zap, RotateCcw } from 'lucide-react'
 
 export default function AppearanceSettings() {
   const { settings, updateSetting, resetCategory, isModified } = useSettingsStore()
@@ -111,18 +111,16 @@ export default function AppearanceSettings() {
           badge="Coming Soon"
           disabled
         />
-      </SettingsSection>
 
-      {/* Bottom Category Action */}
-      <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid rgba(255, 255, 255, 0.06)', display: 'flex', justifyContent: 'flex-end' }}>
         <SettingsButton
           title="Reset Appearance Category"
           description="Restore default values for all preferences in this category."
+          icon={<RotateCcw className="w-4 h-4 text-[#ff5f9e]" />}
           buttonText="Restore Appearance Defaults"
           variant="secondary"
           onClick={() => resetCategory('appearance')}
         />
-      </div>
+      </SettingsSection>
     </div>
   )
 }
