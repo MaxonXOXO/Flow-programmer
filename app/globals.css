@@ -1,39 +1,45 @@
 @import "tailwindcss";
 
 :root {
-  /* Workspace backgrounds */
-  --color-bg-base: #0f1115;
-  /* Main canvas */
-  --color-bg-panel: #171a21;
-  /* Sidebars and panels */
-  --color-bg-header: #1c2028;
-  /* Header and toolbar */
-  --color-bg-input: #11141a;
-  /* Inputs and controls */
+  /* ── Workspace Backgrounds ──────────────────────────────────────────────── */
+  /* Derived from splash screen: #090a0f base, rgba(13,16,23) panels           */
+  --color-bg-base:    #090a0f;              /* main app / canvas background   */
+  --color-bg-panel:   #0d1017;              /* sidebars, tool panels           */
+  --color-bg-header:  #0f1219;              /* topbar / toolbar strips         */
+  --color-bg-input:   #0b0d13;              /* inputs, textareas, selects      */
+  --color-bg-card:    rgba(15, 18, 26, 0.82); /* glassmorphism cards          */
+  --color-bg-overlay: rgba(9, 10, 15, 0.75);  /* modal / popover backdrops    */
 
-  /* Structure and interaction */
-  --color-border: rgba(255, 255, 255, 0.07);
-  --color-border-focus: #4c8dff;
-  --color-accent: #3b82f6;
-  --color-accent-blue: #60a5fa;
+  /* ── Borders ────────────────────────────────────────────────────────────── */
+  --color-border:        rgba(255, 255, 255, 0.07);
+  --color-border-subtle: rgba(255, 255, 255, 0.05);
+  --color-border-focus:  #3b82f6;
 
-  /* Typography */
-  --color-text-normal: #c5cad3;
-  --color-text-bright: #f5f7fa;
-  --color-text-dim: #8992a3;
+  /* ── Accent / Brand ─────────────────────────────────────────────────────── */
+  /* Unified to the splash screen blue                                         */
+  --color-accent:      #3b82f6;
+  --color-accent-blue: #3b82f6;
+  --color-accent-dim:  rgba(59, 130, 246, 0.15);
 
-  /* Semantic canvas colors — use for hardware states, not general UI */
-  --color-signal: #fbbf24;
-  --color-power: #34d399;
-  --color-ground: #fb4b69;
-  --color-analog: #60a5fa;
+  /* ── Typography ─────────────────────────────────────────────────────────── */
+  --color-text-bright: #f0f4ff;                  /* headings, active labels   */
+  --color-text-normal: #a8b3c4;                  /* body text, default UI     */
+  --color-text-dim:    rgba(255, 255, 255, 0.38); /* muted labels / hints     */
 
-  /* Type */
+  /* ── Semantic Canvas Colors ─────────────────────────────────────────────── */
+  /* For hardware signal states on the canvas — not general UI                 */
+  --color-signal:  #fbbf24;
+  --color-power:   #34d399;
+  --color-ground:  #fb4b69;
+  --color-analog:  #60a5fa;
+
+  /* ── Font Stacks ────────────────────────────────────────────────────────── */
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", monospace;
 }
 
+/* ── Reset ───────────────────────────────────────────────────────────────── */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -52,27 +58,26 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Scrollbars */
+/* ── Scrollbars ──────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-bg-panel);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #343a46;
-  border: 2px solid var(--color-bg-panel);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #4a5261;
+  background: rgba(255, 255, 255, 0.18);
 }
 
-/* React Flow canvas */
+/* ── React Flow Canvas ───────────────────────────────────────────────────── */
 .react-flow {
   background-color: var(--color-bg-base) !important;
 }
@@ -104,29 +109,12 @@ body {
   filter: drop-shadow(0 0 3px color-mix(in srgb, var(--color-accent) 50%, transparent));
 }
 
+/* ── React Flow Controls ─────────────────────────────────────────────────── */
 .react-flow__controls {
   background: var(--color-bg-panel) !important;
   border: 1px solid var(--color-border) !important;
   border-radius: 6px !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3) !important;
-}
-
-.react-flow__minimap {
-  background: #11141c !important;
-  border: 1px solid #1e2638 !important;
-  border-radius: 8px !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6) !important;
-  overflow: hidden !important;
-}
-
-.react-flow__minimap-mask {
-  fill: rgba(15, 17, 25, 0.7) !important;
-  stroke: rgba(95, 163, 255, 0.35) !important;
-  stroke-width: 1px !important;
-}
-
-.react-flow__attribution {
-  display: none !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
 }
 
 .react-flow__controls-button {
@@ -141,35 +129,45 @@ body {
 }
 
 .react-flow__controls-button:hover {
-  background: color-mix(in srgb,
-      var(--color-accent) 10%,
-      transparent) !important;
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent) !important;
   color: var(--color-text-bright) !important;
 }
 
-/* Node entrance */
-@keyframes nodeFadeInOpacity {
-  from {
-    opacity: 0;
-  }
+/* ── React Flow Minimap ──────────────────────────────────────────────────── */
+.react-flow__minimap {
+  background: #0b0d13 !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6) !important;
+  overflow: hidden !important;
+}
 
-  to {
-    opacity: 1;
-  }
+.react-flow__minimap-mask {
+  fill: rgba(9, 10, 15, 0.75) !important;
+  stroke: rgba(59, 130, 246, 0.35) !important;
+  stroke-width: 1px !important;
+}
+
+.react-flow__attribution {
+  display: none !important;
+}
+
+/* ── Node Animations ─────────────────────────────────────────────────────── */
+@keyframes nodeFadeInOpacity {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .react-flow__node {
   animation: nodeFadeInOpacity 0.25s ease-out forwards;
 }
 
-/* Animated data flow */
+/* ── Animated Edge Data Flow ─────────────────────────────────────────────── */
 @keyframes flowDash {
-  to {
-    stroke-dashoffset: -24;
-  }
+  to { stroke-dashoffset: -24; }
 }
 
-/* Selected node */
+/* ── Selected Node Glow ──────────────────────────────────────────────────── */
 .neon-node-active {
   border-color: var(--color-border-focus) !important;
   box-shadow:
@@ -177,12 +175,11 @@ body {
     0 0 14px color-mix(in srgb, var(--color-border-focus) 26%, transparent) !important;
 }
 
-/* Board selection cards */
+/* ── Board Selection Cards ───────────────────────────────────────────────── */
 @keyframes boardSelectGlow {
   from {
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent-blue) 25%, transparent);
   }
-
   to {
     box-shadow:
       0 0 0 1px color-mix(in srgb, var(--color-accent-blue) 50%, transparent),
