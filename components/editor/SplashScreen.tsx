@@ -109,18 +109,18 @@ export default function SplashScreen() {
   // ─── Shared background layers (bird, grid, glow) ───
   const backgroundLayers = (
     <>
-      {/* ASCII Bird — decorative, top-right, no overlay */}
+      {/* ASCII Bird — decorative, right-middle, above background */}
       {asciiText && (
         <div style={{
           position: 'absolute',
           right: '0%',
-          top: '4%',
+          top: '50%',
+          transform: 'translateY(-50%)',
           pointerEvents: 'none',
-          zIndex: 0,
-          opacity: mounted ? 0.13 : 0,
+          zIndex: 2,
+          opacity: mounted ? 0.55 : 0,
           transition: 'opacity 2s ease',
           overflow: 'hidden',
-          // No filter/drop-shadow to avoid darkening
         }}>
           <GradientText
             colors={["#1e3a5f", "#3b82f6", "#6366f1", "#3b82f6", "#1e3a5f"]}
