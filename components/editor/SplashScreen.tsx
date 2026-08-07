@@ -27,7 +27,7 @@ export default function SplashScreen() {
   const [platform, setPlatform] = useState('arduino-uno')
   const [recentProjects, setRecentProjects] = useState<SavedProject[]>([])
   const [showNamingModal, setShowNamingModal] = useState(false)
-  const [asciiArtText, setAsciiArtText] = useState<string>('')
+  const [asciiArtHtml, setAsciiArtHtml] = useState<string>('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -38,13 +38,22 @@ export default function SplashScreen() {
     const names = ['smart_controller', 'sensor_station', 'untitled_flow', 'device_monitor']
     setProjectName(names[Math.floor(Math.random() * names.length)])
 
-    // Fetch and parse ascii-art.html
+    // Fetch and process ascii-art.html so background asterisks are transparent (Image 1 style)
     fetch('/ascii-art.html')
       .then((res) => res.text())
       .then((html) => {
         const bodyContent = html.includes('<body>') ? html.split('<body>')[1].split('</body>')[0] : html
-        const text = bodyContent.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '')
-        setAsciiArtText(text)
+        const processed = bodyContent.replace(/<span style="color:(#[0-9a-fA-F]{6})">([^<]+)<\/span>/g, (m, hex, txt) => {
+          const r = parseInt(hex.slice(1, 3), 16)
+          const g = parseInt(hex.slice(3, 5), 16)
+          const b = parseInt(hex.slice(5, 7), 16)
+          // Hide background asterisks (g < 10 && b < 32 && r < 10)
+          if (g < 10 && b < 32 && r < 10) {
+            return `<span style="opacity:0;color:transparent">${txt}</span>`
+          }
+          return `<span>${txt}</span>`
+        })
+        setAsciiArtHtml(processed)
       })
       .catch((err) => console.error('Failed to load ascii-art.html', err))
   }, [])
@@ -135,8 +144,8 @@ export default function SplashScreen() {
       {/* Main Container */}
       <section style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
         
-        {/* Animated ASCII Bird Background with GradientText */}
-        {asciiArtText && (
+        {/* Animated ASCII Bird Background - Image 1 Style (Background asterisks hidden, bird shape glowing) */}
+        {asciiArtHtml && (
           <div
             style={{
               position: 'absolute',
@@ -145,19 +154,20 @@ export default function SplashScreen() {
               transform: 'translateY(-50%)',
               pointerEvents: 'none',
               zIndex: 1,
-              opacity: 0.8,
-              maxHeight: '92vh',
+              opacity: 0.95,
+              maxHeight: '94vh',
               overflow: 'hidden',
-              filter: 'drop-shadow(0 0 35px rgba(64, 255, 170, 0.2))',
+              filter: 'drop-shadow(0 0 45px rgba(0, 240, 255, 0.3))',
             }}
           >
             <GradientText
-              colors={["#40ffaa", "#4079ff", "#a855f7", "#ff5f9e", "#40ffaa"]}
+              colors={["#00f0ff", "#0088ff", "#a855f7", "#ff007f", "#00f0ff"]}
               animationSpeed={4}
               showBorder={false}
               direction="horizontal"
             >
-              <pre
+              <div
+                dangerouslySetInnerHTML={{ __html: asciiArtHtml }}
                 style={{
                   fontFamily: 'var(--font-mono), monospace',
                   fontSize: '8.5px',
@@ -168,9 +178,7 @@ export default function SplashScreen() {
                   textAlign: 'left',
                   letterSpacing: '-0.5px',
                 }}
-              >
-                {asciiArtText}
-              </pre>
+              />
             </GradientText>
           </div>
         )}
@@ -181,7 +189,7 @@ export default function SplashScreen() {
           <button onClick={() => fileInputRef.current?.click()} style={{ ...buttonBase, padding: '7px 11px', background: 'rgba(255, 255, 255, 0.06)', color: 'var(--color-text-bright)', border: '1px solid rgba(255, 255, 255, 0.12)', display: 'flex', gap: 7, alignItems: 'center', fontSize: 12, fontWeight: 600 }}><FolderOpen size={15} color="var(--color-accent-blue)" /> Open project</button>
         </header>
 
-        {/* Workspace Body Content positioned to reveal ASCII Bird background */}
+        {/* Workspace Body Content */}
         <div style={{ flex: 1, overflow: 'auto', padding: '40px clamp(20px, 4vw, 64px)', position: 'relative', zIndex: 5 }}>
           <div style={{ maxWidth: 1180, margin: '0 0 0 10px' }}>
             
@@ -192,7 +200,7 @@ export default function SplashScreen() {
               <p style={{ margin: '8px 0 0', color: 'rgba(255, 255, 255, 0.65)', fontSize: 13.5 }}>Create, connect, and deploy your embedded project from one workspace.</p>
             </div>
 
-            {/* Top Cards Grid - Frosted Glass Layout */}
+            {/* Top Cards Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 360px) minmax(440px, 580px)', gap: 16, marginBottom: 24 }}>
               
               {/* Start New Project Card */}
