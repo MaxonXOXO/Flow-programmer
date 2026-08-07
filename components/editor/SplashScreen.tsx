@@ -27,7 +27,7 @@ export default function SplashScreen() {
   const [platform, setPlatform] = useState('arduino-uno')
   const [recentProjects, setRecentProjects] = useState<SavedProject[]>([])
   const [showNamingModal, setShowNamingModal] = useState(false)
-  const [asciiArtHtml, setAsciiArtHtml] = useState<string>('')
+  const [asciiText, setAsciiText] = useState<string>('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -38,22 +38,24 @@ export default function SplashScreen() {
     const names = ['smart_controller', 'sensor_station', 'untitled_flow', 'device_monitor']
     setProjectName(names[Math.floor(Math.random() * names.length)])
 
-    // Fetch and process ascii-art.html so background asterisks are transparent (Image 1 style)
+    // Fetch ascii-art.html and replace background asterisks with spaces so ONLY the bird silhouette exists
     fetch('/ascii-art.html')
       .then((res) => res.text())
       .then((html) => {
         const bodyContent = html.includes('<body>') ? html.split('<body>')[1].split('</body>')[0] : html
-        const processed = bodyContent.replace(/<span style="color:(#[0-9a-fA-F]{6})">([^<]+)<\/span>/g, (m, hex, txt) => {
-          const r = parseInt(hex.slice(1, 3), 16)
-          const g = parseInt(hex.slice(3, 5), 16)
-          const b = parseInt(hex.slice(5, 7), 16)
-          // Hide background asterisks (g < 10 && b < 32 && r < 10)
-          if (g < 10 && b < 32 && r < 10) {
-            return `<span style="opacity:0;color:transparent">${txt}</span>`
-          }
-          return `<span>${txt}</span>`
-        })
-        setAsciiArtHtml(processed)
+        const text = bodyContent
+          .replace(/<span style="color:(#[0-9a-fA-F]{6})">([^<]+)<\/span>/g, (m, hex, txt) => {
+            const r = parseInt(hex.slice(1, 3), 16)
+            const g = parseInt(hex.slice(3, 5), 16)
+            const b = parseInt(hex.slice(5, 7), 16)
+            // Replace background asterisks with space
+            if (g < 10 && b < 32 && r < 10) {
+              return ' '
+            }
+            return txt
+          })
+          .replace(/<br\s*\/?>/gi, '\n')
+        setAsciiText(text)
       })
       .catch((err) => console.error('Failed to load ascii-art.html', err))
   }, [])
@@ -144,8 +146,8 @@ export default function SplashScreen() {
       {/* Main Container */}
       <section style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
         
-        {/* Animated ASCII Bird Background - Image 1 Style (Background asterisks hidden, bird shape glowing) */}
-        {asciiArtHtml && (
+        {/* Animated ASCII Bird Background - Image 1 Style (ONLY Bird characters glowing, spaces around it) */}
+        {asciiText && (
           <div
             style={{
               position: 'absolute',
@@ -157,7 +159,7 @@ export default function SplashScreen() {
               opacity: 0.95,
               maxHeight: '94vh',
               overflow: 'hidden',
-              filter: 'drop-shadow(0 0 45px rgba(0, 240, 255, 0.3))',
+              filter: 'drop-shadow(0 0 45px rgba(0, 240, 255, 0.35))',
             }}
           >
             <GradientText
@@ -166,8 +168,7 @@ export default function SplashScreen() {
               showBorder={false}
               direction="horizontal"
             >
-              <div
-                dangerouslySetInnerHTML={{ __html: asciiArtHtml }}
+              <pre
                 style={{
                   fontFamily: 'var(--font-mono), monospace',
                   fontSize: '8.5px',
@@ -178,7 +179,9 @@ export default function SplashScreen() {
                   textAlign: 'left',
                   letterSpacing: '-0.5px',
                 }}
-              />
+              >
+                {asciiText}
+              </pre>
             </GradientText>
           </div>
         )}
