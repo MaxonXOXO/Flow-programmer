@@ -252,20 +252,15 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
           cursor: 'pointer',
         }}
       >
-        <div style={{
-          width: 22,
-          height: 22,
-          borderRadius: 4,
-          background: 'var(--color-accent)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#151515',
-          fontWeight: 900,
-          fontSize: 12,
-        }}>
-          F
-        </div>
+        <img
+          src="/flowide.png"
+          alt="Flow-IDE Logo"
+          style={{
+            width: 22,
+            height: 22,
+            objectFit: 'contain',
+          }}
+        />
         <div style={{
           fontWeight: 700,
           fontSize: 12,

@@ -14,8 +14,13 @@ const spaceGrotesk = Space_Grotesk({
 })
 
 export const metadata: Metadata = {
-  title: 'Flow Programmer',
-  description: 'Visual coding environment',
+  title: 'Flow-IDE — Embedded Visual Programming Environment',
+  description: 'Universal Embedded Visual Programming & Compiler Infrastructure',
+  icons: {
+    icon: '/flowide.ico',
+    shortcut: '/flowide.ico',
+    apple: '/flowide.png',
+  },
 }
 
 export default function RootLayout({
