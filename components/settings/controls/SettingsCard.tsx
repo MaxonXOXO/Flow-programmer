@@ -11,6 +11,7 @@ interface SettingsCardProps {
   requiresRestart?: boolean
   disabled?: boolean
   children?: React.ReactNode
+  style?: React.CSSProperties
 }
 
 export default function SettingsCard({
@@ -22,6 +23,7 @@ export default function SettingsCard({
   requiresRestart = false,
   disabled = false,
   children,
+  style,
 }: SettingsCardProps) {
   const [isHovered, setIsHovered] = useState(false)
 
@@ -30,6 +32,7 @@ export default function SettingsCard({
       onMouseEnter={() => !disabled && setIsHovered(true)}
       onMouseLeave={() => !disabled && setIsHovered(false)}
       style={{
+        position: 'relative',
         background: disabled
           ? 'rgba(18, 21, 28, 0.45)'
           : isHovered
@@ -53,6 +56,7 @@ export default function SettingsCard({
           ? '0 6px 20px rgba(0, 0, 0, 0.4), 0 0 15px rgba(95, 163, 255, 0.08)'
           : '0 2px 6px rgba(0, 0, 0, 0.2)',
         transition: 'all 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
+        ...style,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flex: 1, minWidth: 0 }}>

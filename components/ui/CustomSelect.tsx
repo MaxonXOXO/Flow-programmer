@@ -12,6 +12,7 @@ export interface CustomSelectProps {
   value: string
   options: CustomSelectOption[]
   onChange: (value: string) => void
+  onOpenChange?: (open: boolean) => void
   placeholder?: string
   style?: React.CSSProperties
   dropdownZIndex?: number
@@ -21,6 +22,7 @@ export default function CustomSelect({
   value,
   options,
   onChange,
+  onOpenChange,
   placeholder = 'Select option...',
   style,
   dropdownZIndex = 100000,
@@ -28,13 +30,18 @@ export default function CustomSelect({
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
+  const toggleOpen = (openState: boolean) => {
+    setIsOpen(openState)
+    onOpenChange?.(openState)
+  }
+
   const selectedOption = options.find((opt) => opt.value === value)
 
   // Close when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false)
+        toggleOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -48,13 +55,14 @@ export default function CustomSelect({
         position: 'relative',
         width: '100%',
         userSelect: 'none',
+        zIndex: isOpen ? 9999 : 'auto',
         ...style,
       }}
     >
       {/* Trigger Button */}
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => toggleOpen(!isOpen)}
         style={{
           width: '100%',
           background: 'rgba(0, 0, 0, 0.25)',
@@ -96,11 +104,10 @@ export default function CustomSelect({
             left: 0,
             right: 0,
             minWidth: '100%',
-            background: 'rgba(17, 20, 28, 0.96)',
-            backdropFilter: 'blur(16px)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
+            background: '#0d1017',
+            border: '1px solid rgba(255, 255, 255, 0.14)',
             borderRadius: 6,
-            boxShadow: '0 12px 32px rgba(0, 0, 0, 0.8)',
+            boxShadow: '0 16px 40px rgba(0, 0, 0, 0.95)',
             zIndex: dropdownZIndex,
             maxHeight: 200,
             overflowY: 'auto',
@@ -117,7 +124,7 @@ export default function CustomSelect({
                 key={opt.value}
                 onClick={() => {
                   onChange(opt.value)
-                  setIsOpen(false)
+                  toggleOpen(false)
                 }}
                 style={{
                   padding: '6px 8px',

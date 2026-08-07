@@ -36,6 +36,8 @@ export default function SettingsDropdown({
   width = 150,
   onChange,
 }: SettingsDropdownProps) {
+  const [isOpen, setIsOpen] = React.useState(false)
+
   return (
     <SettingsCard
       title={title}
@@ -45,12 +47,14 @@ export default function SettingsDropdown({
       isModified={isModified}
       requiresRestart={requiresRestart}
       disabled={disabled}
+      style={{ zIndex: isOpen ? 100 : 1 }}
     >
       <div style={{ width: typeof width === 'number' ? `${width}px` : width }}>
         <CustomSelect
           value={value}
           options={options}
           onChange={onChange}
+          onOpenChange={setIsOpen}
         />
       </div>
     </SettingsCard>
