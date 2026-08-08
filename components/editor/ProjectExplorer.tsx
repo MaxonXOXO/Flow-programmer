@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useFlowStore } from '@/store/userFlowStore'
+import ArduinoIcon from '@/components/Customkit/ArduinoIcon'
 import { 
   ChevronDown, 
   ChevronRight, 
@@ -149,7 +150,7 @@ export default function ProjectExplorer() {
         <div style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', paddingBottom: 6, marginBottom: 6 }}>
           <TreeSectionHeader
             title="Hardware"
-            icon={<Cpu className="w-3.5 h-3.5 text-[#60a5fa]" />}
+            icon={(!project?.platform || project.platform.toLowerCase().includes('arduino')) ? <ArduinoIcon size={14} color="#00c4b4" /> : <Cpu className="w-3.5 h-3.5 text-[#60a5fa]" />}
             expanded={sections.hardware}
             onToggle={() => toggleSection('hardware')}
             rightContent={
@@ -157,16 +158,19 @@ export default function ProjectExplorer() {
                 style={{
                   fontSize: 9.5,
                   fontWeight: 700,
-                  color: '#60a5fa',
-                  background: 'rgba(96, 165, 250, 0.12)',
+                  color: '#00c4b4',
+                  background: 'rgba(0, 196, 180, 0.12)',
                   padding: '2px 6px',
                   borderRadius: 4,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 3,
+                  gap: 4,
                   cursor: 'pointer',
                 }}
               >
+                {(!project?.platform || project.platform.toLowerCase().includes('arduino')) && (
+                  <ArduinoIcon size={11} color="#00c4b4" />
+                )}
                 {(project?.platform || 'ARDUINO-UNO').toUpperCase()}
                 <ChevronDown className="w-3 h-3" />
               </span>
@@ -177,7 +181,7 @@ export default function ProjectExplorer() {
               {/* Board Node */}
               <TreeItem
                 title="Arduino Uno"
-                icon={<Cpu className="w-3.5 h-3.5 text-[#60a5fa]" />}
+                icon={<ArduinoIcon size={14} color="#00c4b4" />}
                 isActive={activeDocumentId === 'schema'}
                 onClick={() => {
                   openDocument({

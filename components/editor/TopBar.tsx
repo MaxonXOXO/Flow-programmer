@@ -7,6 +7,7 @@ import { SimulationEngine } from '@/lib/compiler/runtime/simulationEngine'
 import { GraphToASTCompiler } from '@/lib/compiler/parser/graphParser'
 import { exportProjectFromState, serializeProject, importProject, extractStoreState } from '@/lib/project/projectManager'
 import { useSettingsStore } from '@/store/useSettingsStore'
+import ArduinoIcon from '@/components/Customkit/ArduinoIcon'
 
 export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -493,7 +494,11 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
             fontSize: 11,
             color: 'var(--color-text-normal)',
           }}>
-            <Cpu className="w-3.5 h-3.5 text-[#3d8bff]" />
+            {(!project.platform || project.platform.toLowerCase().includes('arduino')) ? (
+              <ArduinoIcon size={14} color="#00c4b4" />
+            ) : (
+              <Cpu className="w-3.5 h-3.5 text-[#3d8bff]" />
+            )}
             <span style={{ fontWeight: 600, color: 'var(--color-text-bright)' }}>{project.name}</span>
             <span style={{ color: 'var(--color-text-dim)' }}>|</span>
             <span style={{ fontSize: 10, fontFamily: 'monospace', color: 'var(--color-text-dim)' }}>

@@ -3,6 +3,7 @@
 import { useFlowStore } from '@/store/userFlowStore'
 import { useState } from 'react'
 import CustomSelect from '@/components/ui/CustomSelect'
+import ArduinoIcon from '@/components/Customkit/ArduinoIcon'
 import { 
   SlidersHorizontal, 
   Settings, 
@@ -190,7 +191,7 @@ function renderNodeIcon(type: string) {
     case 'button': return <CircleDot className="w-3.5 h-3.5 text-[#2ecc71]" />
     case 'motor_driver': return <Car className="w-3.5 h-3.5 text-[#e67e22]" />
     case 'lcd': return <Tv className="w-3.5 h-3.5 text-[#60a5fa]" />
-    case 'unoNode': return <Cpu className="w-3.5 h-3.5 text-[#3b82f6]" />
+    case 'unoNode': return <ArduinoIcon size={14} color="#00c4b4" />
     case 'componentNode': return <Plug className="w-3.5 h-3.5 text-[#2ecc71]" />
     default: return <Box className="w-3.5 h-3.5 text-[#60a5fa]" />
   }

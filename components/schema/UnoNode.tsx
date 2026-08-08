@@ -2,6 +2,7 @@
 
 import { Handle, Position, NodeProps } from '@xyflow/react'
 import { getBoardDefinition, pinSupports } from '@/lib/registry/boards'
+import ArduinoIcon from '@/components/Customkit/ArduinoIcon'
 
 const board = getBoardDefinition('arduino_uno')!;
 
@@ -56,18 +57,21 @@ export default function UnoNode({ selected }: NodeProps) {
         position: 'relative',
         zIndex: 1,
       }}>
-        <div>
-          <div style={{
-            color: '#fff',
-            fontWeight: 800,
-            fontSize: 13,
-            letterSpacing: '0.5px',
-            textShadow: '0 0 12px rgba(47, 209, 139, 0.4)'
-          }}>
-            ARDUINO UNO
-          </div>
-          <div style={{ color: '#94a3b8', fontSize: 9, marginTop: 1, fontWeight: 500 }}>
-            {board.mcu} <span style={{ color: '#2fd18b' }}>·</span> {board.frequency} Core
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <ArduinoIcon size={20} color="#2fd18b" />
+          <div>
+            <div style={{
+              color: '#fff',
+              fontWeight: 800,
+              fontSize: 13,
+              letterSpacing: '0.5px',
+              textShadow: '0 0 12px rgba(47, 209, 139, 0.4)'
+            }}>
+              ARDUINO UNO
+            </div>
+            <div style={{ color: '#94a3b8', fontSize: 9, marginTop: 1, fontWeight: 500 }}>
+              {board.mcu} <span style={{ color: '#2fd18b' }}>·</span> {board.frequency} Core
+            </div>
           </div>
         </div>
         <div style={{

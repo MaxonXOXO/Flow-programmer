@@ -13,6 +13,8 @@ import {
   Terminal, Play, CheckCircle2, AlertCircle, RefreshCw
 } from 'lucide-react'
 
+import ArduinoIcon from '@/components/Customkit/ArduinoIcon'
+
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false })
 
 export default function CodePanel({ onClose }: { onClose: () => void }) {
@@ -246,13 +248,19 @@ export default function CodePanel({ onClose }: { onClose: () => void }) {
           </span>
           <span style={{
             fontSize: 9,
-            background: 'rgba(230, 126, 34, 0.1)',
-            border: '1px solid rgba(230, 126, 34, 0.2)',
-            color: 'var(--color-accent)',
-            padding: '1px 5px',
-            borderRadius: 3,
+            background: 'rgba(0, 196, 180, 0.1)',
+            border: '1px solid rgba(0, 196, 180, 0.25)',
+            color: '#00c4b4',
+            padding: '2px 6px',
+            borderRadius: 4,
             fontFamily: 'monospace',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
           }}>
+            {(!project?.platform || project.platform.toLowerCase().includes('arduino')) && (
+              <ArduinoIcon size={12} color="#00c4b4" />
+            )}
             {project?.platform.toUpperCase() || 'ARDUINO'}
           </span>
 
