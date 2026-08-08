@@ -88,11 +88,10 @@ export default function SettingsCard({
               <span
                 title="Modified from default preference"
                 style={{
-                  width: 6,
-                  height: 6,
+                  width: 5,
+                  height: 5,
                   borderRadius: '50%',
                   background: '#60a5fa',
-                  boxShadow: '0 0 8px #60a5fa',
                   display: 'inline-block',
                 }}
               />

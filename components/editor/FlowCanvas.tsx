@@ -1209,7 +1209,6 @@ function FlowCanvasInner() {
                 height: 6,
                 borderRadius: '50%',
                 background: '#45b872',
-                boxShadow: '0 0 8px #45b872',
               }} />
               <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-bright)' }}>
                 Simulation Diagnostics
@@ -1261,7 +1260,7 @@ function FlowCanvasInner() {
           backdropFilter: 'blur(12px)',
           border: '1px solid rgba(47, 209, 139, 0.4)',
           borderRadius: 6,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 15px rgba(47,209,139,0.15)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
           padding: '10px 16px',
           zIndex: 10002,
           pointerEvents: 'auto',
@@ -1271,11 +1270,10 @@ function FlowCanvasInner() {
           gap: 8,
         }}>
           <div style={{
-            width: 8,
-            height: 8,
+            width: 6,
+            height: 6,
             borderRadius: '50%',
             background: '#2fd18b',
-            boxShadow: '0 0 8px #2fd18b',
           }} />
           <span style={{ fontSize: 11, fontWeight: 600, color: '#f0f4fc' }}>
             {notification}

@@ -427,8 +427,7 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
               height: 6,
               borderRadius: '50%',
               background: simState.running ? '#45b872' : '#777777',
-              boxShadow: simState.running ? '0 0 8px #45b872' : 'none',
-              transition: 'background 0.3s, box-shadow 0.3s',
+              transition: 'background 0.3s',
             }} />
             <span style={{ fontSize: 10, color: 'var(--color-text-dim)', fontFamily: 'monospace' }}>
               SIM: {simState.running ? 'RUNNING' : 'STOPPED'}
@@ -455,7 +454,6 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
               height: 6,
               borderRadius: '50%',
               background: (componentPackages[activePackageId].validationErrors || []).length > 0 ? '#ef5f5f' : '#45b872',
-              boxShadow: (componentPackages[activePackageId].validationErrors || []).length > 0 ? '0 0 8px #ef5f5f' : '0 0 8px #45b872',
             }} />
             <span style={{ 
               fontSize: 10, 

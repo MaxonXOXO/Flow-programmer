@@ -179,18 +179,6 @@ export default function ProjectExplorer() {
                     title={label}
                     icon={<Layers className="w-3.5 h-3.5 text-[#38bdf8]" />}
                     isActive={false}
-                    rightContent={
-                      <span
-                        style={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: '50%',
-                          background: '#22c55e',
-                          marginLeft: 'auto',
-                          boxShadow: '0 0 6px #22c55e',
-                        }}
-                      />
-                    }
                     onClick={() => {
                       openDocument({
                         id: 'schema',
