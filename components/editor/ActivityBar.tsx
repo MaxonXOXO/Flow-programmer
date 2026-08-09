@@ -7,9 +7,7 @@ import {
   Code2, 
   Package, 
   LineChart, 
-  Settings, 
-  HelpCircle, 
-  Moon 
+  Settings
 } from 'lucide-react'
 
 export default function ActivityBar() {
@@ -64,7 +62,7 @@ export default function ActivityBar() {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'flex-start',
         paddingTop: 8,
         paddingBottom: 12,
         userSelect: 'none',
@@ -131,66 +129,6 @@ export default function ActivityBar() {
             </div>
           )
         })}
-      </div>
-
-      {/* Bottom Utility Items & Profile Avatar */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
-        <div
-          title="Help & Documentation"
-          style={{
-            width: 48,
-            height: 38,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--color-text-dim)',
-            cursor: 'pointer',
-          }}
-          onMouseEnter={e => e.currentTarget.style.color = 'var(--color-text-bright)'}
-          onMouseLeave={e => e.currentTarget.style.color = 'var(--color-text-dim)'}
-        >
-          <HelpCircle className="w-4 h-4" />
-        </div>
-
-        <div
-          title="Toggle Dark Theme"
-          style={{
-            width: 48,
-            height: 38,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--color-text-dim)',
-            cursor: 'pointer',
-          }}
-          onMouseEnter={e => e.currentTarget.style.color = 'var(--color-text-bright)'}
-          onMouseLeave={e => e.currentTarget.style.color = 'var(--color-text-dim)'}
-        >
-          <Moon className="w-4 h-4" />
-        </div>
-
-        {/* User Profile Avatar */}
-        <div
-          title="User Profile (GD)"
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: '50%',
-            background: '#2563eb',
-            color: '#ffffff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 10,
-            fontWeight: 800,
-            letterSpacing: '0.5px',
-            cursor: 'pointer',
-            boxShadow: '0 0 8px rgba(37, 99, 235, 0.4)',
-            marginTop: 4,
-          }}
-        >
-          GD
-        </div>
       </div>
     </div>
   )
