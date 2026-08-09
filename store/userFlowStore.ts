@@ -6,6 +6,7 @@ import {
   OnNodesChange, OnEdgesChange 
 } from '@xyflow/react'
 import { loadPackage, packageExists, validatePackage } from '@/lib/packages/packageLoader'
+import { usePanelStore } from '@/store/usePanelStore'
 
 interface ProjectConfig {
   name: string
@@ -366,17 +367,31 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   showMinimap: true,
   showProperties: true,
 
-  toggleSidebar: () => set((s) => ({ showSidebar: !s.showSidebar })),
-  setActiveSidebarPanel: (panel) => set({ activeSidebarPanel: panel, showSidebar: true }),
+  toggleSidebar: () => {
+    usePanelStore.getState().togglePanel('sidebar')
+    const isVisible = usePanelStore.getState().panels.sidebar.isVisible
+    return set({ showSidebar: isVisible })
+  },
+  setActiveSidebarPanel: (panel) => {
+    usePanelStore.getState().showPanel('sidebar')
+    return set({ activeSidebarPanel: panel, showSidebar: true })
+  },
   toggleSidebarPanel: (panel) => set((s) => {
-    if (s.showSidebar && s.activeSidebarPanel === panel) {
+    const isVisible = usePanelStore.getState().panels.sidebar.isVisible
+    if (isVisible && s.activeSidebarPanel === panel) {
+      usePanelStore.getState().hidePanel('sidebar')
       return { showSidebar: false }
     }
+    usePanelStore.getState().showPanel('sidebar')
     return { showSidebar: true, activeSidebarPanel: panel }
   }),
   toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
   toggleMinimap: () => set((s) => ({ showMinimap: !s.showMinimap })),
-  toggleProperties: () => set((s) => ({ showProperties: !s.showProperties })),
+  toggleProperties: () => {
+    usePanelStore.getState().togglePanel('properties')
+    const isVisible = usePanelStore.getState().panels.properties.isVisible
+    return set({ showProperties: isVisible })
+  },
 
   updateFlowNodeData: (id, data) => set((s) => {
     const fnName = (data.params as any)?.name || (data as any)?.label

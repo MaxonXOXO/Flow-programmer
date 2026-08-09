@@ -244,10 +244,9 @@ export default function PropertiesPanel() {
   if (!node) {
     return (
       <div style={{
-        width: 250,
+        width: '100%',
         height: '100%',
         background: 'var(--color-bg-panel)',
-        borderLeft: '1px solid var(--color-border)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -331,10 +330,9 @@ export default function PropertiesPanel() {
 
   return (
     <div style={{
-      width: 250,
+      width: '100%',
       height: '100%',
       background: 'var(--color-bg-panel)',
-      borderLeft: '1px solid var(--color-border)',
       display: 'flex',
       flexDirection: 'column',
       userSelect: 'none',

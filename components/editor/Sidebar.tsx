@@ -191,10 +191,9 @@ export default function Sidebar() {
   if (activeSidebarPanel === 'explorer') {
     return (
       <div style={{
-        width: 220,
+        width: '100%',
         height: '100%',
         background: 'var(--color-bg-panel)',
-        borderRight: '1px solid var(--color-border)',
         display: 'flex',
         flexDirection: 'column',
         flexShrink: 0,
@@ -207,10 +206,9 @@ export default function Sidebar() {
 
   return (
     <div style={{
-      width: 220,
+      width: '100%',
       height: '100%',
       background: 'var(--color-bg-panel)',
-      borderRight: '1px solid var(--color-border)',
       display: 'flex',
       flexDirection: 'column',
       flexShrink: 0,

@@ -12,6 +12,11 @@ import CodePanel, { InlineCodeEditor } from '@/components/editor/CodePanel'
 import WorkspaceTabBar from '@/components/editor/WorkspaceTabBar'
 import ActivityBar from '@/components/editor/ActivityBar'
 import PreferencesModal from '@/components/settings/PreferencesModal'
+import DockablePanel from '@/components/windowManager/DockablePanel'
+import ResizeHandle from '@/components/windowManager/ResizeHandle'
+import FloatLayer from '@/components/windowManager/FloatLayer'
+import { usePanelStore } from '@/store/usePanelStore'
+import { PanelId } from '@/lib/windowManager/types'
 
 export default function EditorPage() {
   const { setProject } = useFlowStore()
@@ -24,8 +29,40 @@ export default function EditorPage() {
     setProject(JSON.parse(raw))
   }, [router, setProject])
 
-  const { selectedNodeId, simState, project, documents, activeDocumentId, activeCanvas, showSidebar, showProperties, subFlowStack } = useFlowStore()
+  const { selectedNodeId, simState, project, documents, activeDocumentId, activeCanvas, subFlowStack } = useFlowStore()
   const activeDocument = documents.find(d => d.id === activeDocumentId) || documents[0]
+
+  // Read authoritative window manager panel layout state
+  const panels = usePanelStore((s) => s.panels)
+  const validateViewportBounds = usePanelStore((s) => s.validateViewportBounds)
+
+  // Validate floating viewport bounds on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      validateViewportBounds()
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [validateViewportBounds])
+
+  // Map panel ID to panel content component
+  const renderPanelContent = (id: PanelId) => {
+    switch (id) {
+      case 'sidebar':
+        return <Sidebar />
+      case 'properties':
+        return <PropertiesPanel />
+      default:
+        return null
+    }
+  }
+
+  // Filter visible panels by actual dock position
+  const visiblePanels = Object.values(panels).filter((p) => p.isVisible)
+  const leftDockPanels = visiblePanels.filter((p) => p.dockPosition === 'left')
+  const rightDockPanels = visiblePanels.filter((p) => p.dockPosition === 'right')
+  const bottomDockPanels = visiblePanels.filter((p) => p.dockPosition === 'bottom')
+  const floatingPanels = visiblePanels.filter((p) => p.dockPosition === 'float')
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', background: 'var(--color-bg-base)' }}>
@@ -33,23 +70,53 @@ export default function EditorPage() {
       
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <ActivityBar />
-        {showSidebar && <Sidebar />}
-        
-        {/* Center Canvas Area with VS Code Style Tab Bar at Top */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <WorkspaceTabBar />
-          <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-            {activeDocument?.type === 'schema' ? (
-              <SchemaCanvas />
-            ) : activeDocument?.type === 'code' ? (
-              <InlineCodeEditor />
-            ) : (
-              <FlowCanvas />
-            )}
+
+        {/* Dynamic Left Dock Region */}
+        {leftDockPanels.map((p) => (
+          <div key={p.id} style={{ display: 'flex', height: '100%', flexShrink: 0 }}>
+            <DockablePanel id={p.id as PanelId}>
+              {renderPanelContent(p.id as PanelId)}
+            </DockablePanel>
+            <ResizeHandle panelId={p.id as PanelId} side="left" />
           </div>
+        ))}
+
+        {/* Central Workspace Column (Canvas + Dynamic Bottom Dock Region) */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {/* Primary Center Workspace — ALWAYS occupies remaining available space */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+            <WorkspaceTabBar />
+            <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+              {activeDocument?.type === 'schema' ? (
+                <SchemaCanvas />
+              ) : activeDocument?.type === 'code' ? (
+                <InlineCodeEditor />
+              ) : (
+                <FlowCanvas />
+              )}
+            </div>
+          </div>
+
+          {/* Dynamic Bottom Dock Region */}
+          {bottomDockPanels.map((p) => (
+            <div key={p.id} style={{ display: 'flex', flexDirection: 'column', width: '100%', flexShrink: 0 }}>
+              <ResizeHandle panelId={p.id as PanelId} side="bottom" />
+              <DockablePanel id={p.id as PanelId}>
+                {renderPanelContent(p.id as PanelId)}
+              </DockablePanel>
+            </div>
+          ))}
         </div>
 
-        {showProperties && <PropertiesPanel />}
+        {/* Dynamic Right Dock Region */}
+        {rightDockPanels.map((p) => (
+          <div key={p.id} style={{ display: 'flex', height: '100%', flexShrink: 0 }}>
+            <ResizeHandle panelId={p.id as PanelId} side="right" />
+            <DockablePanel id={p.id as PanelId}>
+              {renderPanelContent(p.id as PanelId)}
+            </DockablePanel>
+          </div>
+        ))}
       </div>
       
       {/* Bottom Status Bar (Blender/Photoshop Style) */}
@@ -121,6 +188,15 @@ export default function EditorPage() {
 
       {codeOpen && <CodePanel onClose={() => setCodeOpen(false)} />}
       <PreferencesModal />
+
+      {/* Float Layer — portal target container */}
+      <FloatLayer />
+      {/* Floating panels */}
+      {floatingPanels.map((p) => (
+        <DockablePanel key={p.id} id={p.id as PanelId}>
+          {renderPanelContent(p.id as PanelId)}
+        </DockablePanel>
+      ))}
     </div>
   )
 }
