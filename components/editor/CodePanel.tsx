@@ -31,7 +31,7 @@ export default function CodePanel({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     try {
       // 1. Compile visual nodes to AST
-      const compiler = new GraphToASTCompiler(flowNodes, flowEdges, subFlows);
+      const compiler = new GraphToASTCompiler(flowNodes, flowEdges, subFlows, {}, schemaNodes, schemaEdges);
       const program = compiler.compile();
 
       // 2. Validate AST
@@ -745,7 +745,7 @@ export function InlineCodeEditor() {
       } else {
         setLanguage('cpp')
         setFilename('sketch.ino')
-        const compiler = new GraphToASTCompiler(flowNodes, flowEdges, subFlows)
+        const compiler = new GraphToASTCompiler(flowNodes, flowEdges, subFlows, {}, schemaNodes, schemaEdges)
         const program = compiler.compile()
         const generator = new ArduinoUnoGenerator()
         const generated = generator.generate(program, schemaNodes, schemaEdges)
