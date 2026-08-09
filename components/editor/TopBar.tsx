@@ -132,7 +132,7 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
     
     if (simState.running) {
       try {
-        const compiler = new GraphToASTCompiler(flowNodes, flowEdges, subFlows);
+        const compiler = new GraphToASTCompiler(flowNodes, flowEdges, subFlows, {}, schemaNodes, schemaEdges);
         const program = compiler.compile();
 
         const simEngine = new SimulationEngine();
