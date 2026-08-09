@@ -19,6 +19,46 @@ export interface ExpansionResult {
  *
  * If a package does not have an internal graph, it is left intact for builtin generator fallback.
  */
+export function cloneData<T>(obj: T): T {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => cloneData(item)) as unknown as T;
+  }
+  const cloned: Record<string, any> = {};
+  for (const key of Object.keys(obj)) {
+    cloned[key] = cloneData((obj as Record<string, any>)[key]);
+  }
+  return cloned as T;
+}
+
+export function cloneNode(node: Node): Node {
+  return {
+    ...node,
+    position: node.position ? { ...node.position } : node.position,
+    data: node.data ? cloneData(node.data) : node.data,
+  };
+}
+
+export function cloneEdge(edge: Edge): Edge {
+  return {
+    ...edge,
+    data: edge.data ? cloneData(edge.data) : edge.data,
+  };
+}
+
+/**
+ * Component Graph Expander
+ *
+ * Scans a visual flow graph for component package nodes.
+ * If a package declares an internal subflow graph (e.g., HC-SR04), this stage:
+ * 1. Clones the internal graph nodes & edges with instance-prefixed IDs.
+ * 2. Performs generic Pin & Variable Binding (maps $TRIG, $ECHO, output variables).
+ * 3. Splices the internal subflow nodes/edges directly into the flow graph.
+ *
+ * If a package does not have an internal graph, it is left intact for builtin generator fallback.
+ */
 export function expandComponentGraphs(
   flowNodes: Node[],
   flowEdges: Edge[],
@@ -26,7 +66,7 @@ export function expandComponentGraphs(
   schemaEdges: Edge[] = []
 ): ExpansionResult {
   const resultNodes: Node[] = [];
-  const resultEdges: Edge[] = [...flowEdges];
+  const resultEdges: Edge[] = flowEdges.map(cloneEdge);
   let hasExpandedComponents = false;
 
   const normalizePin = (p: string | undefined): string => {
@@ -70,7 +110,7 @@ export function expandComponentGraphs(
 
     // Fallback: If no internal subflow graph exists, keep original node for builtin generator
     if (!internalGraph || !Array.isArray(internalGraph.nodes) || internalGraph.nodes.length === 0) {
-      resultNodes.push(node);
+      resultNodes.push(cloneNode(node));
       return;
     }
 
