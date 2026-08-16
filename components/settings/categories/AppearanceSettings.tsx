@@ -25,11 +25,12 @@ export default function AppearanceSettings() {
     <div>
       <SettingsSection
         title="Visual Theme & Customization"
-        description="Customize IDE colors, scale, and motion preferences."
+        description="Customize IDE colors, scale, layout density, and motion performance preferences."
       >
+        {/* Application Theme */}
         <SettingsDropdown
           title="Application Theme"
-          description="Select overall color theme for Flow-IDE interface."
+          description="Select overall color theme for Flow-IDE interface (Dark, Light, or Follow System)."
           icon={<Sun className="w-4 h-4 text-[#ffb13d]" />}
           isModified={isModified('appearance', 'theme')}
           value={app.theme}
@@ -41,29 +42,31 @@ export default function AppearanceSettings() {
           onChange={(val) => updateSetting('appearance', 'theme', val as any)}
         />
 
+        {/* Accent Color */}
         <SettingsCard
           title="Accent Color"
-          description="Primary highlight color used across active tabs, selection borders, and buttons."
+          description="Primary highlight color used across active tabs, selection borders, neon highlights, and action buttons."
           icon={<Palette className="w-4 h-4 text-[#5fa3ff]" />}
           isModified={isModified('appearance', 'accentColor')}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {accentColors.map((col) => {
               const isSelected = app.accentColor === col.id
               return (
                 <button
                   key={col.id}
                   onClick={() => updateSetting('appearance', 'accentColor', col.id as any)}
-                  title={col.label}
+                  title={`${col.label} (${col.hex})`}
                   style={{
-                    width: 22,
-                    height: 22,
+                    width: 24,
+                    height: 24,
                     borderRadius: '50%',
                     background: col.hex,
                     border: isSelected ? '2px solid #ffffff' : '2px solid transparent',
-                    boxShadow: isSelected ? `0 0 10px ${col.hex}` : 'none',
+                    boxShadow: isSelected ? `0 0 12px ${col.hex}` : 'none',
                     cursor: 'pointer',
-                    transition: 'transform 0.15s ease',
+                    transition: 'all 0.15s ease',
+                    position: 'relative',
                   }}
                   onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.15)'}
                   onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
@@ -73,9 +76,10 @@ export default function AppearanceSettings() {
           </div>
         </SettingsCard>
 
+        {/* Interface Scale */}
         <SettingsSlider
           title="Interface Scale"
-          description="Adjust overall text and icon display scale."
+          description="Adjust overall text and UI element display scale across the IDE."
           icon={<Sliders className="w-4 h-4 text-[#5fa3ff]" />}
           isModified={isModified('appearance', 'uiScale')}
           value={app.uiScale}
@@ -86,25 +90,27 @@ export default function AppearanceSettings() {
           onChange={(val) => updateSetting('appearance', 'uiScale', val)}
         />
 
+        {/* Compact Mode */}
         <SettingsToggle
           title="Compact Mode"
-          description="Reduce padding and header heights for high-density screen layouts."
+          description="Reduce padding, button sizes, and header heights for high-density screen layouts."
           icon={<Maximize2 className="w-4 h-4 text-[#ff5f9e]" />}
           isModified={isModified('appearance', 'compactMode')}
           checked={app.compactMode}
           onChange={(checked) => updateSetting('appearance', 'compactMode', checked)}
         />
 
+        {/* Reduce Motion & Animations */}
         <SettingsToggle
           title="Reduce Motion & Animations"
-          description="Disable CSS transitions and animated flow particle lines."
+          description="Disables all CSS transitions, animated flow edge lines, AND UI glow effects to maximize performance."
           icon={<Zap className="w-4 h-4 text-[#a855f7]" />}
           isModified={isModified('appearance', 'reduceMotion')}
           checked={app.reduceMotion}
           onChange={(checked) => updateSetting('appearance', 'reduceMotion', checked)}
         />
 
-        {/* Future disabled placeholders */}
+        {/* Future Theme Packs */}
         <SettingsCard
           title="Custom Theme Packs"
           description="Load custom VS Code / JetBrains .json theme extensions."
@@ -112,6 +118,7 @@ export default function AppearanceSettings() {
           disabled
         />
 
+        {/* Reset Appearance Defaults */}
         <SettingsButton
           title="Reset Appearance Category"
           description="Restore default values for all preferences in this category."

@@ -141,6 +141,17 @@ export interface PackageMetadata {
 export type ImplementationStrategy = 'builtin' | 'subflow' | 'native';
 export type ImplementationType = ImplementationStrategy | 'ast';
 
+export interface PackageGraphDefinition {
+  /** ID of the explicit entry node in the internal subflow graph */
+  entry?: string;
+  /** ID of the explicit exit/output boundary node in the internal subflow graph */
+  exit?: string;
+  /** Internal flow graph nodes */
+  nodes: any[];
+  /** Internal flow graph edges */
+  edges: any[];
+}
+
 export interface PackageImplementation {
   /** The strategy used to implement this component's behaviour */
   strategy?: ImplementationStrategy;
@@ -148,16 +159,12 @@ export interface PackageImplementation {
   version?: number;
   /** Entry point if applicable */
   entry?: string;
+  /** Exit point if applicable */
+  exit?: string;
   /** Subflow graph data (nodes & edges) when strategy === 'subflow' or builtin subflow */
-  subflow?: {
-    nodes: any[];
-    edges: any[];
-  } | unknown;
+  subflow?: PackageGraphDefinition | unknown;
   /** Internal visual flow graph (nodes & edges) for subflow implementation */
-  graph?: {
-    nodes: any[];
-    edges: any[];
-  } | unknown;
+  graph?: PackageGraphDefinition | unknown;
   /** Legacy compatibility field */
   type?: ImplementationType;
 }

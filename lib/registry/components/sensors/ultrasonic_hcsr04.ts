@@ -52,6 +52,8 @@ export const UltrasonicHCSR04Package: PackageDefinition = {
     strategy: 'builtin',
     version: 1,
     graph: {
+      entry: (ultrasonicFlowJson as any).entry || 'trig_low_1',
+      exit: (ultrasonicFlowJson as any).exit || 'return_distance',
       nodes: (ultrasonicFlowJson as any).nodes || [],
       edges: (ultrasonicFlowJson as any).edges || [],
     },

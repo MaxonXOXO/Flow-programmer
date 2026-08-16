@@ -23,6 +23,7 @@ function runSubflowExpansionTests() {
         label: 'Ultrasonic HC-SR04',
         nodeType: 'ultrasonic',
         params: {
+          packageId: 'ultrasonic_hcsr04',
           trigPin: '9',
           echoPin: '10',
           varDist: 'measured_distance'

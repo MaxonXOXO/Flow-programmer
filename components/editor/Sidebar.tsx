@@ -53,26 +53,26 @@ const NODE_TYPES = [
   {
     section: 'Sensor Templates',
     nodes: [
-      { type: 'dht',        label: 'DHT Sensor',      icon: '🌡',  nodeType: 'dht',        params: { varTemp: 'temp', varHum: 'hum', pin: '2' } },
-      { type: 'ultrasonic', label: 'Ultrasonic Read', icon: '📡',  nodeType: 'ultrasonic', params: { varDist: 'distance', trigPin: '9', echoPin: '10' } },
-      { type: 'pir',        label: 'PIR Motion',      icon: '👁',  nodeType: 'pir',        params: { varMotion: 'motion', pin: '3' } },
-      { type: 'ldr',        label: 'LDR Light',       icon: '☀',  nodeType: 'ldr',        params: { varLight: 'lightVal', pin: 'A0' } },
-      { type: 'ir',         label: 'IR Obstacle',     icon: '👁',  nodeType: 'ir',         params: { varObstacle: 'obstacle', pin: '3', variant: 'Active Low' } },
-      { type: 'flame',      label: 'Flame Sensor',    icon: '🔥',  nodeType: 'flame',      params: { varFlame: 'flameVal', pin: '4', variant: 'Active Low' } },
-      { type: 'soilMoisture', label: 'Soil Moisture', icon: '🌱',  nodeType: 'soilMoisture', params: { varMoisture: 'moisture', pin: 'A1', variant: 'Active Low' } },
-      { type: 'waterLevel', label: 'Water Level',     icon: '💧',  nodeType: 'waterLevel',  params: { varLevel: 'waterLevel', pin: 'A2', variant: 'Active High' } },
-      { type: 'mqGas',      label: 'MQ Gas Sensor',   icon: '💨',  nodeType: 'mqGas',      params: { varGas: 'gasVal', pin: 'A3', variant: 'Active Low' } },
-      { type: 'vibration',  label: 'Vibration Sensor', icon: '📳',  nodeType: 'vibration',  params: { varVib: 'vibration', pin: '5', variant: 'Active Low' } },
+      { type: 'dht',        label: 'DHT Sensor',      icon: '🌡',  nodeType: 'dht',        params: { packageId: 'dht11', varTemp: 'temp', varHum: 'hum', pin: '2' } },
+      { type: 'ultrasonic', label: 'Ultrasonic Read', icon: '📡',  nodeType: 'ultrasonic', params: { packageId: 'ultrasonic_hcsr04', varDist: 'distance', trigPin: '9', echoPin: '10' } },
+      { type: 'pir',        label: 'PIR Motion',      icon: '👁',  nodeType: 'pir',        params: { packageId: 'pir_motion', varMotion: 'motion', pin: '3' } },
+      { type: 'ldr',        label: 'LDR Light',       icon: '☀',  nodeType: 'ldr',        params: { packageId: 'ldr_light', varLight: 'lightVal', pin: 'A0' } },
+      { type: 'ir',         label: 'IR Obstacle',     icon: '👁',  nodeType: 'ir',         params: { packageId: 'ir_obstacle', varObstacle: 'obstacle', pin: '3', variant: 'Active Low' } },
+      { type: 'flame',      label: 'Flame Sensor',    icon: '🔥',  nodeType: 'flame',      params: { packageId: 'flame_sensor', varFlame: 'flameVal', pin: '4', variant: 'Active Low' } },
+      { type: 'soilMoisture', label: 'Soil Moisture', icon: '🌱',  nodeType: 'soilMoisture', params: { packageId: 'soil_moisture', varMoisture: 'moisture', pin: 'A1', variant: 'Active Low' } },
+      { type: 'waterLevel', label: 'Water Level',     icon: '💧',  nodeType: 'waterLevel',  params: { packageId: 'water_level', varLevel: 'waterLevel', pin: 'A2', variant: 'Active High' } },
+      { type: 'mqGas',      label: 'MQ Gas Sensor',   icon: '💨',  nodeType: 'mqGas',      params: { packageId: 'mq_gas', varGas: 'gasVal', pin: 'A3', variant: 'Active Low' } },
+      { type: 'vibration',  label: 'Vibration Sensor', icon: '📳',  nodeType: 'vibration',  params: { packageId: 'vibration_sensor', varVib: 'vibration', pin: '5', variant: 'Active Low' } },
     ]
   },
   {
     section: 'Control Devices',
     nodes: [
-      { type: 'servo',      label: 'Servo Motor',     icon: '🔧',  nodeType: 'servo',      params: { pin: '9', angle: '90' } },
-      { type: 'lcd',        label: 'LCD 16x2 Text',   icon: '📺',  nodeType: 'lcd',        params: { text: '"Temp: " + String(temp)', row: '0', col: '0' } },
-      { type: 'oled',       label: 'OLED Text',       icon: '🖥',  nodeType: 'oled',       params: { text: '"Distance: " + String(distance)', x: '0', y: '0', size: '1' } },
-      { type: 'l298n',      label: 'L298N Motor Control', icon: '🔌', nodeType: 'l298n',   params: { motor: 'Motor A', direction: 'Forward', speed: '255' } },
-      { type: 'l293d',      label: 'L293D Motor Control', icon: '🔌', nodeType: 'l293d',   params: { motor: 'Motor A', direction: 'Forward', speed: '255' } },
+      { type: 'servo',      label: 'Servo Motor',     icon: '🔧',  nodeType: 'servo',      params: { packageId: 'servo_motor', pin: '9', angle: '90' } },
+      { type: 'lcd',        label: 'LCD 16x2 Text',   icon: '📺',  nodeType: 'lcd',        params: { packageId: 'lcd_16x2', text: '"Temp: " + String(temp)', row: '0', col: '0' } },
+      { type: 'oled',       label: 'OLED Text',       icon: '🖥',  nodeType: 'oled',       params: { packageId: 'oled_display', text: '"Distance: " + String(distance)', x: '0', y: '0', size: '1' } },
+      { type: 'l298n',      label: 'L298N Motor Control', icon: '🔌', nodeType: 'l298n',   params: { packageId: 'l298n', motor: 'Motor A', direction: 'Forward', speed: '255' } },
+      { type: 'l293d',      label: 'L293D Motor Control', icon: '🔌', nodeType: 'l293d',   params: { packageId: 'l293d', motor: 'Motor A', direction: 'Forward', speed: '255' } },
     ]
   },
 ]

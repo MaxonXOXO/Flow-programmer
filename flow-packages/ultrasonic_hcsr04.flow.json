@@ -2,6 +2,8 @@
   "id": "ultrasonic_hcsr04",
   "name": "Ultrasonic HC-SR04",
   "version": "2.0",
+  "entry": "trig_low_1",
+  "exit": "return_distance",
   "packagePins": {
     "TRIG": {
       "signal": "digital"

@@ -194,3 +194,67 @@ body {
       var(--color-bg-panel)) !important;
   animation: boardSelectGlow 1.5s ease-in-out infinite alternate;
 }
+
+/* ── Light Theme Override ────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --color-bg-base:    #f4f6fc;
+  --color-bg-panel:   #ffffff;
+  --color-bg-header:  #eaeff8;
+  --color-bg-input:   #e2e8f5;
+  --color-bg-card:    rgba(255, 255, 255, 0.92);
+  --color-bg-overlay: rgba(220, 226, 240, 0.75);
+
+  --color-border:        rgba(0, 0, 0, 0.12);
+  --color-border-subtle: rgba(0, 0, 0, 0.07);
+
+  --color-text-bright: #0f172a;
+  --color-text-normal: #334155;
+  --color-text-dim:    rgba(15, 23, 42, 0.55);
+}
+
+/* ── Compact Mode Layout ────────────────────────────────────────────────── */
+.compact-mode {
+  --compact-header-height: 40px;
+  --compact-padding-unit: 4px;
+}
+
+.compact-mode button,
+.compact-mode input,
+.compact-mode select {
+  font-size: 11px !important;
+}
+
+/* ── Reduce Motion & Animations (Strips animations AND glow effects across UI) ── */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+.reduce-motion {
+  box-shadow: none !important;
+  text-shadow: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.reduce-motion .neon-node-active {
+  box-shadow: 0 0 0 1px var(--color-border-focus) !important;
+}
+
+.reduce-motion .board-select-card:hover {
+  animation: none !important;
+  box-shadow: 0 0 0 1px var(--color-accent-blue) !important;
+}
+
+.reduce-motion .react-flow__edge.animated .react-flow__edge-path {
+  animation: none !important;
+  stroke-dasharray: none !important;
+  filter: none !important;
+}
+
+.reduce-motion .react-flow__edge.selected .react-flow__edge-path {
+  filter: none !important;
+}

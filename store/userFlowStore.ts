@@ -5,8 +5,8 @@ import {
   Node, Edge, applyNodeChanges, applyEdgeChanges, 
   OnNodesChange, OnEdgesChange 
 } from '@xyflow/react'
-import { loadPackage, packageExists, validatePackage } from '@/lib/packages/packageLoader'
-import { usePanelStore } from '@/store/usePanelStore'
+import { loadPackage, packageExists, validatePackage } from '../lib/packages/packageLoader'
+import { usePanelStore } from './usePanelStore'
 
 interface ProjectConfig {
   name: string
@@ -41,15 +41,30 @@ interface ComponentPackageData {
 
 export type DocumentType = 'schema' | 'flow' | 'function' | 'subflow' | 'code' | 'simulator'
 
-export interface WorkspaceDocument {
+export interface BaseWorkspaceDocument {
   id: string
   title: string
   type: DocumentType
   icon?: string
-  closable: boolean
+  closable?: boolean
   dirty?: boolean
   targetId?: string
 }
+
+export interface SubflowDocument {
+  id: string
+  title: string
+  type: 'subflow'
+  packageId: string
+  componentInstanceId?: string
+  readOnly: boolean
+  icon?: string
+  closable?: boolean
+  dirty?: boolean
+  targetId?: string
+}
+
+export type WorkspaceDocument = BaseWorkspaceDocument | SubflowDocument
 
 interface FlowStore {
   updateFlowNodeData: (id: string, data: Record<string, unknown>) => void
@@ -63,6 +78,18 @@ interface FlowStore {
   setActiveDocument: (id: string) => void
   setDocumentDirty: (id: string, dirty: boolean) => void
   createFunctionNode: (preferredName?: string) => string
+
+  // Subflow Document Infrastructure (Phase 5A)
+  openSubflowDocument: (params: {
+    packageId: string
+    title?: string
+    componentInstanceId?: string
+    readOnly?: boolean
+    activate?: boolean
+  }) => string
+  closeSubflowDocument: (idOrPackageId: string) => void
+  isSubflowDocumentOpen: (packageId: string, componentInstanceId?: string) => boolean
+  getSubflowDocument: (packageId: string, componentInstanceId?: string) => SubflowDocument | undefined
 
   // Schema canvas
   schemaNodes: Node[]
@@ -286,6 +313,82 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
 
     set({ documents: newDocs })
     get().setActiveDocument(nextActiveId)
+  },
+
+  // ===== SUBFLOW DOCUMENT ACTIONS (PHASE 5A) =====
+  openSubflowDocument: (params) => {
+    const s = get()
+    const { packageId, componentInstanceId, title, readOnly = true, activate = true } = params
+    
+    // Generate deterministic document ID based on packageId and optional componentInstanceId
+    const docId = componentInstanceId 
+      ? `subflow_${packageId}_${componentInstanceId}` 
+      : `subflow_${packageId}`
+
+    // Check if subflow document already exists
+    const existing = s.documents.find(d => d.id === docId)
+    
+    if (existing) {
+      // Document already open: activate if requested, without creating duplicates
+      if (activate) {
+        get().setActiveDocument(docId)
+      }
+      return docId
+    }
+
+    // Create new first-class SubflowDocument (metadata only)
+    const newDoc: SubflowDocument = {
+      id: docId,
+      title: title || `📦 ${packageId}`,
+      type: 'subflow',
+      packageId,
+      componentInstanceId,
+      readOnly,
+      closable: true,
+      dirty: false,
+      targetId: packageId,
+    }
+
+    set({ documents: [...s.documents, newDoc] })
+
+    if (activate) {
+      get().setActiveDocument(docId)
+    }
+
+    return docId
+  },
+
+  closeSubflowDocument: (idOrPackageId) => {
+    const s = get()
+    const targetDoc = s.documents.find(
+      d => d.id === idOrPackageId || (d.type === 'subflow' && (d as SubflowDocument).packageId === idOrPackageId)
+    )
+    if (targetDoc) {
+      get().closeDocument(targetDoc.id)
+    }
+  },
+
+  isSubflowDocumentOpen: (packageId, componentInstanceId) => {
+    const s = get()
+    return s.documents.some(d => {
+      if (d.type !== 'subflow') return false
+      const subDoc = d as SubflowDocument
+      if (subDoc.packageId !== packageId) return false
+      if (componentInstanceId !== undefined && subDoc.componentInstanceId !== componentInstanceId) return false
+      return true
+    })
+  },
+
+  getSubflowDocument: (packageId, componentInstanceId) => {
+    const s = get()
+    const found = s.documents.find(d => {
+      if (d.type !== 'subflow') return false
+      const subDoc = d as SubflowDocument
+      if (subDoc.packageId !== packageId) return false
+      if (componentInstanceId !== undefined && subDoc.componentInstanceId !== componentInstanceId) return false
+      return true
+    })
+    return found as SubflowDocument | undefined
   },
 
   setDocumentDirty: (id: string, dirty: boolean) => set((s) => ({

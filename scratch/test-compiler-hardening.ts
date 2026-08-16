@@ -21,6 +21,7 @@ function runHardeningTests() {
         label: 'Ultrasonic HC-SR04',
         nodeType: 'ultrasonic',
         params: {
+          packageId: 'ultrasonic_hcsr04',
           varDist: 'measured_distance'
         }
       },

@@ -9,7 +9,7 @@ import {
   DockZone,
   DEFAULT_PANELS,
   LAYOUT_VERSION,
-} from '@/lib/windowManager/types'
+} from '../lib/windowManager/types'
 
 const STORAGE_KEY = 'flow-ide-panel-layout-v1'
 const LEGACY_STORAGE_KEY = 'flow-ide-panel-layout'

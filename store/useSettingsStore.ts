@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { FlowSettings } from '@/lib/settings/types'
 import { DEFAULT_SETTINGS } from '@/lib/settings/defaultSettings'
+import { settingsToYaml, yamlToSettings, STORAGE_KEY_YAML } from '@/lib/settings/yamlConfig'
+import { applySettingsToDOM } from '@/lib/settings/settingsApplier'
 
 interface SettingsStoreState {
   settings: FlowSettings
@@ -25,28 +27,47 @@ interface SettingsStoreState {
   resetAllSettings: () => void
   restoreDefaultLayout: () => void
   isModified: <C extends keyof FlowSettings, K extends keyof FlowSettings[C]>(category: C, key: K) => boolean
+
+  // YAML Config Actions
+  exportYamlSettings: () => string
+  importYamlSettings: (yamlText: string) => boolean
+  initSettings: () => void
 }
 
-const STORAGE_KEY = 'fp_settings'
+const STORAGE_KEY_JSON = 'fp_settings'
 
 function loadSavedSettings(): FlowSettings {
   if (typeof window === 'undefined') return DEFAULT_SETTINGS
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return DEFAULT_SETTINGS
-    const parsed = JSON.parse(raw)
-    return {
-      general: { ...DEFAULT_SETTINGS.general, ...parsed.general },
-      appearance: { ...DEFAULT_SETTINGS.appearance, ...parsed.appearance },
-      editor: { ...DEFAULT_SETTINGS.editor, ...parsed.editor },
-      canvas: { ...DEFAULT_SETTINGS.canvas, ...parsed.canvas },
-      compiler: { ...DEFAULT_SETTINGS.compiler, ...parsed.compiler },
-      simulation: { ...DEFAULT_SETTINGS.simulation, ...parsed.simulation },
-      keybindings: parsed.keybindings || DEFAULT_SETTINGS.keybindings,
-      extensions: parsed.extensions || DEFAULT_SETTINGS.extensions,
+    // 1. Try reading YAML configuration file string first
+    const yamlRaw = localStorage.getItem(STORAGE_KEY_YAML)
+    if (yamlRaw) {
+      const parsedYaml = yamlToSettings(yamlRaw)
+      return parsedYaml
     }
+
+    // 2. Fallback to legacy JSON format if present
+    const jsonRaw = localStorage.getItem(STORAGE_KEY_JSON)
+    if (jsonRaw) {
+      const parsedJson = JSON.parse(jsonRaw)
+      const merged: FlowSettings = {
+        general: { ...DEFAULT_SETTINGS.general, ...parsedJson.general },
+        appearance: { ...DEFAULT_SETTINGS.appearance, ...parsedJson.appearance },
+        editor: { ...DEFAULT_SETTINGS.editor, ...parsedJson.editor },
+        canvas: { ...DEFAULT_SETTINGS.canvas, ...parsedJson.canvas },
+        compiler: { ...DEFAULT_SETTINGS.compiler, ...parsedJson.compiler },
+        simulation: { ...DEFAULT_SETTINGS.simulation, ...parsedJson.simulation },
+        keybindings: parsedJson.keybindings || DEFAULT_SETTINGS.keybindings,
+        extensions: parsedJson.extensions || DEFAULT_SETTINGS.extensions,
+      }
+      // Migrate to YAML format
+      saveSettings(merged)
+      return merged
+    }
+
+    return DEFAULT_SETTINGS
   } catch (err) {
-    console.warn('[SettingsStore] Failed to parse saved settings, falling back to defaults:', err)
+    console.warn('[SettingsStore] Failed to load saved settings, using defaults:', err)
     return DEFAULT_SETTINGS
   }
 }
@@ -54,14 +75,18 @@ function loadSavedSettings(): FlowSettings {
 function saveSettings(settings: FlowSettings) {
   if (typeof window === 'undefined') return
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
+    const yamlText = settingsToYaml(settings)
+    localStorage.setItem(STORAGE_KEY_YAML, yamlText)
+    localStorage.setItem(STORAGE_KEY_JSON, JSON.stringify(settings))
   } catch (err) {
-    console.error('[SettingsStore] Failed to save settings to localStorage:', err)
+    console.error('[SettingsStore] Failed to save YAML settings:', err)
   }
 }
 
+const initialSettings = loadSavedSettings()
+
 export const useSettingsStore = create<SettingsStoreState>((set, get) => ({
-  settings: loadSavedSettings(),
+  settings: initialSettings,
   isOpen: false,
   activeCategory: 'general',
   searchQuery: '',
@@ -90,6 +115,7 @@ export const useSettingsStore = create<SettingsStoreState>((set, get) => ({
         [category]: updatedCategory,
       }
       saveSettings(newSettings)
+      applySettingsToDOM(newSettings)
       return { settings: newSettings }
     })
   },
@@ -101,12 +127,14 @@ export const useSettingsStore = create<SettingsStoreState>((set, get) => ({
         [category]: DEFAULT_SETTINGS[category],
       }
       saveSettings(newSettings)
+      applySettingsToDOM(newSettings)
       return { settings: newSettings }
     })
   },
 
   resetAllSettings: () => {
     saveSettings(DEFAULT_SETTINGS)
+    applySettingsToDOM(DEFAULT_SETTINGS)
     set({ settings: DEFAULT_SETTINGS })
   },
 
@@ -120,5 +148,28 @@ export const useSettingsStore = create<SettingsStoreState>((set, get) => ({
     const current = (get().settings[category] as any)?.[key]
     const def = (DEFAULT_SETTINGS[category] as any)?.[key]
     return current !== undefined && current !== def
+  },
+
+  exportYamlSettings: () => {
+    return settingsToYaml(get().settings)
+  },
+
+  importYamlSettings: (yamlText: string) => {
+    try {
+      const parsed = yamlToSettings(yamlText)
+      saveSettings(parsed)
+      applySettingsToDOM(parsed)
+      set({ settings: parsed })
+      return true
+    } catch (err) {
+      console.error('[SettingsStore] Failed to import YAML settings:', err)
+      return false
+    }
+  },
+
+  initSettings: () => {
+    const loaded = loadSavedSettings()
+    applySettingsToDOM(loaded)
+    set({ settings: loaded })
   },
 }))

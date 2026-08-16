@@ -48,6 +48,14 @@ export function cloneEdge(edge: Edge): Edge {
   };
 }
 
+export function sanitizeIdentifier(id: string): string {
+  let s = id.replace(/[^a-zA-Z0-9_]/g, '_');
+  if (/^[0-9]/.test(s)) {
+    s = '_' + s;
+  }
+  return s;
+}
+
 /**
  * Component Graph Expander
  *

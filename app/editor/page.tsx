@@ -18,10 +18,17 @@ import FloatLayer from '@/components/windowManager/FloatLayer'
 import { usePanelStore } from '@/store/usePanelStore'
 import { PanelId } from '@/lib/windowManager/types'
 
+import { useSettingsStore } from '@/store/useSettingsStore'
+
 export default function EditorPage() {
   const { setProject } = useFlowStore()
   const router = useRouter()
   const [codeOpen, setCodeOpen] = useState(false)
+  const initSettings = useSettingsStore((s) => s.initSettings)
+
+  useEffect(() => {
+    initSettings()
+  }, [initSettings])
 
   useEffect(() => {
     const raw = localStorage.getItem('fp_project')
@@ -31,6 +38,20 @@ export default function EditorPage() {
 
   const { selectedNodeId, simState, project, documents, activeDocumentId, activeCanvas, subFlowStack } = useFlowStore()
   const activeDocument = documents.find(d => d.id === activeDocumentId) || documents[0]
+
+  // Handle window beforeunload if confirmUnsaved is enabled and dirty tabs exist
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const confirmUnsaved = useSettingsStore.getState().settings.general.confirmUnsaved
+      const hasDirty = documents.some(d => d.dirty)
+      if (confirmUnsaved && hasDirty) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [documents])
 
   // Read authoritative window manager panel layout state
   const panels = usePanelStore((s) => s.panels)

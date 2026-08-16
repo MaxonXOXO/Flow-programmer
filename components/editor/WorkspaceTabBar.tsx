@@ -1,7 +1,8 @@
 'use client'
 
-import { useFlowStore } from '@/store/userFlowStore'
-import { Zap, Box, FileCode, FileText, FileJson, X, Plus, Cpu, Braces } from 'lucide-react'
+import { useFlowStore, SubflowDocument } from '@/store/userFlowStore'
+import { useSettingsStore } from '@/store/useSettingsStore'
+import { Zap, Box, FileCode, FileText, FileJson, X, Plus, Cpu, Braces, Lock } from 'lucide-react'
 
 export default function WorkspaceTabBar() {
   const { documents, activeDocumentId, setActiveDocument, closeDocument, openDocument, createFunctionNode, flowNodes, subFlows } = useFlowStore()
@@ -21,7 +22,12 @@ export default function WorkspaceTabBar() {
         return `${cleanName}()`
       }
     }
-    return String(doc.title).replace(/^(ƒ|<>|📄|⚙|📦)\s*/, '')
+    if (doc.type === 'subflow') {
+      const subDoc = doc as SubflowDocument
+      const title = subDoc.title || subDoc.packageId
+      return title.startsWith('📦') ? title : `📦 ${title}`
+    }
+    return String(doc.title).replace(/^(ƒ|<>|📄|⚙)\s*/, '')
   }
 
   const handleAddNewFunction = () => {
@@ -31,7 +37,8 @@ export default function WorkspaceTabBar() {
   const getTabColor = (type: string, id: string) => {
     if (type === 'schema') return '#94a3b8' // Schema (slate/white)
     if (id === 'main_flow' || type === 'flow') return '#f59e0b' // Main Flow (amber yellow)
-    if (type === 'function') return '#a855f7' // Function/Subflow (purple)
+    if (type === 'function') return '#a855f7' // Function (purple)
+    if (type === 'subflow') return '#38bdf8' // Component Subflow (sky blue)
     if (type === 'code' || id.startsWith('code_')) return '#f97316' // Code/Generated (orange)
     return '#3b82f6'
   }
@@ -148,6 +155,11 @@ export default function WorkspaceTabBar() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
+                    const confirmUnsaved = useSettingsStore.getState().settings.general.confirmUnsaved
+                    if (doc.dirty && confirmUnsaved) {
+                      const confirmed = window.confirm(`Tab "${getDocumentDisplayTitle(doc)}" has unsaved changes. Are you sure you want to close it?`)
+                      if (!confirmed) return
+                    }
                     closeDocument(doc.id)
                   }}
                   title="Close Tab"
