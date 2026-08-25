@@ -176,9 +176,9 @@ export default function EditorPage() {
         <div>
           Workspace: <span style={{ color: 'var(--color-text-normal)', fontWeight: 600 }}>{project?.name || 'Loading'}</span>
           <span style={{ margin: '0 6px' }}>|</span>
-          Target: <span style={{ color: 'var(--color-text-normal)', fontWeight: 600 }}>{project?.platform.toUpperCase() || 'Arduino'}</span>
+          Target: <span style={{ color: 'var(--color-text-normal)', fontWeight: 600 }}>{project?.platform ? project.platform.toUpperCase() : 'ARDUINO'}</span>
           <span style={{ margin: '0 6px' }}>|</span>
-          View: <span style={{ color: 'var(--color-text-normal)', fontWeight: 600 }}>{(activeDocument?.title || activeCanvas).toUpperCase()}</span>
+          View: <span style={{ color: 'var(--color-text-normal)', fontWeight: 600 }}>{(activeDocument?.title || activeCanvas || '').toUpperCase()}</span>
           {subFlowStack.length > 0 && (
             <>
               <span style={{ margin: '0 6px' }}>|</span>

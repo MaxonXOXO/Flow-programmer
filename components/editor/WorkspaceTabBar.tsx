@@ -2,7 +2,7 @@
 
 import { useFlowStore, SubflowDocument } from '@/store/userFlowStore'
 import { useSettingsStore } from '@/store/useSettingsStore'
-import { Zap, Box, FileCode, FileText, FileJson, X, Plus, Cpu, Braces, Lock } from 'lucide-react'
+import { Zap, Box, FileCode, FileText, FileJson, X, Plus, Cpu, Braces, Lock, Unlock } from 'lucide-react'
 
 export default function WorkspaceTabBar() {
   const { documents, activeDocumentId, setActiveDocument, closeDocument, openDocument, createFunctionNode, flowNodes, subFlows } = useFlowStore()
@@ -25,6 +25,9 @@ export default function WorkspaceTabBar() {
     if (doc.type === 'subflow') {
       const subDoc = doc as SubflowDocument
       const title = subDoc.title || subDoc.packageId
+      if (subDoc.readOnly === false || subDoc.unlocked) {
+        return title.startsWith('🔓') ? title : `🔓 ${title.replace(/^📦\s*/, '')}`
+      }
       return title.startsWith('📦') ? title : `📦 ${title}`
     }
     return String(doc.title).replace(/^(ƒ|<>|📄|⚙)\s*/, '')
@@ -124,7 +127,11 @@ export default function WorkspaceTabBar() {
                 ) : doc.type === 'function' ? (
                   <Braces className="w-3.5 h-3.5 text-[#a855f7]" />
                 ) : doc.type === 'subflow' ? (
-                  <Box className="w-3.5 h-3.5 text-[#3b82f6]" />
+                  (doc as SubflowDocument).readOnly === false || (doc as SubflowDocument).unlocked ? (
+                    <Unlock className="w-3.5 h-3.5 text-[#22c55e]" />
+                  ) : (
+                    <Box className="w-3.5 h-3.5 text-[#3b82f6]" />
+                  )
                 ) : doc.id === 'code_wiring' ? (
                   <FileText className="w-3.5 h-3.5 text-[#38bdf8]" />
                 ) : doc.id === 'code_pinmap' ? (

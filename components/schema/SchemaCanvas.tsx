@@ -14,6 +14,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useFlowStore } from '@/store/userFlowStore'
+import { resolveCanonicalPackageId } from '@/lib/packages/packageGraphInstantiator'
 import UnoNode from './UnoNode'
 import ComponentNode from './ComponentNode'
 import { Copy, Trash2, Sliders } from 'lucide-react'
@@ -36,6 +37,7 @@ function SchemaCanvasInner() {
     deleteSchemaNode,
     showGrid,
     openComponentPackage,
+    openSubflowDocument,
     pushHistory
   } = useFlowStore()
 
@@ -72,15 +74,22 @@ function SchemaCanvasInner() {
     [schemaEdges, setSchemaEdges, pushHistory]
   )
 
-  // Handle double clicking schematic component to open package editor
+  // Handle double clicking schematic component to open package subflow document
   const onNodeDoubleClick = useCallback((_: React.MouseEvent, node: any) => {
-    if (node.type === 'componentNode') {
-      const packageId = node.data?.definition?.packageId
+    const canonicalPkgId = resolveCanonicalPackageId(node)
+    if (canonicalPkgId) {
+      openSubflowDocument({
+        packageId: canonicalPkgId,
+        componentInstanceId: node.id,
+        activate: true,
+      })
+    } else if (node.type === 'componentNode') {
+      const packageId = node.data?.definition?.packageId || node.data?.packageId
       if (packageId) {
         openComponentPackage(packageId)
       }
     }
-  }, [openComponentPackage])
+  }, [openSubflowDocument, openComponentPackage])
 
   // Handle right-click context menu on components
   const onNodeContextMenu = useCallback(
