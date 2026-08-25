@@ -18,7 +18,7 @@ import ArduinoIcon from '@/components/Customkit/ArduinoIcon'
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false })
 
 export default function CodePanel({ onClose }: { onClose: () => void }) {
-  const { schemaNodes, schemaEdges, flowNodes, flowEdges, subFlows, project, setFlowNodes, setFlowEdges } = useFlowStore()
+  const { schemaNodes, schemaEdges, flowNodes, flowEdges, subFlows, subflowInstances, project, setFlowNodes, setFlowEdges } = useFlowStore()
   
   const [generatedSketch, setGeneratedSketch] = useState<{ main: string; files: Record<string, string> }>({ main: '', files: {} })
   const [activeTab, setActiveTab] = useState<string>('ino')
@@ -30,8 +30,16 @@ export default function CodePanel({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     try {
-      // 1. Compile visual nodes to AST
-      const compiler = new GraphToASTCompiler(flowNodes, flowEdges, subFlows, {}, schemaNodes, schemaEdges);
+      // 1. Compile visual nodes to AST passing subflow instance overrides
+      const compiler = new GraphToASTCompiler(
+        flowNodes,
+        flowEdges,
+        subFlows,
+        {},
+        schemaNodes,
+        schemaEdges,
+        { subflowOverrides: subflowInstances }
+      );
       const program = compiler.compile();
 
       // 2. Validate AST

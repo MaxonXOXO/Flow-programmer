@@ -17,7 +17,7 @@ import {
 } from '../ast/ast';
 import { parseExpressionString } from './expressionParser';
 import { pluginRegistry } from '../../ir/plugin';
-import { expandComponentGraphs, cloneNode, cloneEdge } from '../packages/componentExpander';
+import { expandComponentGraphs, cloneNode, cloneEdge, ComponentCompilationContext } from '../packages/componentExpander';
 
 export class GraphToASTCompiler {
   private visited: Set<string> = new Set();
@@ -27,6 +27,7 @@ export class GraphToASTCompiler {
   private functionSignatures: Record<string, { returnType: string; params: Parameter[] }> = {};
   private schemaNodes: readonly Node[] = [];
   private schemaEdges: readonly Edge[] = [];
+  private compilationContext?: ComponentCompilationContext;
 
   constructor(
     flowNodes: Node[],
@@ -34,7 +35,8 @@ export class GraphToASTCompiler {
     subFlows: Record<string, { nodes: Node[]; edges: Edge[] }> = {},
     functionSignatures: Record<string, { returnType: string; params: Parameter[] }> = {},
     schemaNodes: Node[] = [],
-    schemaEdges: Edge[] = []
+    schemaEdges: Edge[] = [],
+    context?: ComponentCompilationContext
   ) {
     this.flowNodes = flowNodes;
     this.flowEdges = flowEdges;
@@ -42,6 +44,7 @@ export class GraphToASTCompiler {
     this.functionSignatures = functionSignatures;
     this.schemaNodes = schemaNodes;
     this.schemaEdges = schemaEdges;
+    this.compilationContext = context;
   }
 
   public compile(): ProgramNode {
@@ -49,12 +52,13 @@ export class GraphToASTCompiler {
     const inputNodes = this.flowNodes.map(cloneNode);
     const inputEdges = this.flowEdges.map(cloneEdge);
 
-    // Expand component nodes passing schema graph
+    // Expand component nodes passing schema graph and compilation context
     const expanded = expandComponentGraphs(
       inputNodes,
       inputEdges,
       [...this.schemaNodes],
-      [...this.schemaEdges]
+      [...this.schemaEdges],
+      this.compilationContext
     );
 
     const workingNodes = expanded.nodes;

@@ -1,6 +1,7 @@
 import { Node, Edge } from '@xyflow/react';
 import { resolvePackageImplementation } from './packageResolver';
 import { getComponentPackage } from '../../registry/components';
+import { PackageGraphInstance } from '../../registry/components/types';
 
 export interface ExpansionResult {
   nodes: Node[];
@@ -8,16 +9,26 @@ export interface ExpansionResult {
   hasExpandedComponents: boolean;
 }
 
+export interface ComponentCompilationContext {
+  subflowOverrides?: Record<string, PackageGraphInstance>;
+}
+
+export interface ResolvedComponentGraphSource {
+  source: 'instance' | 'package' | 'builtin';
+  packageId: string;
+  componentInstanceId?: string;
+  graph?: {
+    nodes: Node[];
+    edges: Edge[];
+    entry?: string;
+    exit?: string;
+  };
+  entry?: string;
+  exit?: string;
+}
+
 /**
- * Component Graph Expander
- *
- * Scans a visual flow graph for component package nodes.
- * If a package declares an internal subflow graph (e.g., HC-SR04), this stage:
- * 1. Clones the internal graph nodes & edges with instance-prefixed IDs.
- * 2. Performs generic Pin & Variable Binding (maps $TRIG, $ECHO, output variables).
- * 3. Splices the internal subflow nodes/edges directly into the flow graph.
- *
- * If a package does not have an internal graph, it is left intact for builtin generator fallback.
+ * Deep clone helper to ensure complete immutability.
  */
 export function cloneData<T>(obj: T): T {
   if (obj === null || typeof obj !== 'object') {
@@ -57,13 +68,95 @@ export function sanitizeIdentifier(id: string): string {
 }
 
 /**
+ * Authoritatively resolves the graph source for a component node during compilation:
+ * 1. Unlocked / modified subflow instance override in CompilationContext.
+ * 2. Pristine Package template graph from COMPONENT_REGISTRY or inline definition.
+ * 3. Builtin generator fallback.
+ */
+export function resolveComponentGraphSource(
+  node: Node,
+  context?: ComponentCompilationContext
+): ResolvedComponentGraphSource {
+  const nodeData = node.data as any;
+  const nodeType = nodeData?.nodeType || node.type || '';
+  const candidate = 
+    nodeData?.definition ||
+    nodeData?.params?.packageId || 
+    nodeData?.packageId || 
+    nodeType;
+
+  // 1. Resolve canonical package implementation
+  let pkgResolved = resolvePackageImplementation(candidate);
+  if ((!pkgResolved.graph && !pkgResolved.subflow) || pkgResolved.packageId === 'unknown') {
+    const label = nodeData?.label || '';
+    if (label.toLowerCase().includes('ultrasonic')) {
+      pkgResolved = resolvePackageImplementation('ultrasonic_hcsr04');
+    }
+  }
+
+  const packageId = pkgResolved.packageId;
+  const componentInstanceId = node.id;
+
+  // 2. Check for matching subflow override in compilation context
+  if (context?.subflowOverrides && packageId && packageId !== 'unknown') {
+    const expectedDocId = `subflow_${packageId}_${componentInstanceId}`;
+    let overrideInstance: PackageGraphInstance | undefined = context.subflowOverrides[expectedDocId] || context.subflowOverrides[componentInstanceId];
+
+    if (!overrideInstance) {
+      overrideInstance = Object.values(context.subflowOverrides).find(
+        inst => inst.packageId === packageId && inst.componentInstanceId === componentInstanceId
+      );
+    }
+
+    if (overrideInstance && (overrideInstance.unlocked || overrideInstance.dirty)) {
+      if (Array.isArray(overrideInstance.nodes) && overrideInstance.nodes.length > 0) {
+        return {
+          source: 'instance',
+          packageId,
+          componentInstanceId,
+          graph: {
+            nodes: overrideInstance.nodes,
+            edges: overrideInstance.edges,
+            entry: overrideInstance.entry,
+            exit: overrideInstance.exit,
+          },
+          entry: overrideInstance.entry,
+          exit: overrideInstance.exit,
+        };
+      }
+    }
+  }
+
+  // 3. Fallback to package template graph
+  const packageGraph = pkgResolved.graph || pkgResolved.subflow;
+  if (packageGraph && Array.isArray(packageGraph.nodes) && packageGraph.nodes.length > 0) {
+    return {
+      source: 'package',
+      packageId,
+      componentInstanceId,
+      graph: packageGraph,
+      entry: pkgResolved.entry || packageGraph.entry,
+      exit: pkgResolved.exit || packageGraph.exit,
+    };
+  }
+
+  // 4. Fallback to builtin generator
+  return {
+    source: 'builtin',
+    packageId,
+    componentInstanceId,
+  };
+}
+
+/**
  * Component Graph Expander
  *
  * Scans a visual flow graph for component package nodes.
- * If a package declares an internal subflow graph (e.g., HC-SR04), this stage:
+ * If a component resolves to an internal subflow graph (from an instance override or package template),
+ * this stage:
  * 1. Clones the internal graph nodes & edges with instance-prefixed IDs.
- * 2. Performs generic Pin & Variable Binding (maps $TRIG, $ECHO, output variables).
- * 3. Splices the internal subflow nodes/edges directly into the flow graph.
+ * 2. Performs generic Pin & Variable Binding (maps $TRIG, $ECHO, output variables, and scopes internal variables).
+ * 3. Splices the internal subflow nodes/edges directly into the flow graph using explicit B4 entry/exit declarations.
  *
  * If a package does not have an internal graph, it is left intact for builtin generator fallback.
  */
@@ -71,7 +164,8 @@ export function expandComponentGraphs(
   flowNodes: Node[],
   flowEdges: Edge[],
   schemaNodes: Node[] = [],
-  schemaEdges: Edge[] = []
+  schemaEdges: Edge[] = [],
+  context?: ComponentCompilationContext
 ): ExpansionResult {
   const resultNodes: Node[] = [];
   const resultEdges: Edge[] = flowEdges.map(cloneEdge);
@@ -101,32 +195,23 @@ export function expandComponentGraphs(
   flowNodes.forEach(node => {
     const nodeData = node.data as any;
     const nodeType = nodeData?.nodeType || node.type || '';
-    const label = nodeData?.label || '';
+    const instanceId = node.id;
+    const sanitizedInstanceId = sanitizeIdentifier(instanceId);
+    const params = nodeData?.params || {};
 
-    // Determine package ID candidate
-    let packageId = nodeData?.params?.packageId || nodeType;
-    let pkgResolved = resolvePackageImplementation(packageId);
-
-    if ((!pkgResolved.graph && !pkgResolved.subflow) || pkgResolved.packageId === 'unknown') {
-      // Try resolving by label
-      if (label.toLowerCase().includes('ultrasonic')) {
-        pkgResolved = resolvePackageImplementation('ultrasonic_hcsr04');
-      }
-    }
-
-    const internalGraph = pkgResolved.graph || pkgResolved.subflow;
+    // Authoritative source resolution
+    const graphSource = resolveComponentGraphSource(node, context);
+    const internalGraph = graphSource.graph;
 
     // Fallback: If no internal subflow graph exists, keep original node for builtin generator
-    if (!internalGraph || !Array.isArray(internalGraph.nodes) || internalGraph.nodes.length === 0) {
+    if (graphSource.source === 'builtin' || !internalGraph || !Array.isArray(internalGraph.nodes) || internalGraph.nodes.length === 0) {
       resultNodes.push(cloneNode(node));
       return;
     }
 
-    // Found package with internal subflow graph -> expand it!
+    // Found package / instance with internal subflow graph -> expand it!
     hasExpandedComponents = true;
-    const instanceId = node.id;
-    const params = nodeData?.params || {};
-    const pkgDef = getComponentPackage(pkgResolved.packageId);
+    const pkgDef = getComponentPackage(graphSource.packageId) || (nodeData?.definition);
 
     // Build Generic Variable & Pin Bindings
     const bindings: Record<string, string> = {};
@@ -142,7 +227,7 @@ export function expandComponentGraphs(
 
     // Generic pin resolution from package pins definition
     if (pkgDef?.pins) {
-      pkgDef.pins.forEach(pin => {
+      pkgDef.pins.forEach((pin: any) => {
         const boundPin = instancePins[pin.id.toLowerCase()] || params[`${pin.id}Pin`] || params[pin.id];
         if (boundPin) {
           bindings[`$${pin.id.toUpperCase()}`] = boundPin;
@@ -154,15 +239,41 @@ export function expandComponentGraphs(
     const varDist = params.varDist || params.var || params.target || 'distance';
     bindings['distance'] = varDist;
 
+    // 3. Collect internal variables for instance-scoped namespacing (B3)
+    const internalNodes: Node[] = internalGraph.nodes;
+    const internalEdges: Edge[] = internalGraph.edges;
+
+    const internalVarNames = new Set<string>();
+    internalNodes.forEach(subNode => {
+      const p = subNode.data?.params as any;
+      if (!p) return;
+      if (p.var && typeof p.var === 'string' && p.var !== varDist && p.var !== 'distance') {
+        internalVarNames.add(p.var);
+      }
+      if (p.target && typeof p.target === 'string' && p.target !== varDist && p.target !== 'distance' && (subNode.data as any)?.nodeType !== 'return') {
+        internalVarNames.add(p.target);
+      }
+    });
+
     // Helper to recursively substitute bindings in params and expressions
     const applyBindings = (value: any): any => {
       if (typeof value === 'string') {
         let str = value;
+        // First apply pin and output bindings
         Object.entries(bindings).forEach(([key, subVal]) => {
           if (str === key) {
             str = subVal;
           } else if (key.startsWith('$')) {
             str = str.replace(new RegExp(`\\${key}\\b`, 'g'), subVal);
+          }
+        });
+        // Next apply instance scoping to internal variables (e.g. duration -> sensor_front_duration)
+        internalVarNames.forEach(varName => {
+          const scopedVar = `${sanitizedInstanceId}_${varName}`;
+          if (str === varName) {
+            str = scopedVar;
+          } else {
+            str = str.replace(new RegExp(`\\b${varName}\\b`, 'g'), scopedVar);
           }
         });
         return str;
@@ -180,13 +291,28 @@ export function expandComponentGraphs(
       return value;
     };
 
-    // Locate internal subflow entry node (after 'start') and return/exit node
-    const internalNodes: Node[] = internalGraph.nodes;
-    const internalEdges: Edge[] = internalGraph.edges;
+    // 4. Validate and resolve explicit entry / exit declarations (B4)
+    const explicitEntryId = graphSource.entry || internalGraph.entry;
+    const explicitExitId = graphSource.exit || internalGraph.exit;
 
-    const startNode = internalNodes.find(n => (n.data as any)?.nodeType === 'start' || n.type === 'start' || n.id === 'start');
-    const firstEdgeAfterStart = internalEdges.find(e => e.source === startNode?.id);
-    const entrySubNodeId = firstEdgeAfterStart ? `${instanceId}_${firstEdgeAfterStart.target}` : undefined;
+    if (!explicitEntryId) {
+      throw new Error(`Component package "${graphSource.packageId}" does not declare an explicit 'entry' node ID.`);
+    }
+    const entryExists = internalNodes.some(n => n.id === explicitEntryId);
+    if (!entryExists) {
+      throw new Error(`Component package "${graphSource.packageId}" declares entry node ID "${explicitEntryId}", which does not exist in graph.`);
+    }
+
+    if (!explicitExitId) {
+      throw new Error(`Component package "${graphSource.packageId}" does not declare an explicit 'exit' node ID.`);
+    }
+    const exitExists = internalNodes.some(n => n.id === explicitExitId);
+    if (!exitExists) {
+      throw new Error(`Component package "${graphSource.packageId}" declares exit node ID "${explicitExitId}", which does not exist in graph.`);
+    }
+
+    const entrySubNodeId = `${instanceId}_${explicitEntryId}`;
+    const exitSubNodeId = `${instanceId}_${explicitExitId}`;
 
     // Clone internal nodes (excluding 'start')
     const clonedSubNodes: Node[] = [];
@@ -221,7 +347,7 @@ export function expandComponentGraphs(
 
     // Clone internal edges
     internalEdges.forEach(subEdge => {
-      if (subEdge.source === startNode?.id) return;
+      if (subEdge.source === 'start') return;
 
       resultEdges.push({
         ...subEdge,
@@ -231,33 +357,24 @@ export function expandComponentGraphs(
       });
     });
 
-    // Find exit node of subflow to connect to downstream flow
-    const returnNode = internalNodes.find(n => (n.data as any)?.nodeType === 'return');
-    const calcNode = internalNodes.find(n => subNodeIdIsExit(n, internalEdges));
-    const exitSubNodeId = `${instanceId}_${returnNode?.id || calcNode?.id || internalNodes[internalNodes.length - 1].id}`;
-
     // Splice main graph edges:
     // 1. Incoming edges targeting instanceId -> redirect to entrySubNodeId
-    if (entrySubNodeId) {
-      for (let i = 0; i < resultEdges.length; i++) {
-        if (resultEdges[i].target === instanceId) {
-          resultEdges[i] = {
-            ...resultEdges[i],
-            target: entrySubNodeId,
-          };
-        }
+    for (let i = 0; i < resultEdges.length; i++) {
+      if (resultEdges[i].target === instanceId) {
+        resultEdges[i] = {
+          ...resultEdges[i],
+          target: entrySubNodeId,
+        };
       }
     }
 
     // 2. Outgoing edges originating from instanceId -> redirect from exitSubNodeId
-    if (exitSubNodeId) {
-      for (let i = 0; i < resultEdges.length; i++) {
-        if (resultEdges[i].source === instanceId) {
-          resultEdges[i] = {
-            ...resultEdges[i],
-            source: exitSubNodeId,
-          };
-        }
+    for (let i = 0; i < resultEdges.length; i++) {
+      if (resultEdges[i].source === instanceId) {
+        resultEdges[i] = {
+          ...resultEdges[i],
+          source: exitSubNodeId,
+        };
       }
     }
   });
@@ -267,9 +384,4 @@ export function expandComponentGraphs(
     edges: resultEdges,
     hasExpandedComponents,
   };
-}
-
-function subNodeIdIsExit(node: Node, edges: Edge[]): boolean {
-  const isSource = edges.some(e => e.source === node.id);
-  return !isSource;
 }
