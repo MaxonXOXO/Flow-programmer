@@ -8,15 +8,21 @@ export interface ResolvedPackageImplementation {
   version: number;
   /** Entry point if applicable */
   entry?: string;
+  /** Exit point if applicable */
+  exit?: string;
   /** Subflow graph data (nodes & edges) if applicable */
   subflow?: {
     nodes: any[];
     edges: any[];
+    entry?: string;
+    exit?: string;
   };
   /** Alias for subflow graph */
   graph?: {
     nodes: any[];
     edges: any[];
+    entry?: string;
+    exit?: string;
   };
   /** Package unique identifier */
   packageId: string;
@@ -62,19 +68,28 @@ export function resolvePackageImplementation(
     strategy = 'builtin';
   }
 
-  let parsedSubflow: { nodes: any[]; edges: any[] } | undefined = undefined;
+  let parsedSubflow: { nodes: any[]; edges: any[]; entry?: string; exit?: string } | undefined = undefined;
   const rawGraph = impl.graph || impl.subflow;
   if (rawGraph && typeof rawGraph === 'object') {
     const s = rawGraph as any;
     if (Array.isArray(s.nodes) && Array.isArray(s.edges)) {
-      parsedSubflow = { nodes: s.nodes, edges: s.edges };
+      parsedSubflow = {
+        nodes: s.nodes,
+        edges: s.edges,
+        entry: s.entry,
+        exit: s.exit,
+      };
     }
   }
+
+  const entry = impl.entry || parsedSubflow?.entry;
+  const exit = impl.exit || parsedSubflow?.exit;
 
   return {
     strategy,
     version: impl.version || 1,
-    entry: impl.entry,
+    entry,
+    exit,
     subflow: parsedSubflow,
     graph: parsedSubflow,
     packageId,

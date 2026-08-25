@@ -3,6 +3,8 @@
 //  Phase 2 — Component Package Architecture (Foundation)
 // ─────────────────────────────────────────────────────────────────
 
+import type { Node, Edge } from '@xyflow/react';
+
 // ─── Shared Primitives ───────────────────────────────────────────
 
 export type ComponentCategory =
@@ -150,6 +152,28 @@ export interface PackageGraphDefinition {
   nodes: any[];
   /** Internal flow graph edges */
   edges: any[];
+}
+
+/**
+ * An instantiated, independent editor graph instance created from a package graph template.
+ */
+export interface PackageGraphInstance {
+  /** Unique package identifier */
+  packageId: string;
+  /** Optional component instance identifier for instance-specific graphs */
+  componentInstanceId?: string;
+  /** Independent flow nodes */
+  nodes: Node[];
+  /** Independent flow edges */
+  edges: Edge[];
+  /** Preserved explicit entry node ID */
+  entry: string;
+  /** Preserved explicit exit node ID */
+  exit: string;
+  /** Read-only vs unlocked editor state */
+  unlocked: boolean;
+  /** Document dirty / modified flag */
+  dirty: boolean;
 }
 
 export interface PackageImplementation {
