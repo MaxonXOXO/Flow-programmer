@@ -41,6 +41,17 @@ export interface ProjectSettings {
   [key: string]: any
 }
 
+export interface ProjectComponentOverride {
+  id: string
+  packageId: string
+  componentInstanceId: string
+  packageVersion?: string
+  entry: string
+  exit: string
+  nodes: any[]
+  edges: any[]
+}
+
 export interface FlowProject {
   format: "flow"
   version: number
@@ -49,6 +60,7 @@ export interface FlowProject {
   schema: SchemaCanvasData
   flow: FlowCanvasData
   functions: FunctionCollection
+  componentOverrides?: Record<string, ProjectComponentOverride>
   settings: ProjectSettings
 }
 

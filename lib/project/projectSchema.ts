@@ -58,6 +58,46 @@ export function validateProjectSchema(data: any): ProjectValidationResult {
     errors.push('Missing functions section.')
   }
 
+  // Check componentOverrides if present
+  if (data.componentOverrides !== undefined) {
+    if (typeof data.componentOverrides !== 'object' || data.componentOverrides === null) {
+      errors.push('componentOverrides section must be a valid object or map.')
+    } else {
+      const overridesList = Array.isArray(data.componentOverrides) 
+        ? data.componentOverrides 
+        : Object.values(data.componentOverrides)
+
+      overridesList.forEach((ov: any, idx: number) => {
+        if (!ov || typeof ov !== 'object') {
+          errors.push(`componentOverrides[${idx}] must be a valid object.`)
+          return
+        }
+        if (!ov.packageId || typeof ov.packageId !== 'string') {
+          errors.push(`componentOverrides[${idx}] missing valid packageId.`)
+        }
+        if (!ov.componentInstanceId || typeof ov.componentInstanceId !== 'string') {
+          errors.push(`componentOverrides[${idx}] missing valid componentInstanceId.`)
+        }
+        if (!Array.isArray(ov.nodes)) {
+          errors.push(`componentOverrides[${idx}] missing valid nodes array.`)
+        }
+        if (!Array.isArray(ov.edges)) {
+          errors.push(`componentOverrides[${idx}] missing valid edges array.`)
+        }
+        if (!ov.entry || typeof ov.entry !== 'string') {
+          errors.push(`componentOverrides[${idx}] missing explicit entry node declaration.`)
+        } else if (Array.isArray(ov.nodes) && !ov.nodes.some((n: any) => n.id === ov.entry)) {
+          errors.push(`componentOverrides[${idx}] entry node "${ov.entry}" does not exist in nodes.`)
+        }
+        if (!ov.exit || typeof ov.exit !== 'string') {
+          errors.push(`componentOverrides[${idx}] missing explicit exit node declaration.`)
+        } else if (Array.isArray(ov.nodes) && !ov.nodes.some((n: any) => n.id === ov.exit)) {
+          errors.push(`componentOverrides[${idx}] exit node "${ov.exit}" does not exist in nodes.`)
+        }
+      })
+    }
+  }
+
   return {
     valid: errors.length === 0,
     errors,
@@ -82,6 +122,7 @@ export function upgradeLegacyProject(raw: any): FlowProject {
 
   const subFlows = raw?.subFlows || raw?.functions?.subFlows || {}
   const componentPackages = raw?.componentPackages || raw?.settings?.componentPackages || {}
+  const componentOverrides = raw?.componentOverrides || {}
 
   return {
     format: PROJECT_FILE_FORMAT,
@@ -108,6 +149,7 @@ export function upgradeLegacyProject(raw: any): FlowProject {
     functions: {
       subFlows,
     },
+    componentOverrides,
     settings: {
       componentPackages,
     },

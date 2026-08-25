@@ -28,6 +28,7 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
     schemaEdges,
     subFlows,
     componentPackages,
+    subflowInstances,
     activePackageId,
     showSidebar,
     showGrid,
@@ -96,7 +97,8 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
       flowNodes,
       flowEdges,
       subFlows,
-      componentPackages
+      componentPackages,
+      subflowInstances,
     })
     const jsonStr = serializeProject(flowProject)
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonStr)
@@ -500,7 +502,7 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
             <span style={{ fontWeight: 600, color: 'var(--color-text-bright)' }}>{project.name}</span>
             <span style={{ color: 'var(--color-text-dim)' }}>|</span>
             <span style={{ fontSize: 10, fontFamily: 'monospace', color: 'var(--color-text-dim)' }}>
-              {project.platform.toUpperCase()}
+              {(project.platform || 'Arduino').toUpperCase()}
             </span>
           </div>
         )}

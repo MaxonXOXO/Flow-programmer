@@ -6,6 +6,8 @@ import {
   OnNodesChange, OnEdgesChange 
 } from '@xyflow/react'
 import { loadPackage, packageExists, validatePackage } from '../lib/packages/packageLoader'
+import { PackageGraphInstance } from '../lib/registry/components/types'
+import { instantiatePackageGraph } from '../lib/packages/packageGraphInstantiator'
 import { usePanelStore } from './usePanelStore'
 
 interface ProjectConfig {
@@ -58,6 +60,7 @@ export interface SubflowDocument {
   packageId: string
   componentInstanceId?: string
   readOnly: boolean
+  unlocked?: boolean
   icon?: string
   closable?: boolean
   dirty?: boolean
@@ -79,7 +82,7 @@ interface FlowStore {
   setDocumentDirty: (id: string, dirty: boolean) => void
   createFunctionNode: (preferredName?: string) => string
 
-  // Subflow Document Infrastructure (Phase 5A)
+  // Subflow Document Infrastructure (Phase 5A, 5B, 5D, 5F)
   openSubflowDocument: (params: {
     packageId: string
     title?: string
@@ -90,6 +93,13 @@ interface FlowStore {
   closeSubflowDocument: (idOrPackageId: string) => void
   isSubflowDocumentOpen: (packageId: string, componentInstanceId?: string) => boolean
   getSubflowDocument: (packageId: string, componentInstanceId?: string) => SubflowDocument | undefined
+  unlockSubflowDocument: (docIdOrPackageId: string, componentInstanceId?: string) => void
+  saveSubflowOverride: (docIdOrPackageId: string, componentInstanceId?: string) => void
+  revertSubflowOverride: (docIdOrPackageId: string, componentInstanceId?: string) => void
+  
+  // Subflow Graph Instances (Phase 5B, 5D, 5F)
+  subflowInstances: Record<string, PackageGraphInstance>
+  getSubflowInstance: (packageIdOrDocId: string, componentInstanceId?: string) => PackageGraphInstance | undefined
 
   // Schema canvas
   schemaNodes: Node[]
@@ -168,6 +178,7 @@ interface FlowStore {
     schemaEdges: Edge[]
     subFlows?: Record<string, SubFlowData>
     componentPackages?: Record<string, ComponentPackageData>
+    subflowInstances?: Record<string, PackageGraphInstance>
   }) => void
 
   // Layout states
@@ -236,6 +247,7 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   schemaEdges: [],
   flowNodes: [],
   flowEdges: [],
+  subflowInstances: {},
   subFlows: {},
   subFlowStack: [],
   componentPackages: {},
@@ -305,17 +317,28 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
     const targetIdx = s.documents.findIndex(d => d.id === id)
     const newDocs = s.documents.filter(d => d.id !== id)
 
+    const newSubflowInstances = { ...s.subflowInstances }
+    const instance = s.subflowInstances[id]
+    // If instance is NOT unlocked (i.e. pristine viewer graph), clean it up.
+    // If it IS unlocked (customized or committed override), preserve it in session state so compiler and future reopens retain it.
+    if (instance && !instance.unlocked) {
+      delete newSubflowInstances[id]
+    }
+
     let nextActiveId = s.activeDocumentId
     if (s.activeDocumentId === id) {
       const nextDoc = newDocs[Math.max(0, targetIdx - 1)]
       nextActiveId = nextDoc ? nextDoc.id : 'schema'
     }
 
-    set({ documents: newDocs })
+    set({ 
+      documents: newDocs,
+      subflowInstances: newSubflowInstances,
+    })
     get().setActiveDocument(nextActiveId)
   },
 
-  // ===== SUBFLOW DOCUMENT ACTIONS (PHASE 5A) =====
+  // ===== SUBFLOW DOCUMENT ACTIONS (PHASE 5A, 5B, 5D, 5F) =====
   openSubflowDocument: (params) => {
     const s = get()
     const { packageId, componentInstanceId, title, readOnly = true, activate = true } = params
@@ -336,20 +359,45 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
       return docId
     }
 
-    // Create new first-class SubflowDocument (metadata only)
+    // Check if an instance override already exists in session state (subflowInstances)
+    let graphInstance = s.subflowInstances[docId]
+    let isUnlocked = false
+
+    if (!graphInstance) {
+      try {
+        graphInstance = instantiatePackageGraph({ packageId, componentInstanceId })
+      } catch {
+        // Package has no internal subflow graph or does not exist — document remains metadata-only
+      }
+    } else {
+      isUnlocked = Boolean(graphInstance.unlocked)
+    }
+
+    const cleanTitle = (title || `📦 ${packageId}`).replace(/^(📦|🔓)\s*/, '')
+
+    // Create new first-class SubflowDocument
     const newDoc: SubflowDocument = {
       id: docId,
-      title: title || `📦 ${packageId}`,
+      title: isUnlocked ? `🔓 ${cleanTitle}` : `📦 ${cleanTitle}`,
       type: 'subflow',
       packageId,
       componentInstanceId,
-      readOnly,
+      readOnly: isUnlocked ? false : readOnly,
+      unlocked: isUnlocked,
       closable: true,
-      dirty: false,
+      dirty: graphInstance?.dirty || false,
       targetId: packageId,
     }
 
-    set({ documents: [...s.documents, newDoc] })
+    const nextSubflowInstances = { ...s.subflowInstances }
+    if (graphInstance) {
+      nextSubflowInstances[docId] = graphInstance
+    }
+
+    set({ 
+      documents: [...s.documents, newDoc],
+      subflowInstances: nextSubflowInstances,
+    })
 
     if (activate) {
       get().setActiveDocument(docId)
@@ -389,6 +437,156 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
       return true
     })
     return found as SubflowDocument | undefined
+  },
+
+  getSubflowInstance: (packageIdOrDocId, componentInstanceId) => {
+    const s = get()
+    let docId = packageIdOrDocId
+    if (!docId.startsWith('subflow_')) {
+      docId = componentInstanceId
+        ? `subflow_${packageIdOrDocId}_${componentInstanceId}`
+        : `subflow_${packageIdOrDocId}`
+    }
+    return s.subflowInstances[docId]
+  },
+
+  unlockSubflowDocument: (docIdOrPackageId, componentInstanceId) => {
+    const s = get()
+    let targetDoc = s.documents.find(d => d.id === docIdOrPackageId && d.type === 'subflow') as SubflowDocument | undefined
+    if (!targetDoc) {
+      targetDoc = s.documents.find(d => {
+        if (d.type !== 'subflow') return false
+        const subDoc = d as SubflowDocument
+        if (subDoc.packageId !== docIdOrPackageId) return false
+        if (componentInstanceId !== undefined && subDoc.componentInstanceId !== componentInstanceId) return false
+        return true
+      }) as SubflowDocument | undefined
+    }
+    if (!targetDoc) return
+
+    const docId = targetDoc.id
+    const instance = s.subflowInstances[docId]
+    if (!instance) return
+
+    const cleanTitle = targetDoc.title.replace(/^(📦|🔓)\s*/, '')
+    const updatedDoc: SubflowDocument = {
+      ...targetDoc,
+      readOnly: false,
+      unlocked: true,
+      title: `🔓 ${cleanTitle}`,
+      icon: '🔓',
+    }
+
+    const updatedInstance: PackageGraphInstance = {
+      ...instance,
+      unlocked: true,
+    }
+
+    set({
+      documents: s.documents.map(d => d.id === docId ? updatedDoc : d),
+      subflowInstances: {
+        ...s.subflowInstances,
+        [docId]: updatedInstance,
+      },
+    })
+  },
+
+  saveSubflowOverride: (docIdOrPackageId, componentInstanceId) => {
+    const s = get()
+    let targetDoc = s.documents.find(d => d.id === docIdOrPackageId && d.type === 'subflow') as SubflowDocument | undefined
+    if (!targetDoc) {
+      targetDoc = s.documents.find(d => {
+        if (d.type !== 'subflow') return false
+        const subDoc = d as SubflowDocument
+        if (subDoc.packageId !== docIdOrPackageId) return false
+        if (componentInstanceId !== undefined && subDoc.componentInstanceId !== componentInstanceId) return false
+        return true
+      }) as SubflowDocument | undefined
+    }
+
+    const docId = targetDoc ? targetDoc.id : (
+      docIdOrPackageId.startsWith('subflow_') ? docIdOrPackageId : (
+        componentInstanceId ? `subflow_${docIdOrPackageId}_${componentInstanceId}` : `subflow_${docIdOrPackageId}`
+      )
+    )
+
+    const instance = s.subflowInstances[docId]
+    if (!instance) return
+
+    const updatedInstance: PackageGraphInstance = {
+      ...instance,
+      dirty: false,
+    }
+
+    set({
+      subflowInstances: {
+        ...s.subflowInstances,
+        [docId]: updatedInstance,
+      },
+      documents: s.documents.map(d => d.id === docId ? { ...d, dirty: false } : d),
+    })
+  },
+
+  revertSubflowOverride: (docIdOrPackageId, componentInstanceId) => {
+    const s = get()
+    let targetDoc = s.documents.find(d => d.id === docIdOrPackageId && d.type === 'subflow') as SubflowDocument | undefined
+    if (!targetDoc) {
+      targetDoc = s.documents.find(d => {
+        if (d.type !== 'subflow') return false
+        const subDoc = d as SubflowDocument
+        if (subDoc.packageId !== docIdOrPackageId) return false
+        if (componentInstanceId !== undefined && subDoc.componentInstanceId !== componentInstanceId) return false
+        return true
+      }) as SubflowDocument | undefined
+    }
+
+    const docId = targetDoc ? targetDoc.id : (
+      docIdOrPackageId.startsWith('subflow_') ? docIdOrPackageId : (
+        componentInstanceId ? `subflow_${docIdOrPackageId}_${componentInstanceId}` : `subflow_${docIdOrPackageId}`
+      )
+    )
+
+    const existingInstance = s.subflowInstances[docId]
+    const packageId = targetDoc?.packageId || existingInstance?.packageId || (docId.startsWith('subflow_') ? docId.split('_')[1] : docIdOrPackageId)
+    const instId = targetDoc?.componentInstanceId || existingInstance?.componentInstanceId || componentInstanceId
+
+    // Instantiate fresh pristine clone from package template in registry
+    let freshInstance: PackageGraphInstance | undefined = undefined
+    try {
+      freshInstance = instantiatePackageGraph({ packageId, componentInstanceId: instId })
+    } catch {
+      // Package has no internal subflow graph or does not exist
+    }
+
+    const nextSubflowInstances = { ...s.subflowInstances }
+    if (freshInstance) {
+      freshInstance.unlocked = false
+      freshInstance.dirty = false
+      nextSubflowInstances[docId] = freshInstance
+    } else {
+      delete nextSubflowInstances[docId]
+    }
+
+    const nextDocs = s.documents.map(d => {
+      if (d.id === docId) {
+        const cleanTitle = d.title.replace(/^(📦|🔓)\s*/, '')
+        const revertedDoc: SubflowDocument = {
+          ...(d as SubflowDocument),
+          readOnly: true,
+          unlocked: false,
+          dirty: false,
+          title: `📦 ${cleanTitle}`,
+          icon: '📦',
+        }
+        return revertedDoc
+      }
+      return d
+    })
+
+    set({
+      subflowInstances: nextSubflowInstances,
+      documents: nextDocs,
+    })
   },
 
   setDocumentDirty: (id: string, dirty: boolean) => set((s) => ({
@@ -688,9 +886,16 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   }),
 
   // ===== ACTIVE FLOW RESOLUTION =====
-  // These getters resolve the currently visible flow based on sub-flow stack and package context
+  // These getters resolve the currently visible flow based on workspace document, sub-flow stack, and package context
   getActiveFlowNodes: () => {
     const s = get()
+    const activeDoc = s.documents.find(d => d.id === s.activeDocumentId)
+    if (activeDoc?.type === 'subflow') {
+      const subInstance = s.subflowInstances[activeDoc.id]
+      if (subInstance) {
+        return subInstance.nodes
+      }
+    }
     if (s.activePackageId && s.componentPackages[s.activePackageId]) {
       return s.componentPackages[s.activePackageId].nodes
     }
@@ -703,6 +908,13 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
 
   getActiveFlowEdges: () => {
     const s = get()
+    const activeDoc = s.documents.find(d => d.id === s.activeDocumentId)
+    if (activeDoc?.type === 'subflow') {
+      const subInstance = s.subflowInstances[activeDoc.id]
+      if (subInstance) {
+        return subInstance.edges
+      }
+    }
     if (s.activePackageId && s.componentPackages[s.activePackageId]) {
       return s.componentPackages[s.activePackageId].edges
     }
@@ -713,8 +925,22 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
     return s.flowEdges
   },
 
-  // Set/modify the currently active flow (auto-routes to sub-flow or package if active)
+  // Set/modify the currently active flow (auto-routes to unlocked subflow, sub-flow, or package if active)
   setActiveFlowNodes: (nodes) => set((s) => {
+    const activeDoc = s.documents.find(d => d.id === s.activeDocumentId)
+    if (activeDoc?.type === 'subflow') {
+      const subInstance = s.subflowInstances[activeDoc.id]
+      if (subInstance && subInstance.unlocked) {
+        return {
+          subflowInstances: {
+            ...s.subflowInstances,
+            [activeDoc.id]: { ...subInstance, nodes, dirty: true }
+          },
+          documents: s.documents.map(d => d.id === activeDoc.id ? { ...d, dirty: true } : d)
+        }
+      }
+      return s
+    }
     if (s.activePackageId && s.componentPackages[s.activePackageId]) {
       const activePkg = s.componentPackages[s.activePackageId]
       const updatedPkg = { ...activePkg, nodes }
@@ -739,6 +965,20 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   }),
 
   setActiveFlowEdges: (edges) => set((s) => {
+    const activeDoc = s.documents.find(d => d.id === s.activeDocumentId)
+    if (activeDoc?.type === 'subflow') {
+      const subInstance = s.subflowInstances[activeDoc.id]
+      if (subInstance && subInstance.unlocked) {
+        return {
+          subflowInstances: {
+            ...s.subflowInstances,
+            [activeDoc.id]: { ...subInstance, edges, dirty: true }
+          },
+          documents: s.documents.map(d => d.id === activeDoc.id ? { ...d, dirty: true } : d)
+        }
+      }
+      return s
+    }
     if (s.activePackageId && s.componentPackages[s.activePackageId]) {
       const activePkg = s.componentPackages[s.activePackageId]
       const updatedPkg = { ...activePkg, edges }
@@ -763,6 +1003,20 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   }),
 
   addActiveFlowNode: (node) => set((s) => {
+    const activeDoc = s.documents.find(d => d.id === s.activeDocumentId)
+    if (activeDoc?.type === 'subflow') {
+      const subInstance = s.subflowInstances[activeDoc.id]
+      if (subInstance && subInstance.unlocked) {
+        return {
+          subflowInstances: {
+            ...s.subflowInstances,
+            [activeDoc.id]: { ...subInstance, nodes: [...subInstance.nodes, node], dirty: true }
+          },
+          documents: s.documents.map(d => d.id === activeDoc.id ? { ...d, dirty: true } : d)
+        }
+      }
+      return s
+    }
     if (s.activePackageId && s.componentPackages[s.activePackageId]) {
       const activePkg = s.componentPackages[s.activePackageId]
       const updatedPkg = { ...activePkg, nodes: [...activePkg.nodes, node] }
@@ -788,6 +1042,25 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   }),
 
   deleteActiveFlowNode: (id) => set((s) => {
+    const activeDoc = s.documents.find(d => d.id === s.activeDocumentId)
+    if (activeDoc?.type === 'subflow') {
+      const subInstance = s.subflowInstances[activeDoc.id]
+      if (subInstance && subInstance.unlocked) {
+        return {
+          subflowInstances: {
+            ...s.subflowInstances,
+            [activeDoc.id]: {
+              ...subInstance,
+              nodes: subInstance.nodes.filter(n => n.id !== id),
+              edges: subInstance.edges.filter(e => e.source !== id && e.target !== id),
+              dirty: true,
+            }
+          },
+          documents: s.documents.map(d => d.id === activeDoc.id ? { ...d, dirty: true } : d)
+        }
+      }
+      return s
+    }
     if (s.activePackageId && s.componentPackages[s.activePackageId]) {
       const activePkg = s.componentPackages[s.activePackageId]
       const updatedPkg = {
@@ -823,6 +1096,27 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   }),
 
   onActiveFlowNodesChange: (changes) => set((s) => {
+    const activeDoc = s.documents.find(d => d.id === s.activeDocumentId)
+    if (activeDoc?.type === 'subflow') {
+      const subInstance = s.subflowInstances[activeDoc.id]
+      if (subInstance && subInstance.unlocked) {
+        const hasMutatingChanges = changes.some(c => c.type !== 'select')
+        return {
+          subflowInstances: {
+            ...s.subflowInstances,
+            [activeDoc.id]: {
+              ...subInstance,
+              nodes: applyNodeChanges(changes, subInstance.nodes),
+              dirty: subInstance.dirty || hasMutatingChanges,
+            }
+          },
+          documents: hasMutatingChanges 
+            ? s.documents.map(d => d.id === activeDoc.id ? { ...d, dirty: true } : d)
+            : s.documents
+        }
+      }
+      return s
+    }
     if (s.activePackageId && s.componentPackages[s.activePackageId]) {
       const activePkg = s.componentPackages[s.activePackageId]
       const updatedPkg = { ...activePkg, nodes: applyNodeChanges(changes, activePkg.nodes) }
@@ -848,6 +1142,27 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   }),
 
   onActiveFlowEdgesChange: (changes) => set((s) => {
+    const activeDoc = s.documents.find(d => d.id === s.activeDocumentId)
+    if (activeDoc?.type === 'subflow') {
+      const subInstance = s.subflowInstances[activeDoc.id]
+      if (subInstance && subInstance.unlocked) {
+        const hasMutatingChanges = changes.some(c => c.type !== 'select')
+        return {
+          subflowInstances: {
+            ...s.subflowInstances,
+            [activeDoc.id]: {
+              ...subInstance,
+              edges: applyEdgeChanges(changes, subInstance.edges),
+              dirty: subInstance.dirty || hasMutatingChanges,
+            }
+          },
+          documents: hasMutatingChanges 
+            ? s.documents.map(d => d.id === activeDoc.id ? { ...d, dirty: true } : d)
+            : s.documents
+        }
+      }
+      return s
+    }
     if (s.activePackageId && s.componentPackages[s.activePackageId]) {
       const activePkg = s.componentPackages[s.activePackageId]
       const updatedPkg = { ...activePkg, edges: applyEdgeChanges(changes, activePkg.edges) }
@@ -873,6 +1188,24 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   }),
 
   updateActiveFlowNodeData: (id, data) => set((s) => {
+    const activeDoc = s.documents.find(d => d.id === s.activeDocumentId)
+    if (activeDoc?.type === 'subflow') {
+      const subInstance = s.subflowInstances[activeDoc.id]
+      if (subInstance && subInstance.unlocked) {
+        return {
+          subflowInstances: {
+            ...s.subflowInstances,
+            [activeDoc.id]: {
+              ...subInstance,
+              nodes: subInstance.nodes.map(n => n.id === id ? { ...n, data } : n),
+              dirty: true,
+            }
+          },
+          documents: s.documents.map(d => d.id === activeDoc.id ? { ...d, dirty: true } : d)
+        }
+      }
+      return s
+    }
     if (s.activePackageId && s.componentPackages[s.activePackageId]) {
       const activePkg = s.componentPackages[s.activePackageId]
       const updatedPkg = {
@@ -960,6 +1293,25 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
 
     if (packageUpdated) {
       return { componentPackages: nextPackages, documents: newDocs }
+    }
+
+    const nextSubflowInstances = { ...s.subflowInstances }
+    let subflowInstUpdated = false
+    for (const docId of Object.keys(nextSubflowInstances)) {
+      const inst = nextSubflowInstances[docId]
+      if (inst.unlocked) {
+        const nextNodes = inst.nodes.map(n => {
+          if (n.id === id) { subflowInstUpdated = true; return { ...n, data } }
+          return n
+        })
+        if (subflowInstUpdated) {
+          nextSubflowInstances[docId] = { ...inst, nodes: nextNodes, dirty: true }
+          return {
+            subflowInstances: nextSubflowInstances,
+            documents: s.documents.map(d => d.id === docId ? { ...d, dirty: true } : d)
+          }
+        }
+      }
     }
 
     return s
@@ -1118,7 +1470,10 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
     schemaEdges: state.schemaEdges,
     subFlows: state.subFlows || {},
     componentPackages: state.componentPackages || {},
+    subflowInstances: state.subflowInstances || {},
     subFlowStack: [],
     activePackageId: null,
+    documents: DEFAULT_DOCUMENTS,
+    activeDocumentId: 'schema',
   }),
 }))

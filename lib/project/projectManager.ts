@@ -53,6 +53,7 @@ export function exportProjectFromState(storeState: {
   flowEdges?: any[];
   subFlows?: Record<string, any>;
   componentPackages?: Record<string, any>;
+  subflowInstances?: Record<string, any>;
   metadata?: any;
 }): FlowProject {
   const now = new Date().toISOString()
@@ -60,6 +61,24 @@ export function exportProjectFromState(storeState: {
   const boardId = storeState.project?.platform || 'arduino_uno'
   const created = storeState.metadata?.created || 
     (storeState.project?.createdAt ? new Date(storeState.project.createdAt).toISOString() : now)
+
+  const componentOverrides: Record<string, any> = {}
+  if (storeState.subflowInstances) {
+    for (const [key, inst] of Object.entries(storeState.subflowInstances)) {
+      if (inst && inst.unlocked && inst.packageId && inst.componentInstanceId) {
+        componentOverrides[key] = {
+          id: key,
+          packageId: inst.packageId,
+          componentInstanceId: inst.componentInstanceId,
+          packageVersion: inst.packageVersion,
+          entry: inst.entry,
+          exit: inst.exit,
+          nodes: JSON.parse(JSON.stringify(inst.nodes || [])),
+          edges: JSON.parse(JSON.stringify(inst.edges || [])),
+        }
+      }
+    }
+  }
 
   return {
     format: PROJECT_FILE_FORMAT,
@@ -86,6 +105,7 @@ export function exportProjectFromState(storeState: {
     functions: {
       subFlows: storeState.subFlows || {},
     },
+    ...(Object.keys(componentOverrides).length > 0 ? { componentOverrides } : {}),
     settings: {
       componentPackages: storeState.componentPackages || {},
     },
@@ -181,6 +201,29 @@ export function importProject(fileContentOrObject: string | object): ImportProje
  * Converts a FlowProject structure into store state format for userFlowStore.loadProjectState().
  */
 export function extractStoreState(flowProject: FlowProject) {
+  const subflowInstances: Record<string, any> = {}
+  if (flowProject.componentOverrides) {
+    const overridesList = Array.isArray(flowProject.componentOverrides)
+      ? flowProject.componentOverrides
+      : Object.values(flowProject.componentOverrides)
+
+    for (const ov of overridesList) {
+      if (!ov || !ov.packageId || !ov.componentInstanceId) continue
+      const docId = ov.id || `subflow_${ov.packageId}_${ov.componentInstanceId}`
+      subflowInstances[docId] = {
+        packageId: ov.packageId,
+        componentInstanceId: ov.componentInstanceId,
+        packageVersion: ov.packageVersion,
+        entry: ov.entry,
+        exit: ov.exit,
+        nodes: JSON.parse(JSON.stringify(ov.nodes || [])),
+        edges: JSON.parse(JSON.stringify(ov.edges || [])),
+        unlocked: true,
+        dirty: false,
+      }
+    }
+  }
+
   return {
     project: {
       name: flowProject.metadata.name,
@@ -193,6 +236,7 @@ export function extractStoreState(flowProject: FlowProject) {
     flowNodes: flowProject.flow.nodes,
     flowEdges: flowProject.flow.edges,
     subFlows: flowProject.functions.subFlows,
-    componentPackages: flowProject.settings.componentPackages || {},
+    componentPackages: flowProject.settings?.componentPackages || {},
+    subflowInstances,
   }
 }
