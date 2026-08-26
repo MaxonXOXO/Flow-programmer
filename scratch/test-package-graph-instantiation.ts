@@ -1,5 +1,5 @@
 import { instantiatePackageGraph } from '../lib/packages/packageGraphInstantiator';
-import { getComponentPackage } from '../lib/registry/components';
+import { getComponentPackage, componentsRegistry } from '../lib/registry/components';
 import { useFlowStore } from '../store/userFlowStore';
 
 console.log('=== TEST PHASE 5B: PACKAGE GRAPH LOADING & SUBFLOW INSTANTIATION ===\n');
@@ -148,8 +148,9 @@ assert(caughtErrorT8, 'T8: Threw exception when package has no implementation gr
 // T9 — Invalid entry error handling
 // ─────────────────────────────────────────────────────────────────
 console.log('\n--- T9: Invalid Entry Node Reference Error Handling ---');
-const savedGraphT9 = (origPkg.implementation as any).graph;
-(origPkg.implementation as any).graph = {
+const regPkgT9 = (componentsRegistry as any)['ultrasonic_hcsr04'];
+const savedGraphT9 = regPkgT9.implementation.graph;
+regPkgT9.implementation.graph = {
   ...savedGraphT9,
   entry: 'nonexistent_entry_node',
 };
@@ -165,14 +166,15 @@ try {
   );
 }
 assert(caughtErrorT9, 'T9: Threw exception when entry node does not exist');
-(origPkg.implementation as any).graph = savedGraphT9;
+regPkgT9.implementation.graph = savedGraphT9;
 
 // ─────────────────────────────────────────────────────────────────
 // T10 — Invalid exit error handling
 // ─────────────────────────────────────────────────────────────────
 console.log('\n--- T10: Invalid Exit Node Reference Error Handling ---');
-const savedGraphT10 = (origPkg.implementation as any).graph;
-(origPkg.implementation as any).graph = {
+const regPkgT10 = (componentsRegistry as any)['ultrasonic_hcsr04'];
+const savedGraphT10 = regPkgT10.implementation.graph;
+regPkgT10.implementation.graph = {
   ...savedGraphT10,
   exit: 'nonexistent_exit_node',
 };
@@ -188,7 +190,7 @@ try {
   );
 }
 assert(caughtErrorT10, 'T10: Threw exception when exit node does not exist');
-(origPkg.implementation as any).graph = savedGraphT10;
+regPkgT10.implementation.graph = savedGraphT10;
 
 // ─────────────────────────────────────────────────────────────────
 // T11 — Repeated instantiation reference isolation

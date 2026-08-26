@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useFlowStore } from '@/store/userFlowStore'
 import { GraphToASTCompiler } from '@/lib/compiler/parser/graphParser'
-import { ArduinoUnoGenerator } from '@/lib/compiler/generator/arduinoGenerator'
+import { resolveBackendForTarget, validateBackendCapabilities } from '@/lib/compiler/backend'
 import { CompilerValidator } from '@/lib/compiler/validators/compilerValidator'
 import { CPPLexer, CPPParser } from '@/lib/ir/cppParser'
 import { IRToFlowLayout } from '@/lib/ir/layout'
@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 
 import ArduinoIcon from '@/components/Customkit/ArduinoIcon'
-import { getBoard, getTarget } from '@/lib/registry/boards'
+import { getBoardDefinition, getTarget, getMCU } from '@/lib/registry/boards'
 
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false })
 
@@ -27,34 +27,44 @@ export default function CodePanel({ onClose }: { onClose: () => void }) {
 
   const boardId = project?.hardware?.boardId || project?.platform || 'arduino_uno'
   const targetId = project?.hardware?.targetId || 'arduino_uno'
-  const boardDef = getBoard(boardId)
+  const boardDef = getBoardDefinition(boardId)
   const targetDef = getTarget(targetId)
+  const mcu = boardDef?.mcuId ? getMCU(boardDef.mcuId) : undefined
 
   const [terminalLog, setTerminalLog] = useState<string[]>([
-    'Initializing compiler engine...',
-    `Target system ready: ${boardDef?.name || 'Arduino Uno'} (${typeof boardDef?.mcu === 'string' ? boardDef.mcu : (boardDef?.mcu?.name || 'ATmega328P')}) · Target: ${targetDef?.name || 'Arduino C++'}`
+    'Flow-IDE C++ Compilation System v2.0',
+    `Active Target: ${targetDef?.name || targetId} (${boardDef?.name || boardId})`,
+    'Ready for AST code synthesis.'
   ])
 
   useEffect(() => {
     try {
-      // 1. Compile visual nodes to AST passing subflow instance overrides and project targetId
+      // 1. Resolve Compiler Backend for active Target
+      const backend = resolveBackendForTarget(targetId)
+      const mcuName = mcu?.name || (typeof boardDef?.mcu === 'string' ? boardDef.mcu : boardDef?.mcu?.name) || 'Generic MCU'
+
+      // 2. Compile AST from Graph with target context
       const compiler = new GraphToASTCompiler(
-        flowNodes,
-        flowEdges,
-        subFlows,
-        {},
-        schemaNodes,
+        flowNodes, 
+        flowEdges, 
+        subFlows, 
+        {}, 
+        schemaNodes, 
         schemaEdges,
-        { subflowOverrides: subflowInstances, targetId: targetId as any }
+        { targetId, subflowOverrides: subflowInstances }
       );
       const program = compiler.compile();
 
-      // 2. Validate AST against the selected board
+      // 3. Validate AST against board pins and backend capabilities
       const validator = new CompilerValidator();
-      const errors = validator.validate(program, schemaNodes, schemaEdges, boardId);
+      const boardErrors = validator.validate(program, schemaNodes, schemaEdges, boardId);
+      const capErrors = validateBackendCapabilities(program, backend);
+      const backendErrors = backend.validate ? backend.validate(program, { targetId, boardId, schemaNodes, schemaEdges }) : [];
+      const errors = [...boardErrors, ...capErrors, ...backendErrors];
 
       // Log validation results in terminal console
       const newLogs = [
+        `Board: ${boardDef?.name || boardId} | MCU: ${mcuName} | Target: ${targetDef?.name || targetId} | Backend: ${backend.name}`,
         'Running AST Verification Passes...',
         `Verification completed with ${errors.filter(e => e.severity === 'error').length} errors and ${errors.filter(e => e.severity === 'warning').length} warnings.`
       ];
@@ -64,13 +74,17 @@ export default function CodePanel({ onClose }: { onClose: () => void }) {
       });
 
       setTerminalLog(prev => [
-        ...prev.filter(l => !l.startsWith('Running AST') && !l.startsWith('[VALIDATOR]')),
+        ...prev.filter(l => !l.startsWith('Running AST') && !l.startsWith('[VALIDATOR]') && !l.startsWith('Board:')),
         ...newLogs
       ]);
 
-      // 3. Generate C++
-      const generator = new ArduinoUnoGenerator();
-      const generated = generator.generate(program, schemaNodes, schemaEdges);
+      // 4. Generate Target Code via Resolved Backend
+      const generated = backend.generate(program, {
+        targetId,
+        boardId,
+        schemaNodes,
+        schemaEdges
+      });
       setGeneratedSketch(generated);
     } catch (e: any) {
       setTerminalLog(prev => [
@@ -717,7 +731,7 @@ export default function CodePanel({ onClose }: { onClose: () => void }) {
 }
 
 export function InlineCodeEditor() {
-  const { schemaNodes, schemaEdges, flowNodes, flowEdges, subFlows, activeDocumentId, project } = useFlowStore()
+  const { schemaNodes, schemaEdges, flowNodes, flowEdges, subFlows, subflowInstances, activeDocumentId, project } = useFlowStore()
   const [content, setContent] = useState<string>('')
   const [language, setLanguage] = useState<string>('cpp')
   const [filename, setFilename] = useState<string>('sketch.ino')
@@ -760,16 +774,18 @@ export function InlineCodeEditor() {
       } else {
         setLanguage('cpp')
         setFilename('sketch.ino')
-        const compiler = new GraphToASTCompiler(flowNodes, flowEdges, subFlows, {}, schemaNodes, schemaEdges)
+        const activeBoardId = project?.hardware?.boardId || project?.platform || 'arduino_uno'
+        const activeTargetId = project?.hardware?.targetId || 'arduino_uno'
+        const compiler = new GraphToASTCompiler(flowNodes, flowEdges, subFlows, {}, schemaNodes, schemaEdges, { targetId: activeTargetId, subflowOverrides: subflowInstances })
         const program = compiler.compile()
-        const generator = new ArduinoUnoGenerator()
-        const generated = generator.generate(program, schemaNodes, schemaEdges)
+        const backend = resolveBackendForTarget(activeTargetId)
+        const generated = backend.generate(program, { targetId: activeTargetId, boardId: activeBoardId, schemaNodes, schemaEdges })
         setContent(generated.main)
       }
     } catch (e: any) {
       setContent(`/* Compilation Error: ${e.message} */`)
     }
-  }, [schemaNodes, schemaEdges, flowNodes, flowEdges, subFlows, activeDocumentId, project])
+  }, [schemaNodes, schemaEdges, flowNodes, flowEdges, subFlows, subflowInstances, activeDocumentId, project])
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#1e1e1e', overflow: 'hidden' }}>
