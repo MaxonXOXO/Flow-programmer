@@ -9,10 +9,12 @@ import { loadPackage, packageExists, validatePackage } from '../lib/packages/pac
 import { PackageGraphInstance } from '../lib/registry/components/types'
 import { instantiatePackageGraph } from '../lib/packages/packageGraphInstantiator'
 import { usePanelStore } from './usePanelStore'
+import { ProjectHardwareConfig } from '../lib/project/types'
 
-interface ProjectConfig {
+export interface ProjectConfig {
   name: string
   platform: string
+  hardware?: ProjectHardwareConfig
   createdAt: number
 }
 
@@ -169,6 +171,7 @@ interface FlowStore {
   setVariable: (name: string, value: unknown) => void
   resetSim: () => void
   setProject: (project: ProjectConfig) => void
+  setProjectHardware: (hardware: ProjectHardwareConfig | { boardId: string; targetId?: string }) => void
   setActiveCanvas: (canvas: 'schema' | 'flow') => void
   loadProjectState: (state: {
     project: ProjectConfig
@@ -1326,6 +1329,22 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
     simState: { ...s.simState, running: false, step: 0, variables: {}, currentNodeId: null }
   })),
   setProject: (project) => set({ project }),
+  setProjectHardware: (hw) => set((s) => {
+    if (!s.project) return s
+    const boardId = hw.boardId || s.project.hardware?.boardId || s.project.platform || 'arduino_uno'
+    const targetId = hw.targetId || s.project.hardware?.targetId || 'arduino_uno'
+    return {
+      project: {
+        ...s.project,
+        platform: boardId,
+        hardware: {
+          boardId,
+          targetId,
+          ...((hw as any).customOptions ? { customOptions: (hw as any).customOptions } : {}),
+        }
+      }
+    }
+  }),
   setActiveCanvas: (canvas) => set({ activeCanvas: canvas }),
 
   // Edit actions implementation

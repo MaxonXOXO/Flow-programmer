@@ -57,14 +57,14 @@ assert(pinSupports('esp32', 'GPIO21', 'i2c_sda'), 'T2: ESP32 GPIO21 supports I2C
 console.log('\n--- T3: Project Board Reference Audit ---');
 
 const testProj = createNewProject('Test ESP Project', 'esp32');
-assert(testProj.board.id === 'esp32', 'T3: Project stores boardId="esp32"');
+assert(testProj.board?.id === 'esp32', 'T3: Project stores boardId="esp32"');
 
 const exported = exportProjectFromState({
   project: { name: 'Test ESP Project', platform: 'esp32' },
   schemaNodes: [],
   schemaEdges: [],
 });
-assert(exported.board.id === 'esp32', 'T3: Exported project preserves boardId="esp32"');
+assert(exported.board?.id === 'esp32', 'T3: Exported project preserves boardId="esp32"');
 
 // ─────────────────────────────────────────────────────────────────
 // T4 — Component Target-Aware Resolution Audit

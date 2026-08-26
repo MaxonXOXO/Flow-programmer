@@ -1,5 +1,6 @@
-import { FlowProject, ImportProjectResult, ProjectValidationResult } from './types'
+import { FlowProject, ImportProjectResult, ProjectValidationResult, ProjectHardwareConfig } from './types'
 import { CURRENT_PROJECT_VERSION, PROJECT_FILE_FORMAT, validateProjectSchema, upgradeLegacyProject } from './projectSchema'
+import { getDefaultTargetForBoard } from './hardwareValidator'
 
 /**
  * Creates a brand new empty FlowProject structure.
@@ -7,10 +8,13 @@ import { CURRENT_PROJECT_VERSION, PROJECT_FILE_FORMAT, validateProjectSchema, up
 export function createNewProject(
   name: string = 'Untitled Project',
   boardId: string = 'arduino_uno',
+  targetId?: string,
   author: string = '',
   description: string = ''
 ): FlowProject {
   const now = new Date().toISOString()
+  const resolvedTargetId = targetId || getDefaultTargetForBoard(boardId)
+
   return {
     format: PROJECT_FILE_FORMAT,
     version: CURRENT_PROJECT_VERSION,
@@ -20,6 +24,10 @@ export function createNewProject(
       description,
       created: now,
       modified: now,
+    },
+    hardware: {
+      boardId,
+      targetId: resolvedTargetId,
     },
     board: {
       id: boardId,
@@ -46,7 +54,7 @@ export function createNewProject(
  * Builds a validated FlowProject structure from active application store state.
  */
 export function exportProjectFromState(storeState: {
-  project?: { name?: string; platform?: string; createdAt?: number };
+  project?: { name?: string; platform?: string; hardware?: ProjectHardwareConfig; createdAt?: number };
   schemaNodes?: any[];
   schemaEdges?: any[];
   flowNodes?: any[];
@@ -58,7 +66,8 @@ export function exportProjectFromState(storeState: {
 }): FlowProject {
   const now = new Date().toISOString()
   const name = storeState.metadata?.name || storeState.project?.name || 'Untitled Project'
-  const boardId = storeState.project?.platform || 'arduino_uno'
+  const boardId = storeState.project?.hardware?.boardId || storeState.project?.platform || 'arduino_uno'
+  const targetId = storeState.project?.hardware?.targetId || getDefaultTargetForBoard(boardId)
   const created = storeState.metadata?.created || 
     (storeState.project?.createdAt ? new Date(storeState.project.createdAt).toISOString() : now)
 
@@ -89,6 +98,11 @@ export function exportProjectFromState(storeState: {
       description: storeState.metadata?.description || '',
       created,
       modified: now,
+    },
+    hardware: {
+      boardId,
+      targetId,
+      ...(storeState.project?.hardware?.customOptions ? { customOptions: storeState.project.hardware.customOptions } : {}),
     },
     board: {
       id: boardId,
@@ -127,19 +141,18 @@ export function validateProject(data: any): ProjectValidationResult {
 }
 
 /**
- * Version migration runner for future format versions.
+ * Version migration runner for project format versions.
  */
 export function migrateProject(data: any): FlowProject {
   if (!data || typeof data !== 'object') {
     throw new Error('Cannot migrate invalid or empty project data.')
   }
 
-  // Legacy projects (missing format or version)
-  if (data.format !== PROJECT_FILE_FORMAT || typeof data.version !== 'number') {
+  // Legacy projects (missing format or version < 2 or missing hardware)
+  if (data.format !== PROJECT_FILE_FORMAT || typeof data.version !== 'number' || data.version < 2 || !data.hardware) {
     return upgradeLegacyProject(data)
   }
 
-  // Future migration handlers (e.g. version 1 -> 2) will be added here
   return data as FlowProject
 }
 
@@ -149,30 +162,31 @@ export function migrateProject(data: any): FlowProject {
  */
 export function importProject(fileContentOrObject: string | object): ImportProjectResult {
   let rawData: any
-
   if (typeof fileContentOrObject === 'string') {
     try {
       rawData = JSON.parse(fileContentOrObject)
-    } catch (err) {
+    } catch {
       return {
         success: false,
-        errors: ['Failed to parse JSON file content. File may be corrupted or malformed.'],
+        errors: ['Invalid JSON format. Could not parse project file.'],
       }
     }
-  } else if (fileContentOrObject && typeof fileContentOrObject === 'object') {
-    rawData = fileContentOrObject
   } else {
+    rawData = fileContentOrObject
+  }
+
+  if (!rawData || typeof rawData !== 'object') {
     return {
       success: false,
-      errors: ['Invalid project input provided.'],
+      errors: ['Project data must be a non-null object.'],
     }
   }
 
   let isLegacy = false
   let project: FlowProject
 
-  // Detect legacy format (missing format === "flow" or version number)
-  if (rawData.format !== PROJECT_FILE_FORMAT || typeof rawData.version !== 'number') {
+  // Detect legacy format (missing format === "flow" or version number < 2 or missing hardware)
+  if (rawData.format !== PROJECT_FILE_FORMAT || typeof rawData.version !== 'number' || rawData.version < 2 || !rawData.hardware) {
     isLegacy = true
     project = upgradeLegacyProject(rawData)
   } else {
@@ -224,10 +238,18 @@ export function extractStoreState(flowProject: FlowProject) {
     }
   }
 
+  const boardId = flowProject.hardware?.boardId || flowProject.board?.id || 'arduino_uno'
+  const targetId = flowProject.hardware?.targetId || getDefaultTargetForBoard(boardId)
+
   return {
     project: {
       name: flowProject.metadata.name,
-      platform: flowProject.board.id,
+      platform: boardId,
+      hardware: {
+        boardId,
+        targetId,
+        ...(flowProject.hardware?.customOptions ? { customOptions: flowProject.hardware.customOptions } : {}),
+      },
       createdAt: new Date(flowProject.metadata.created).getTime() || Date.now(),
     },
     metadata: flowProject.metadata,

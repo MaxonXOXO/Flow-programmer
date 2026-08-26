@@ -31,12 +31,15 @@ const TARGET_REGISTRY: Record<string, TargetDefinition> = { ...CANONICAL_TARGETS
 // ─── Lookup APIs ──────────────────────────────────────────────────
 
 export function getBoard(boardId: string): CanonicalBoardDefinition | undefined {
-  if (!boardId) return BOARD_REGISTRY['arduino_uno'];
+  if (!boardId) return undefined;
   const normalized = boardId.toLowerCase().replace(/-/g, '_');
-  return BOARD_REGISTRY[normalized] || BOARD_REGISTRY[boardId] || BOARD_REGISTRY['arduino_uno'];
+  return BOARD_REGISTRY[normalized] || BOARD_REGISTRY[boardId];
 }
 
-export const getBoardDefinition = getBoard;
+/** Legacy lookup with fallback to Arduino Uno */
+export function getBoardDefinition(boardId?: string): CanonicalBoardDefinition | undefined {
+  return (boardId ? getBoard(boardId) : undefined) || BOARD_REGISTRY['arduino_uno'];
+}
 
 export function getAllBoards(): CanonicalBoardDefinition[] {
   // Return unique board objects
@@ -62,9 +65,9 @@ export function getAllMCUs(): MCUDefinition[] {
 }
 
 export function getTarget(targetId: string): TargetDefinition | undefined {
-  if (!targetId) return TARGET_REGISTRY['generic'];
+  if (!targetId) return undefined;
   const normalized = targetId.toLowerCase().replace(/-/g, '_');
-  return TARGET_REGISTRY[normalized] || TARGET_REGISTRY[targetId] || TARGET_REGISTRY['generic'];
+  return TARGET_REGISTRY[normalized] || TARGET_REGISTRY[targetId];
 }
 
 export function getAllTargets(): TargetDefinition[] {

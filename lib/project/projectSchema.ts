@@ -1,6 +1,7 @@
 import { FlowProject, ProjectValidationResult } from './types'
+import { validateProjectHardware, getDefaultTargetForBoard } from './hardwareValidator'
 
-export const CURRENT_PROJECT_VERSION = 1
+export const CURRENT_PROJECT_VERSION = 2
 export const PROJECT_FILE_FORMAT = "flow"
 export const FILE_EXTENSION = ".flow"
 
@@ -36,13 +37,16 @@ export function validateProjectSchema(data: any): ProjectValidationResult {
     }
   }
 
-  // Check board section
-  if (!data.board || typeof data.board !== 'object') {
-    errors.push('Missing board section.')
+  // Check hardware section (Version 2 specification)
+  if (data.hardware && typeof data.hardware === 'object') {
+    const hwResult = validateProjectHardware(data.hardware)
+    errors.push(...hwResult.errors)
+    warnings.push(...hwResult.warnings)
+  } else if (data.board && typeof data.board === 'object' && data.board.id) {
+    // Legacy Version 1 fallback warning
+    warnings.push('Project uses legacy "board" declaration instead of explicit "hardware" config. Please upgrade to format v2.')
   } else {
-    if (!data.board.id || typeof data.board.id !== 'string') {
-      errors.push('Board reference must include a board ID.')
-    }
+    errors.push('Missing hardware configuration section ("hardware: { boardId, targetId }").')
   }
 
   // Check canvas data sections
@@ -106,13 +110,14 @@ export function validateProjectSchema(data: any): ProjectValidationResult {
 }
 
 /**
- * Normalizes legacy project formats (v1.0, v1.5 JSON dumps) into valid FlowProject structure.
+ * Normalizes legacy project formats (v1.0, v1.5 JSON dumps, v1 .flow) into valid FlowProject v2 structure.
  */
 export function upgradeLegacyProject(raw: any): FlowProject {
   const now = new Date().toISOString()
 
-  const name = raw?.project?.name || raw?.name || 'Untitled Project'
-  const boardId = raw?.project?.platform || raw?.board?.id || raw?.platform || 'arduino_uno'
+  const name = raw?.metadata?.name || raw?.project?.name || raw?.name || 'Untitled Project'
+  const boardId = raw?.hardware?.boardId || raw?.project?.platform || raw?.board?.id || raw?.platform || 'arduino_uno'
+  const targetId = raw?.hardware?.targetId || raw?.project?.targetId || getDefaultTargetForBoard(boardId)
 
   const schemaNodes = Array.isArray(raw?.schemaNodes) ? raw.schemaNodes : (Array.isArray(raw?.schema?.nodes) ? raw.schema.nodes : [])
   const schemaEdges = Array.isArray(raw?.schemaEdges) ? raw.schemaEdges : (Array.isArray(raw?.schema?.edges) ? raw.schema.edges : [])
@@ -131,8 +136,12 @@ export function upgradeLegacyProject(raw: any): FlowProject {
       name,
       author: raw?.metadata?.author || '',
       description: raw?.metadata?.description || '',
-      created: raw?.metadata?.created || raw?.project?.createdAt ? new Date(raw?.project?.createdAt || Date.now()).toISOString() : now,
+      created: raw?.metadata?.created || (raw?.project?.createdAt ? new Date(raw.project.createdAt).toISOString() : now),
       modified: now,
+    },
+    hardware: {
+      boardId,
+      targetId,
     },
     board: {
       id: boardId,
@@ -149,7 +158,7 @@ export function upgradeLegacyProject(raw: any): FlowProject {
     functions: {
       subFlows,
     },
-    componentOverrides,
+    ...(Object.keys(componentOverrides).length > 0 ? { componentOverrides } : {}),
     settings: {
       componentPackages,
     },

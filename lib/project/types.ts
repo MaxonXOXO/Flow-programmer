@@ -1,6 +1,6 @@
 /**
  * Flow-IDE Native Project File Format (.flow) Types
- * Specification Version 1
+ * Specification Version 2 (Phase 5L-A: Project Hardware Contract)
  */
 
 export type FlowProjectFormat = "flow"
@@ -18,6 +18,12 @@ export interface BoardReference {
   name?: string
   mcu?: string
   frequency?: string
+}
+
+export interface ProjectHardwareConfig {
+  boardId: string
+  targetId: string
+  customOptions?: Record<string, unknown>
 }
 
 export interface SchemaCanvasData {
@@ -56,7 +62,8 @@ export interface FlowProject {
   format: "flow"
   version: number
   metadata: ProjectMetadata
-  board: BoardReference
+  hardware: ProjectHardwareConfig
+  board?: BoardReference // Backward-compatibility shim
   schema: SchemaCanvasData
   flow: FlowCanvasData
   functions: FunctionCollection

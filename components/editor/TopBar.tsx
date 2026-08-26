@@ -120,7 +120,8 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
       const result = importProject(content)
       if (result.success && result.project) {
         loadProjectState(extractStoreState(result.project))
-        localStorage.setItem('fp_project', JSON.stringify({ name: result.project.metadata.name, platform: result.project.board.id }))
+        const boardId = result.project.hardware?.boardId || result.project.board?.id || 'arduino_uno'
+        localStorage.setItem('fp_project', JSON.stringify({ name: result.project.metadata.name, platform: boardId }))
       } else {
         alert(`Failed to load project file:\n\n${(result.errors || ['Invalid project format.']).join('\n')}`)
       }

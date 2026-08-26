@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 
 import ArduinoIcon from '@/components/Customkit/ArduinoIcon'
+import { getBoard, getTarget } from '@/lib/registry/boards'
 
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false })
 
@@ -23,14 +24,20 @@ export default function CodePanel({ onClose }: { onClose: () => void }) {
   const [generatedSketch, setGeneratedSketch] = useState<{ main: string; files: Record<string, string> }>({ main: '', files: {} })
   const [activeTab, setActiveTab] = useState<string>('ino')
   const [verifyStatus, setVerifyStatus] = useState<'idle' | 'compiling' | 'success' | 'error'>('idle')
+
+  const boardId = project?.hardware?.boardId || project?.platform || 'arduino_uno'
+  const targetId = project?.hardware?.targetId || 'arduino_uno'
+  const boardDef = getBoard(boardId)
+  const targetDef = getTarget(targetId)
+
   const [terminalLog, setTerminalLog] = useState<string[]>([
     'Initializing compiler engine...',
-    'Target system ready: Arduino Uno (ATmega328P)'
+    `Target system ready: ${boardDef?.name || 'Arduino Uno'} (${typeof boardDef?.mcu === 'string' ? boardDef.mcu : (boardDef?.mcu?.name || 'ATmega328P')}) · Target: ${targetDef?.name || 'Arduino C++'}`
   ])
 
   useEffect(() => {
     try {
-      // 1. Compile visual nodes to AST passing subflow instance overrides
+      // 1. Compile visual nodes to AST passing subflow instance overrides and project targetId
       const compiler = new GraphToASTCompiler(
         flowNodes,
         flowEdges,
@@ -38,13 +45,13 @@ export default function CodePanel({ onClose }: { onClose: () => void }) {
         {},
         schemaNodes,
         schemaEdges,
-        { subflowOverrides: subflowInstances }
+        { subflowOverrides: subflowInstances, targetId: targetId as any }
       );
       const program = compiler.compile();
 
-      // 2. Validate AST
+      // 2. Validate AST against the selected board
       const validator = new CompilerValidator();
-      const errors = validator.validate(program, schemaNodes, schemaEdges);
+      const errors = validator.validate(program, schemaNodes, schemaEdges, boardId);
 
       // Log validation results in terminal console
       const newLogs = [
@@ -71,7 +78,7 @@ export default function CodePanel({ onClose }: { onClose: () => void }) {
         `[COMPILER ERROR] Compilation failed: ${e.message}`
       ]);
     }
-  }, [schemaNodes, schemaEdges, flowNodes, flowEdges, subFlows])
+  }, [schemaNodes, schemaEdges, flowNodes, flowEdges, subFlows, subflowInstances, boardId, targetId])
 
   const handleSyncCodeToCanvas = () => {
     try {

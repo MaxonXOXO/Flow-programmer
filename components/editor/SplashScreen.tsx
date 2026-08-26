@@ -78,7 +78,8 @@ export default function SplashScreen() {
       const result = importProject(content)
       if (result.success && result.project) {
         loadProjectState(extractStoreState(result.project))
-        localStorage.setItem('fp_project', JSON.stringify({ name: result.project.metadata.name, platform: result.project.board.id }))
+        const boardId = result.project.hardware?.boardId || result.project.board?.id || 'arduino_uno'
+        localStorage.setItem('fp_project', JSON.stringify({ name: result.project.metadata.name, platform: boardId }))
         router.push('/editor')
       } else {
         alert(`Failed to load project file:\n\n${(result.errors || ['Invalid project file.']).join('\n')}`)
