@@ -54,18 +54,18 @@ export class CompilerValidator {
       const targetNode = schemaNodes.find(n => n.id === edge.target);
       if (!sourceNode || !targetNode) return;
 
-      const isSourceUno = sourceNode.id === 'arduino-uno';
-      const unoPin = isSourceUno ? edge.sourceHandle : edge.targetHandle;
-      const compNode = isSourceUno ? targetNode : sourceNode;
-      const compPin = isSourceUno ? edge.targetHandle : edge.sourceHandle;
+      const isSourceBoard = sourceNode.type === 'boardNode' || sourceNode.type === 'unoNode' || sourceNode.id === 'arduino-uno' || sourceNode.id === 'board';
+      const boardPin = isSourceBoard ? edge.sourceHandle : edge.targetHandle;
+      const compNode = isSourceBoard ? targetNode : sourceNode;
+      const compPin = isSourceBoard ? edge.targetHandle : edge.sourceHandle;
 
-      if (!unoPin || !compNode || !compPin) return;
+      if (!boardPin || !compNode || !compPin) return;
 
-      const pinDef = board.pins[unoPin];
+      const pinDef = board.pins[boardPin];
       if (!pinDef) {
         this.errors.push({
           severity: 'error',
-          message: `Pin "${unoPin}" does not exist on MCU "${board.name}".`,
+          message: `Pin "${boardPin}" does not exist on MCU "${board.name}".`,
           nodeId: compNode.id
         });
         return;
@@ -74,24 +74,24 @@ export class CompilerValidator {
       if (pinDef.capabilities.includes('uart_rx') || pinDef.capabilities.includes('uart_tx')) {
         this.errors.push({
           severity: 'warning',
-          message: `Pin "${unoPin}" is reserved for Serial (RX/TX). Using it might conflict with programming / debug console logs.`,
+          message: `Pin "${boardPin}" is reserved for Serial (RX/TX). Using it might conflict with programming / debug console logs.`,
           nodeId: compNode.id
         });
       }
 
-      const key = unoPin;
+      const key = boardPin;
       if (!pinAllocation[key]) {
         pinAllocation[key] = [];
       }
       pinAllocation[key].push(compNode.id);
 
-      const isAnalogCompPin = compPin.toLowerCase().startsWith('a') || compPin.toLowerCase() === 'ao' || compPin.toLowerCase() === 'analog';
-      const isDigitalCompPin = compPin.toLowerCase().startsWith('d') || compPin.toLowerCase() === 'do' || compPin.toLowerCase() === 'digital' || compPin.toLowerCase() === 'signal';
+      const isAnalogCompPin = /^a\d+$/i.test(compPin) || compPin.toLowerCase() === 'ao' || compPin.toLowerCase() === 'analog' || compPin.toLowerCase() === 'adc';
+      const isDigitalCompPin = /^d\d+$/i.test(compPin) || compPin.toLowerCase() === 'do' || compPin.toLowerCase() === 'digital' || compPin.toLowerCase() === 'signal' || compPin.toLowerCase() === 'din' || compPin.toLowerCase() === 'dout';
 
       if (isAnalogCompPin && !pinDef.capabilities.includes('analog')) {
         this.errors.push({
           severity: 'error',
-          message: `Analog pin "${compPin}" on component "${(compNode.data as any)?.label}" connected to non-analog pin "${unoPin}" on ${board.name}.`,
+          message: `Analog pin "${compPin}" on component "${(compNode.data as any)?.label}" connected to non-analog pin "${boardPin}" on ${board.name}.`,
           nodeId: compNode.id
         });
       }
@@ -99,7 +99,7 @@ export class CompilerValidator {
       if (isDigitalCompPin && !pinDef.capabilities.includes('digital') && !pinDef.capabilities.includes('analog')) {
         this.errors.push({
           severity: 'error',
-          message: `Digital pin "${compPin}" on component "${(compNode.data as any)?.label}" connected to non-digital pin "${unoPin}" on ${board.name}.`,
+          message: `Digital pin "${compPin}" on component "${(compNode.data as any)?.label}" connected to non-digital pin "${boardPin}" on ${board.name}.`,
           nodeId: compNode.id
         });
       }

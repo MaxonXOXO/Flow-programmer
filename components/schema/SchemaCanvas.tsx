@@ -16,6 +16,7 @@ import '@xyflow/react/dist/style.css'
 import { useFlowStore } from '@/store/userFlowStore'
 import { resolveCanonicalPackageId } from '@/lib/packages/packageGraphInstantiator'
 import UnoNode from './UnoNode'
+import BoardNode from './BoardNode'
 import ComponentNode from './ComponentNode'
 import { Copy, Trash2, Sliders } from 'lucide-react'
 
@@ -57,7 +58,8 @@ function SchemaCanvasInner() {
   }, [fitView, setViewport])
 
   const nodeTypes = useMemo(() => ({
-    unoNode: UnoNode,
+    boardNode: BoardNode,
+    unoNode: BoardNode,
     componentNode: ComponentNode,
   }), [])
 
@@ -141,10 +143,15 @@ function SchemaCanvasInner() {
     return () => window.removeEventListener('click', handleCloseMenu)
   }, [])
 
+  const isBoardNode = (nodeId: string) => {
+    const n = schemaNodes.find(item => item.id === nodeId)
+    return nodeId === 'arduino-uno' || nodeId === 'board' || n?.type === 'boardNode' || n?.type === 'unoNode'
+  }
+
   // Duplicate schematic component
   const handleDuplicate = (nodeId: string) => {
     const original = schemaNodes.find(n => n.id === nodeId)
-    if (original && original.id !== 'arduino-uno') {
+    if (original && !isBoardNode(original.id)) {
       pushHistory()
       const newId = `comp-${Date.now()}`
       const copy = {
@@ -206,7 +213,7 @@ function SchemaCanvasInner() {
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {menu.nodeId !== 'arduino-uno' && (
+          {!isBoardNode(menu.nodeId) && (
             <button
               onClick={() => { handleDuplicate(menu.nodeId); setMenu(null) }}
               style={{
@@ -252,7 +259,7 @@ function SchemaCanvasInner() {
             Inspect Pins
           </button>
 
-          {menu.nodeId !== 'arduino-uno' && (
+          {!isBoardNode(menu.nodeId) && (
             <>
               <div style={{ height: 1, background: 'var(--color-border)', margin: '4px 0' }} />
               <button

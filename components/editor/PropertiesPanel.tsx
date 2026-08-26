@@ -158,6 +158,11 @@ const NODE_DESCRIPTIONS: Record<string, { title: string; category: string; descr
     category: 'HARDWARE TARGET',
     description: 'Arduino Uno ATmega328P microcontroller mainboard connection map and pin allocation.'
   },
+  boardNode: {
+    title: 'MCU Hardware Board',
+    category: 'HARDWARE TARGET',
+    description: 'Microcontroller mainboard connection map and physical pin allocation.'
+  },
   componentNode: {
     title: 'Hardware Schematic Component',
     category: 'HARDWARE SCHEMATIC',
@@ -192,6 +197,7 @@ function renderNodeIcon(type: string) {
     case 'motor_driver': return <Car className="w-3.5 h-3.5 text-[#e67e22]" />
     case 'lcd': return <Tv className="w-3.5 h-3.5 text-[#60a5fa]" />
     case 'unoNode': return <ArduinoIcon size={14} color="#00c4b4" />
+    case 'boardNode': return <ArduinoIcon size={14} color="#2fd18b" />
     case 'componentNode': return <Plug className="w-3.5 h-3.5 text-[#2ecc71]" />
     default: return <Box className="w-3.5 h-3.5 text-[#60a5fa]" />
   }

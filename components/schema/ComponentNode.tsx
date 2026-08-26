@@ -61,16 +61,16 @@ export default function ComponentNode({ id, data, selected }: NodeProps) {
 
   const styles = categoryStyles[componentType] || categoryStyles.sensor
 
-  // Dynamic orientation calculation: Pins always face Arduino Uno
+  // Dynamic orientation calculation: Pins always face the central MCU board
   const thisNode = schemaNodes.find(n => n.id === id)
-  const unoNode = schemaNodes.find(n => n.id === 'arduino-uno' || n.type === 'unoNode')
+  const boardNode = schemaNodes.find(n => n.type === 'boardNode' || n.type === 'unoNode' || n.id === 'arduino-uno' || n.id === 'board')
   
   const compX = thisNode ? thisNode.position.x : 0
-  const unoX = unoNode ? unoNode.position.x : 350
+  const boardX = boardNode ? boardNode.position.x : 350
 
-  // If component is to the LEFT of Arduino (compX < unoX), pins face RIGHT towards Arduino.
-  // If component is to the RIGHT of Arduino (compX >= unoX), pins face LEFT towards Arduino.
-  const pinsOnRight = compX < unoX
+  // If component is to the LEFT of Board (compX < boardX), pins face RIGHT towards Board.
+  // If component is to the RIGHT of Board (compX >= boardX), pins face LEFT towards Board.
+  const pinsOnRight = compX < boardX
 
   return (
     <div style={{

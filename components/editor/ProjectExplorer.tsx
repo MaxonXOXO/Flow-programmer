@@ -75,7 +75,7 @@ export default function ProjectExplorer() {
   })
 
   // Connected hardware components (exclude board node)
-  const hardwareComponents = schemaNodes.filter(n => n.type !== 'unoNode')
+  const hardwareComponents = schemaNodes.filter(n => n.type !== 'unoNode' && n.type !== 'boardNode' && n.id !== 'arduino-uno' && n.id !== 'board')
 
   // Loaded component packages
   const packageList = Object.values(componentPackages)

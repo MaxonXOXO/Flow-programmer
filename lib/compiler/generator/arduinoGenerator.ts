@@ -331,19 +331,19 @@ export class ArduinoUnoGenerator {
       const targetNode = schemaNodes.find(n => n.id === edge.target);
       if (!sourceNode || !targetNode) return;
 
-      const isSourceUno = sourceNode.id === 'arduino-uno';
-      const unoPin = isSourceUno ? edge.sourceHandle : edge.targetHandle;
-      const compNode = isSourceUno ? targetNode : sourceNode;
-      const compPin = isSourceUno ? edge.targetHandle : edge.sourceHandle;
+      const isSourceBoard = sourceNode.type === 'boardNode' || sourceNode.type === 'unoNode' || sourceNode.id === 'arduino-uno' || sourceNode.id === 'board';
+      const boardPin = isSourceBoard ? edge.sourceHandle : edge.targetHandle;
+      const compNode = isSourceBoard ? targetNode : sourceNode;
+      const compPin = isSourceBoard ? edge.targetHandle : edge.sourceHandle;
 
-      if (!unoPin || !compNode || !compPin) return;
+      if (!boardPin || !compNode || !compPin) return;
 
       connections.push({
         componentId: compNode.id,
         componentLabel: ((compNode.data as any)?.label as string) || compNode.id,
         componentType: ((compNode.data as any)?.componentType as string) || 'device',
         pin: compPin as string,
-        arduinoPin: unoPin as string
+        arduinoPin: boardPin as string
       });
     });
     return connections;

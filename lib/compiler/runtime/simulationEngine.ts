@@ -47,7 +47,8 @@ export class SimulationEngine {
 
     // Seed mock states for registered hardware components
     schemaNodes.forEach(node => {
-      if (node.id !== 'arduino-uno') {
+      const isBoard = node.type === 'boardNode' || node.type === 'unoNode' || node.id === 'arduino-uno' || node.id === 'board';
+      if (!isBoard) {
         const label = node.data?.label || node.id;
         const pluginType = mapLabelToPluginType(label) || node.data?.componentType;
         const plugin = pluginRegistry.get(pluginType);
