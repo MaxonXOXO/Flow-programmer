@@ -70,7 +70,7 @@ export default function UnoNode({ selected }: NodeProps) {
               ARDUINO UNO
             </div>
             <div style={{ color: '#94a3b8', fontSize: 9, marginTop: 1, fontWeight: 500 }}>
-              {board.mcu} <span style={{ color: '#2fd18b' }}>·</span> {board.frequency} Core
+              {typeof board.mcu === 'string' ? board.mcu : (board.mcu?.name || 'ATmega328P')} <span style={{ color: '#2fd18b' }}>·</span> {board.frequency || '16MHz'} Core
             </div>
           </div>
         </div>
