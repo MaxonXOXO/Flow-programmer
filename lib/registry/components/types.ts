@@ -134,13 +134,25 @@ export interface PackageMetadata {
   tags?: string[];
 }
 
-// ─── Section: Implementation ─────────────────────────────────────
+// ─── Section: Target & Implementation ────────────────────────────
 
 /**
- * Describes HOW this component is implemented internally.
- * Strategy options: 'builtin' | 'subflow' | 'native'.
+ * Supported microcontroller / hardware target platform identifiers.
  */
-export type ImplementationStrategy = 'builtin' | 'subflow' | 'native';
+export type TargetId = 
+  | 'arduino_uno'
+  | 'esp32'
+  | 'stm32'
+  | 'avr'
+  | 'generic'
+  | 'default'
+  | string;
+
+/**
+ * Describes HOW this component is implemented internally for a specific hardware target.
+ * Strategy options: 'builtin' | 'subflow' | 'graph' | 'native'.
+ */
+export type ImplementationStrategy = 'builtin' | 'subflow' | 'graph' | 'native';
 export type ImplementationType = ImplementationStrategy | 'ast';
 
 export interface PackageGraphDefinition {
@@ -174,33 +186,113 @@ export interface PackageGraphInstance {
   unlocked: boolean;
   /** Document dirty / modified flag */
   dirty: boolean;
+  /** Optional target identifier */
+  targetId?: TargetId;
+  /** Optional package version */
+  packageVersion?: string;
 }
 
-export interface PackageImplementation {
-  /** The strategy used to implement this component's behaviour */
-  strategy?: ImplementationStrategy;
+/**
+ * Target-specific implementation descriptor.
+ */
+export interface TargetImplementation {
+  /** The execution/compilation strategy for this target */
+  strategy: ImplementationStrategy;
   /** Version of the implementation schema */
   version?: number;
-  /** Entry point if applicable */
+  /** Explicit entry node ID */
   entry?: string;
-  /** Exit point if applicable */
+  /** Explicit exit node ID */
   exit?: string;
-  /** Subflow graph data (nodes & edges) when strategy === 'subflow' or builtin subflow */
-  subflow?: PackageGraphDefinition | unknown;
-  /** Internal visual flow graph (nodes & edges) for subflow implementation */
-  graph?: PackageGraphDefinition | unknown;
+  /** Visual flow graph definition */
+  graph?: PackageGraphDefinition;
+  /** Subflow graph definition alias */
+  subflow?: PackageGraphDefinition;
+  /** Target-specific compilation dependencies */
+  dependencies?: ComponentDependencies;
+  /** Target-specific native generator metadata or code templates */
+  native?: Record<string, unknown>;
+}
+
+export interface PackageImplementation extends Partial<TargetImplementation> {
   /** Legacy compatibility field */
   type?: ImplementationType;
 }
 
-// ─── Package Definition (used by individual package files) ───────
+// ─── Section: Canonical Component Definition ─────────────────────
+
+export interface ComponentMetadata {
+  id: string;
+  name: string;
+  category: ComponentCategory;
+  description?: string;
+  icon?: string;
+  tags?: string[];
+  version?: string;
+}
 
 /**
- * What individual package files (sensors/dht11.ts, actuators/lcd_16x2.ts, etc.)
- * export. These do NOT include the flat shim fields — those are stamped on
- * by makePackage() in the registry when each package is registered.
+ * Canonical Component Definition representing a discrete physical or virtual hardware component.
  */
-export interface PackageDefinition {
+export interface CanonicalComponentDefinition {
+  /** Unique component identifier */
+  id?: string;
+  /** Descriptive metadata */
+  metadata?: ComponentMetadata | PackageMetadata;
+  /** Display name (shorthand) */
+  name?: string;
+  /** Component category (shorthand) */
+  category?: ComponentCategory;
+  /** Description (shorthand) */
+  description?: string;
+  /** Icon (shorthand) */
+  icon?: string;
+  /** Search tags (shorthand) */
+  tags?: string[];
+  /** Physical hardware pins */
+  pins: ComponentPin[];
+  /** Runtime value outputs */
+  outputs: ComponentOutput[];
+  /** User-configurable properties */
+  properties: PropertyDefinition[];
+  /** Compilation dependencies */
+  dependencies?: ComponentDependencies;
+  /** Target-specific implementation mapping (e.g. 'arduino_uno', 'esp32', 'generic') */
+  implementations?: Record<TargetId, TargetImplementation>;
+  /** Default/generic implementation shorthand */
+  implementation?: TargetImplementation | PackageImplementation;
+}
+
+// ─── Section: Canonical Package Manifest ─────────────────────────
+
+/**
+ * Canonical Package Manifest representing a distributable package container.
+ * A package contains metadata, dependencies, and one or more components.
+ */
+export interface PackageManifest {
+  /** Unique canonical package identifier */
+  id: string;
+  /** Human-readable package name */
+  name: string;
+  /** Package semver string */
+  version: string;
+  /** Short package description */
+  description?: string;
+  /** Package author */
+  author?: string;
+  /** Package license */
+  license?: string;
+  /** Search tags */
+  tags?: string[];
+  /** External package dependencies */
+  dependencies?: Record<string, string>;
+  /** Components exposed by this package (single or multiple) */
+  components: Record<string, CanonicalComponentDefinition | PackageDefinition> | Array<CanonicalComponentDefinition | PackageDefinition>;
+}
+
+// ─── Package Definition (used by individual single-component package files) ─
+
+export interface PackageDefinition extends CanonicalComponentDefinition {
   /** Descriptive metadata */
   metadata: PackageMetadata;
   /** Physical hardware pins */
@@ -211,29 +303,14 @@ export interface PackageDefinition {
   properties: PropertyDefinition[];
   /** Compilation dependencies */
   dependencies: ComponentDependencies;
-  /** Implementation strategy (Phase 2: always 'builtin') */
+  /** Implementation strategy */
   implementation: PackageImplementation;
 }
 
 // ─── Component Package (returned by registry after shim-stamping) ─
 
-/**
- * A fully-hydrated Component Package as returned by the registry.
- *
- * Extends PackageDefinition with flat compatibility shims so that
- * existing consumers (Sidebar, ComponentNode) can access .id, .name,
- * .category etc. without any code changes.
- *
- * The shims are populated automatically by makePackage() in the registry.
- * For new code, prefer reading from .metadata.* instead.
- */
 export interface ComponentPackage extends PackageDefinition {
   // ─── Flat Compatibility Shims ─────────────────────────────────
-  // These mirror metadata.* so that existing consumers (Sidebar,
-  // ComponentNode, SchemaCanvas) continue to work without changes.
-  // They are populated by makePackage() in the registry helpers.
-  // DO NOT use these in new code — read from .metadata instead.
-
   /** @see metadata.id */
   id: string;
   /** @see metadata.name */
@@ -250,17 +327,10 @@ export interface ComponentPackage extends PackageDefinition {
   editable?: boolean;
   /** Legacy field — links to flow package files, reserved for compatibility */
   packageId?: string;
+  /** Target-specific implementations if available */
+  implementations?: Record<TargetId, TargetImplementation>;
 }
 
 // ─── Backwards Compatibility Alias ───────────────────────────────
 
-/**
- * @deprecated Prefer ComponentPackage for new code.
- * Kept as an alias so all existing consumer imports continue to compile
- * without modification during the Phase 2 migration window.
- *
- * Sidebar, ComponentNode, SchemaCanvas, PropertiesPanel, compilerValidator,
- * and arduinoGenerator all import ComponentDefinition — they continue to work
- * unchanged because ComponentPackage now includes the flat shim fields.
- */
 export type ComponentDefinition = ComponentPackage;

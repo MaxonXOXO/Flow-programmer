@@ -1,7 +1,7 @@
 import { Node, Edge } from '@xyflow/react';
 import { resolvePackageImplementation } from './packageResolver';
 import { getComponentPackage } from '../../registry/components';
-import { PackageGraphInstance } from '../../registry/components/types';
+import { PackageGraphInstance, TargetId } from '../../registry/components/types';
 
 export interface ExpansionResult {
   nodes: Node[];
@@ -11,6 +11,7 @@ export interface ExpansionResult {
 
 export interface ComponentCompilationContext {
   subflowOverrides?: Record<string, PackageGraphInstance>;
+  targetId?: TargetId;
 }
 
 export interface ResolvedComponentGraphSource {
@@ -85,12 +86,14 @@ export function resolveComponentGraphSource(
     nodeData?.packageId || 
     nodeType;
 
+  const targetId = context?.targetId || 'generic';
+
   // 1. Resolve canonical package implementation
-  let pkgResolved = resolvePackageImplementation(candidate);
+  let pkgResolved = resolvePackageImplementation(candidate, targetId);
   if ((!pkgResolved.graph && !pkgResolved.subflow) || pkgResolved.packageId === 'unknown') {
     const label = nodeData?.label || '';
     if (label.toLowerCase().includes('ultrasonic')) {
-      pkgResolved = resolvePackageImplementation('ultrasonic_hcsr04');
+      pkgResolved = resolvePackageImplementation('ultrasonic_hcsr04', targetId);
     }
   }
 

@@ -6,6 +6,7 @@ import { resolvePackageImplementation } from '../compiler/packages/packageResolv
 export interface InstantiatePackageGraphParams {
   packageId: string;
   componentInstanceId?: string;
+  targetId?: string;
 }
 
 /**
@@ -62,7 +63,7 @@ export function deepCloneData<T>(obj: T): T {
 export function instantiatePackageGraph(
   params: InstantiatePackageGraphParams
 ): PackageGraphInstance {
-  const { packageId, componentInstanceId } = params;
+  const { packageId, componentInstanceId, targetId = 'generic' } = params;
 
   // 1. Resolve package
   const pkg = getComponentPackage(packageId);
@@ -70,17 +71,17 @@ export function instantiatePackageGraph(
     throw new Error(`Package "${packageId}" does not exist`);
   }
 
-  // 2. Verify implementation exists
-  if (!pkg.implementation) {
+  // 2. Verify implementation exists (either implementations map or single implementation)
+  if (!pkg.implementation && !pkg.implementations) {
     throw new Error(`Package "${packageId}" has no implementation`);
   }
 
-  // 3. Verify implementation contains a graph
-  const resolved = resolvePackageImplementation(pkg);
+  // 3. Verify implementation contains a graph for the target
+  const resolved = resolvePackageImplementation(pkg, targetId);
   const rawGraph = resolved.graph || resolved.subflow;
 
   if (!rawGraph || !Array.isArray(rawGraph.nodes) || !Array.isArray(rawGraph.edges)) {
-    throw new Error(`Package "${packageId}" implementation has no graph`);
+    throw new Error(`Package "${packageId}" implementation has no graph for target "${targetId}"`);
   }
 
   // 4 & 5. Verify entry & exit declarations
@@ -119,5 +120,6 @@ export function instantiatePackageGraph(
     exit,
     unlocked: false,
     dirty: false,
+    targetId: resolved.targetId,
   };
 }

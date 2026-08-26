@@ -1,4 +1,13 @@
-import { ComponentPackage, PackageDefinition, PackageImplementation, ImplementationStrategy } from '../../registry/components/types';
+import { 
+  ComponentPackage, 
+  PackageDefinition, 
+  PackageImplementation, 
+  ImplementationStrategy,
+  TargetId,
+  TargetImplementation,
+  CanonicalComponentDefinition,
+  ComponentDependencies
+} from '../../registry/components/types';
 import { getComponentPackage } from '../../registry/components';
 
 export interface ResolvedPackageImplementation {
@@ -24,19 +33,25 @@ export interface ResolvedPackageImplementation {
     entry?: string;
     exit?: string;
   };
+  /** Target-specific compilation dependencies if resolved */
+  dependencies?: ComponentDependencies;
+  /** Native template or generator metadata if available */
+  native?: Record<string, unknown>;
   /** Package unique identifier */
   packageId: string;
+  /** Target identifier used for resolution */
+  targetId: TargetId;
 }
 
 /**
- * Resolves the implementation strategy and configuration for a Component Package or Package ID.
- *
- * The compiler should query this resolver instead of inspecting component IDs or labels directly.
+ * Resolves the implementation strategy and configuration for a Component Package or Package ID
+ * against a specific target MCU architecture (defaults to 'generic').
  */
 export function resolvePackageImplementation(
-  pkgOrId: ComponentPackage | PackageDefinition | string
+  pkgOrId: ComponentPackage | PackageDefinition | CanonicalComponentDefinition | string,
+  targetId: TargetId = 'generic'
 ): ResolvedPackageImplementation {
-  let pkg: ComponentPackage | PackageDefinition | undefined;
+  let pkg: ComponentPackage | PackageDefinition | CanonicalComponentDefinition | undefined;
   let packageId = 'unknown';
 
   if (typeof pkgOrId === 'string') {
@@ -51,17 +66,33 @@ export function resolvePackageImplementation(
     }
   } else {
     pkg = pkgOrId;
-    packageId = (pkg as any).id || pkg.metadata?.id || 'unknown';
+    packageId = (pkg as any).id || (pkg as any).metadata?.id || 'unknown';
   }
 
-  const impl: PackageImplementation = pkg?.implementation || { strategy: 'builtin', version: 1 };
+  // Target-aware implementation resolution
+  let impl: TargetImplementation | PackageImplementation | undefined;
+
+  if (pkg?.implementations) {
+    impl = pkg.implementations[targetId] || 
+           pkg.implementations['generic'] || 
+           pkg.implementations['default'] || 
+           Object.values(pkg.implementations)[0];
+  }
+
+  if (!impl && pkg?.implementation) {
+    impl = pkg.implementation;
+  }
+
+  if (!impl) {
+    impl = { strategy: 'builtin', version: 1 };
+  }
 
   // Normalize strategy: prefer impl.strategy, fallback to impl.type mapping, default to 'builtin'
   let strategy: ImplementationStrategy = 'builtin';
   if (impl.strategy) {
     strategy = impl.strategy;
-  } else if (impl.type === 'subflow') {
-    strategy = 'subflow';
+  } else if (impl.type === 'subflow' || impl.type === 'graph') {
+    strategy = 'graph';
   } else if (impl.type === 'native') {
     strategy = 'native';
   } else {
@@ -92,6 +123,9 @@ export function resolvePackageImplementation(
     exit,
     subflow: parsedSubflow,
     graph: parsedSubflow,
+    dependencies: impl.dependencies,
+    native: impl.native,
     packageId,
+    targetId,
   };
 }
