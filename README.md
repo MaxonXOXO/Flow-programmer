@@ -1,6 +1,7 @@
 # ⚡ Flow-IDE: Universal Visual Programming Environment & Compiler for Embedded Systems
 
 **Flow-IDE** is a professional, node-based visual development environment and compiler pipeline for embedded microcontrollers. By unifying a **Data-Driven Hardware Schema Designer**, a **Logic Flowchart Editor**, and an **Extensible Universal AST Compiler Backend**, Flow-IDE enables developers to visually wire physical electronics, customize component implementations via editable subflows, simulate behavior in real-time, and compile target-specific, production-ready embedded C++ code.
+It is developed indistinguishable to be used cross platform whether it is an arduino , ESP IDF or a STM Hal
 
 ---
 
