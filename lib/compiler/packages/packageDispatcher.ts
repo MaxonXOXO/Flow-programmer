@@ -46,12 +46,19 @@ export function dispatchPackageExecution(
       };
     }
 
+    case 'graph':
     case 'subflow': {
-      throw new Error(`Subflow package execution is not implemented yet.`);
+      return {
+        strategy: 'graph',
+        handled: true,
+      };
     }
 
     case 'native': {
-      throw new Error(`Native package execution is not implemented yet.`);
+      return {
+        strategy: 'native',
+        handled: true,
+      };
     }
 
     default: {

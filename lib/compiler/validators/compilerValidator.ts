@@ -4,6 +4,7 @@ import { SymbolTable } from '../symbols/symbolTable';
 import { SemanticAnalyzer, ValidationError } from '../semantic/semanticAnalyzer';
 import { mapLabelToPluginType } from '../../ir/plugin';
 import { getBoardDefinition, BoardDefinition } from '../../registry/boards';
+import { getComponentPackage } from '../../registry/components';
 
 export class CompilerValidator {
   private errors: ValidationError[] = [];
@@ -85,8 +86,31 @@ export class CompilerValidator {
       }
       pinAllocation[key].push(compNode.id);
 
-      const isAnalogCompPin = /^a\d+$/i.test(compPin) || compPin.toLowerCase() === 'ao' || compPin.toLowerCase() === 'analog' || compPin.toLowerCase() === 'adc';
-      const isDigitalCompPin = /^d\d+$/i.test(compPin) || compPin.toLowerCase() === 'do' || compPin.toLowerCase() === 'digital' || compPin.toLowerCase() === 'signal' || compPin.toLowerCase() === 'din' || compPin.toLowerCase() === 'dout';
+      const compData = compNode.data as any;
+      const compPkg = compData?.definition || (compData?.params?.packageId ? getComponentPackage(compData.params.packageId) : undefined);
+      const declaredPin = compPkg?.pins?.find((p: any) => p.id?.toLowerCase() === compPin.toLowerCase());
+      const declaredSignal = declaredPin?.signal?.toLowerCase() || '';
+
+      const isAnalogCompPin = 
+        declaredSignal === 'analog_output' ||
+        declaredSignal === 'analog_input' ||
+        declaredSignal === 'analog' ||
+        /^a\d+$/i.test(compPin) || 
+        compPin.toLowerCase() === 'ao' || 
+        compPin.toLowerCase() === 'analog' || 
+        compPin.toLowerCase() === 'adc' ||
+        (compPin.toLowerCase() === 'pin1' && ((compNode.data as any)?.label?.toLowerCase().includes('ldr') || compNode.id.includes('ldr')));
+
+      const isDigitalCompPin = 
+        declaredSignal === 'digital_output' ||
+        declaredSignal === 'digital_input' ||
+        declaredSignal === 'digital' ||
+        /^d\d+$/i.test(compPin) || 
+        compPin.toLowerCase() === 'do' || 
+        compPin.toLowerCase() === 'digital' || 
+        compPin.toLowerCase() === 'signal' || 
+        compPin.toLowerCase() === 'din' || 
+        compPin.toLowerCase() === 'dout';
 
       if (isAnalogCompPin && !pinDef.capabilities.includes('analog')) {
         this.errors.push({

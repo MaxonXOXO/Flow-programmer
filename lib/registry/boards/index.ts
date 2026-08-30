@@ -227,3 +227,4 @@ export { STM32BluePill } from './stm32_bluepill';
 export { RaspberryPiPico } from './raspberry_pi_pico';
 export * from './mcus';
 export * from './targets';
+export const validatePinCompatibility = canConnectSignal;

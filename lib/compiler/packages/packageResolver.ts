@@ -62,6 +62,8 @@ export function resolvePackageImplementation(
     if (!pkg) {
       if (pkgOrId.includes('ultrasonic') || pkgOrId === 'hcsr04') {
         pkg = getComponentPackage('ultrasonic_hcsr04');
+      } else if (pkgOrId === 'ldr' || pkgOrId.includes('ldr_light') || pkgOrId.includes('ldr')) {
+        pkg = getComponentPackage('ldr_light');
       }
     }
   } else {

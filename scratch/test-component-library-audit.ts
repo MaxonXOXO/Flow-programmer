@@ -291,17 +291,17 @@ assert(
 // ─────────────────────────────────────────────────────────────────
 console.log('\n--- T5: Builtin / Native Recognition ---');
 
-const builtinComponents = allComponents.filter(c => c.id !== 'ultrasonic_hcsr04');
-assert(builtinComponents.length === 21, 'T5: Exactly 21 builtin components exist');
+const nonMigratedComponents = allComponents.filter(c => c.id !== 'ultrasonic_hcsr04' && c.id !== 'ldr_light');
+assert(nonMigratedComponents.length === 20, `T5: Exactly 20 non-migrated builtin components exist (found ${nonMigratedComponents.length})`);
 
 let allBuiltinsResolveCorrectly = true;
-for (const comp of builtinComponents) {
+for (const comp of nonMigratedComponents) {
   const resolved = resolvePackageImplementation(comp);
   if (resolved.strategy !== 'builtin' && resolved.strategy !== 'native') {
     allBuiltinsResolveCorrectly = false;
   }
 }
-assert(allBuiltinsResolveCorrectly, 'T5: All 21 non-migrated components resolve to builtin/native strategy');
+assert(allBuiltinsResolveCorrectly, 'T5: All 20 non-migrated components resolve to builtin/native strategy');
 
 // ─────────────────────────────────────────────────────────────────
 // T6 — Target support matrix can be generated without guessing

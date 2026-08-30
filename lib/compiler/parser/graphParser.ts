@@ -316,8 +316,8 @@ export class GraphToASTCompiler {
             ]
           }
         } as VariableDeclarationNode);
-      } else if (type === 'sensor') {
-        const varName = data?.params?.var || 'sensorVal';
+      } else if (type === 'sensor' || type === 'analog_read' || type === 'analogRead') {
+        const varName = data?.params?.target || data?.params?.var || 'sensorVal';
         const pin = data?.params?.pin || 'A0';
         body.push({
           kind: 'VariableDeclaration',

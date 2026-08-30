@@ -1,0 +1,77 @@
+{
+  "id": "ldr_light",
+  "name": "LDR Light Sensor",
+  "version": "1.0.0",
+  "entry": "read_analog",
+  "exit": "return_light",
+  "packagePins": {
+    "pin1": {
+      "signal": "analog_output"
+    },
+    "pin2": {
+      "signal": "ground"
+    }
+  },
+  "outputs": {
+    "lightLevel": {
+      "type": "int"
+    }
+  },
+  "nodes": [
+    {
+      "id": "start",
+      "type": "baseNode",
+      "position": { "x": 100, "y": 200 },
+      "data": {
+        "label": "Start Reading",
+        "nodeType": "start",
+        "icon": "▶",
+        "params": {}
+      }
+    },
+    {
+      "id": "read_analog",
+      "type": "baseNode",
+      "position": { "x": 340, "y": 200 },
+      "data": {
+        "label": "Read Light Level",
+        "nodeType": "analog_read",
+        "icon": "⚡",
+        "params": {
+          "pin": "$PIN1",
+          "var": "lightLevel",
+          "target": "lightLevel"
+        }
+      }
+    },
+    {
+      "id": "return_light",
+      "type": "baseNode",
+      "position": { "x": 580, "y": 200 },
+      "data": {
+        "label": "Output Light Level",
+        "nodeType": "return",
+        "icon": "⬛",
+        "params": {
+          "value": "lightLevel"
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-start-read_analog",
+      "source": "start",
+      "target": "read_analog",
+      "sourceHandle": "flow",
+      "targetHandle": "flow"
+    },
+    {
+      "id": "e-read_analog-return_light",
+      "source": "read_analog",
+      "target": "return_light",
+      "sourceHandle": "flow",
+      "targetHandle": "flow"
+    }
+  ]
+}

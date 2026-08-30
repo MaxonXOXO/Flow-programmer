@@ -19,7 +19,7 @@ import {
 import { DHT11Package } from './sensors/dht11';
 import { UltrasonicHCSR04Package } from './sensors/ultrasonic_hcsr04';
 import { PIRMotionPackage } from './sensors/pir_motion';
-import { LDRLightPackage } from './sensors/ldr_light';
+import { LDRLightPackage, BasicSensorsManifest } from './sensors/ldr_light';
 import { IRObstaclePackage } from './sensors/ir_obstacle';
 import { FlameSensorPackage } from './sensors/flame_sensor';
 import { SoilMoisturePackage } from './sensors/soil_moisture';
@@ -55,6 +55,7 @@ export {
   PIRMotionPackage as PIRMotionComponent,
   LDRLightPackage,
   LDRLightPackage as LDRLightComponent,
+  BasicSensorsManifest,
   IRObstaclePackage,
   IRObstaclePackage as IRObstacleComponent,
   FlameSensorPackage,
@@ -200,6 +201,9 @@ const PACKAGE_REGISTRY: Record<string, PackageManifest> = Object.fromEntries(
     }
   ])
 );
+
+// Register canonical package namespaces
+PACKAGE_REGISTRY[BasicSensorsManifest.id] = BasicSensorsManifest;
 
 // ─── Public API ───────────────────────────────────────────────────
 

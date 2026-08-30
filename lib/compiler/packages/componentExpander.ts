@@ -91,9 +91,11 @@ export function resolveComponentGraphSource(
   // 1. Resolve canonical package implementation
   let pkgResolved = resolvePackageImplementation(candidate, targetId);
   if ((!pkgResolved.graph && !pkgResolved.subflow) || pkgResolved.packageId === 'unknown') {
-    const label = nodeData?.label || '';
-    if (label.toLowerCase().includes('ultrasonic')) {
+    const label = (nodeData?.label || '').toLowerCase();
+    if (label.includes('ultrasonic')) {
       pkgResolved = resolvePackageImplementation('ultrasonic_hcsr04', targetId);
+    } else if (label.includes('ldr') || label.includes('light')) {
+      pkgResolved = resolvePackageImplementation('ldr_light', targetId);
     }
   }
 
@@ -158,7 +160,7 @@ export function resolveComponentGraphSource(
  * If a component resolves to an internal subflow graph (from an instance override or package template),
  * this stage:
  * 1. Clones the internal graph nodes & edges with instance-prefixed IDs.
- * 2. Performs generic Pin & Variable Binding (maps $TRIG, $ECHO, output variables, and scopes internal variables).
+ * 2. Performs generic Pin & Variable Binding (maps $TRIG, $ECHO, $PIN1, output variables, and scopes internal variables).
  * 3. Splices the internal subflow nodes/edges directly into the flow graph using explicit B4 entry/exit declarations.
  *
  * If a package does not have an internal graph, it is left intact for builtin generator fallback.
@@ -182,7 +184,7 @@ export function expandComponentGraphs(
   // Build helper map of schema wiring connections
   const pinConnections: Record<string, Record<string, string>> = {};
   schemaEdges.forEach(edge => {
-    const isSourceUno = edge.source === 'arduino-uno';
+    const isSourceUno = edge.source === 'arduino-uno' || edge.source === 'board';
     const compNodeId = isSourceUno ? edge.target : edge.source;
     const compPin = isSourceUno ? edge.targetHandle : edge.sourceHandle;
     const unoPin = isSourceUno ? edge.sourceHandle : edge.targetHandle;
@@ -219,7 +221,7 @@ export function expandComponentGraphs(
     // Build Generic Variable & Pin Bindings
     const bindings: Record<string, string> = {};
 
-    // 1. Resolve Pin Bindings ($TRIG, $ECHO, etc.)
+    // 1. Resolve Pin Bindings ($TRIG, $ECHO, $PIN1, etc.)
     const instancePins = pinConnections[instanceId] || pinConnections[nodeType] || {};
     
     // Default fallback mappings for HC-SR04
@@ -231,16 +233,47 @@ export function expandComponentGraphs(
     // Generic pin resolution from package pins definition
     if (pkgDef?.pins) {
       pkgDef.pins.forEach((pin: any) => {
-        const boundPin = instancePins[pin.id.toLowerCase()] || params[`${pin.id}Pin`] || params[pin.id];
+        const pinKey = pin.id.toLowerCase();
+        const boundPin = instancePins[pinKey] || params[`${pin.id}Pin`] || params[pin.id];
         if (boundPin) {
           bindings[`$${pin.id.toUpperCase()}`] = boundPin;
+          bindings[`$${pin.id}`] = boundPin;
         }
       });
     }
+    // Fallback for pin1 (e.g. LDR light sensor)
+    if (!bindings['$PIN1'] && (instancePins['pin1'] || params.pin1 || params.pin || params.sensorPin)) {
+      const p1 = instancePins['pin1'] || params.pin1 || params.pin || params.sensorPin;
+      bindings['$PIN1'] = p1;
+      bindings['$pin1'] = p1;
+    }
+    if (!bindings['$PIN1']) {
+      bindings['$PIN1'] = 'A0';
+    }
 
-    // 2. Resolve Variable Bindings (e.g. target output distance variable)
+    // 2. Resolve Variable Bindings (e.g. target output distance / lightLevel variable)
     const varDist = params.varDist || params.var || params.target || 'distance';
     bindings['distance'] = varDist;
+
+    const outputVarMap: Record<string, string> = {
+      distance: varDist,
+    };
+
+    if (pkgDef?.outputs) {
+      pkgDef.outputs.forEach((out: any) => {
+        const outId = out.id;
+        const capitalized = outId.charAt(0).toUpperCase() + outId.slice(1);
+        const outVar = params[`var${capitalized}`] || 
+                       (outId === 'distance' ? params.varDist : undefined) ||
+                       (outId === 'lightLevel' ? (params.varLight || params.varLightLevel) : undefined) ||
+                       params[outId] || 
+                       params.var || 
+                       params.target || 
+                       outId;
+        bindings[outId] = outVar;
+        outputVarMap[outId] = outVar;
+      });
+    }
 
     // 3. Collect internal variables for instance-scoped namespacing (B3)
     const internalNodes: Node[] = internalGraph.nodes;
@@ -250,10 +283,10 @@ export function expandComponentGraphs(
     internalNodes.forEach(subNode => {
       const p = subNode.data?.params as any;
       if (!p) return;
-      if (p.var && typeof p.var === 'string' && p.var !== varDist && p.var !== 'distance') {
+      if (p.var && typeof p.var === 'string' && !Object.keys(outputVarMap).includes(p.var) && !Object.values(outputVarMap).includes(p.var)) {
         internalVarNames.add(p.var);
       }
-      if (p.target && typeof p.target === 'string' && p.target !== varDist && p.target !== 'distance' && (subNode.data as any)?.nodeType !== 'return') {
+      if (p.target && typeof p.target === 'string' && !Object.keys(outputVarMap).includes(p.target) && !Object.values(outputVarMap).includes(p.target) && (subNode.data as any)?.nodeType !== 'return') {
         internalVarNames.add(p.target);
       }
     });
@@ -270,7 +303,7 @@ export function expandComponentGraphs(
             str = str.replace(new RegExp(`\\${key}\\b`, 'g'), subVal);
           }
         });
-        // Next apply instance scoping to internal variables (e.g. duration -> sensor_front_duration)
+        // Next apply instance scoping to internal variables
         internalVarNames.forEach(varName => {
           const scopedVar = `${sanitizedInstanceId}_${varName}`;
           if (str === varName) {
@@ -330,8 +363,10 @@ export function expandComponentGraphs(
       let updatedNodeType = subNodeType;
       if (subNodeType === 'return') {
         updatedNodeType = 'assignment';
-        clonedParams.target = varDist;
-        clonedParams.expression = clonedParams.value || varDist;
+        const retVal = clonedParams.value || Object.keys(outputVarMap)[0] || 'distance';
+        const mappedTarget = outputVarMap[retVal] || bindings[retVal] || varDist;
+        clonedParams.target = mappedTarget;
+        clonedParams.expression = clonedParams.value || mappedTarget;
       }
 
       clonedSubNodes.push({

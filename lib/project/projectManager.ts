@@ -54,7 +54,7 @@ export function createNewProject(
  * Builds a validated FlowProject structure from active application store state.
  */
 export function exportProjectFromState(storeState: {
-  project?: { name?: string; platform?: string; hardware?: ProjectHardwareConfig; createdAt?: number };
+  project?: { name?: string; platform?: string; hardware?: ProjectHardwareConfig; createdAt?: number } | null;
   schemaNodes?: any[];
   schemaEdges?: any[];
   flowNodes?: any[];
