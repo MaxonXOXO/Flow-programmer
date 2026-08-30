@@ -165,6 +165,170 @@ export function resolveComponentGraphSource(
  *
  * If a package does not have an internal graph, it is left intact for builtin generator fallback.
  */
+/**
+ * Normalizes board pin identifiers.
+ * Converts 'D9' -> '9', while preserving 'A0', 'A2', 'GPIO34', etc.
+ */
+export function normalizePin(p: string | undefined): string {
+  if (!p) return '';
+  const trimmed = p.trim();
+  if (/^d\d+$/i.test(trimmed)) {
+    return trimmed.slice(1);
+  }
+  return trimmed;
+}
+
+/**
+ * Parses all physical wire connections between the MCU Board and Peripherals in the Schema graph.
+ */
+export function parseSchemaPinConnections(
+  schemaNodes: Node[] = [],
+  schemaEdges: Edge[] = []
+): {
+  connectionsByCompId: Record<string, Record<string, string>>;
+  compNodes: Node[];
+} {
+  const isBoardNode = (n?: Node, edgeEndId?: string): boolean => {
+    if (edgeEndId === 'arduino-uno' || edgeEndId === 'board' || edgeEndId === 'uno') return true;
+    if (!n) return false;
+    return (
+      n.type === 'boardNode' ||
+      n.type === 'unoNode' ||
+      n.id === 'arduino-uno' ||
+      n.id === 'board' ||
+      n.id === 'uno'
+    );
+  };
+
+  const connectionsByCompId: Record<string, Record<string, string>> = {};
+  const compNodes: Node[] = [];
+
+  schemaNodes.forEach(n => {
+    if (!isBoardNode(n, n.id)) {
+      compNodes.push(n);
+    }
+  });
+
+  schemaEdges.forEach(edge => {
+    const sourceNode = schemaNodes.find(n => n.id === edge.source);
+    const targetNode = schemaNodes.find(n => n.id === edge.target);
+
+    const isSourceBoard = isBoardNode(sourceNode, edge.source);
+    const isTargetBoard = isBoardNode(targetNode, edge.target);
+
+    if (isSourceBoard === isTargetBoard) {
+      // Both are board nodes or neither is board
+      return;
+    }
+
+    const boardPin = isSourceBoard ? edge.sourceHandle : edge.targetHandle;
+    const compNode = isSourceBoard ? targetNode : sourceNode;
+    const compPin = isSourceBoard ? edge.targetHandle : edge.sourceHandle;
+    const compId = compNode ? compNode.id : (isSourceBoard ? edge.target : edge.source);
+
+    if (boardPin && compPin && compId) {
+      if (!connectionsByCompId[compId]) {
+        connectionsByCompId[compId] = {};
+      }
+      const normalizedCompPin = compPin.trim().toLowerCase();
+      const normalizedBoardPin = normalizePin(boardPin);
+      connectionsByCompId[compId][normalizedCompPin] = normalizedBoardPin;
+      connectionsByCompId[compId][compPin.trim()] = normalizedBoardPin;
+    }
+  });
+
+  return { connectionsByCompId, compNodes };
+}
+
+/**
+ * Resolves the physical pin connections for a specific Flow Node by correlating
+ * with Schema Canvas component instances.
+ */
+export function resolveInstancePinsForFlowNode(
+  flowNode: Node,
+  packageId: string,
+  connectionsByCompId: Record<string, Record<string, string>>,
+  schemaCompNodes: Node[]
+): Record<string, string> {
+  const flowData = (flowNode.data || {}) as any;
+  const flowNodeId = flowNode.id;
+  const explicitCompId = flowData.params?.componentId || flowData.componentId || flowData.params?.componentInstanceId;
+
+  // 1. Direct match on flowNode.id
+  if (connectionsByCompId[flowNodeId]) {
+    return connectionsByCompId[flowNodeId];
+  }
+
+  // 2. Explicit componentId reference
+  if (explicitCompId && connectionsByCompId[explicitCompId]) {
+    return connectionsByCompId[explicitCompId];
+  }
+
+  // 3. Match against schemaCompNodes by schemaNode.id === flowNodeId
+  const directSchemaNode = schemaCompNodes.find(n => n.id === flowNodeId);
+  if (directSchemaNode && connectionsByCompId[directSchemaNode.id]) {
+    return connectionsByCompId[directSchemaNode.id];
+  }
+
+  // 4. Match against schemaCompNodes by component type / package ID / label
+  const matchingSchemaNodes = schemaCompNodes.filter(n => {
+    const sData = (n.data || {}) as any;
+    const sType = sData.componentType || sData.nodeType || sData.params?.packageId || sData.packageId || sData.definition?.metadata?.id;
+    const sLabel = (sData.label || '').toLowerCase();
+    const fLabel = (flowData.label || '').toLowerCase();
+
+    return (
+      sType === packageId || 
+      sType === flowData.nodeType ||
+      (packageId === 'ldr_light' && (sType === 'ldr' || sType === 'ldr_light' || sLabel.includes('ldr') || sLabel.includes('light'))) ||
+      (packageId === 'ultrasonic_hcsr04' && (sType === 'ultrasonic' || sType === 'ultrasonic_hcsr04' || sType === 'hcsr04' || sLabel.includes('ultrasonic')))
+    );
+  });
+
+  if (matchingSchemaNodes.length === 1) {
+    const matchedId = matchingSchemaNodes[0].id;
+    if (connectionsByCompId[matchedId]) {
+      return connectionsByCompId[matchedId];
+    }
+  } else if (matchingSchemaNodes.length > 1) {
+    // Try to match by label first
+    const fLabel = (flowData.label || '').toLowerCase();
+    const exactLabelMatch = matchingSchemaNodes.find(n => ((n.data as any)?.label || '').toLowerCase() === fLabel);
+    if (exactLabelMatch && connectionsByCompId[exactLabelMatch.id]) {
+      return connectionsByCompId[exactLabelMatch.id];
+    }
+    // Try to match by instance ID substring
+    const idSubstringMatch = matchingSchemaNodes.find(n => flowNodeId.includes(n.id) || n.id.includes(flowNodeId));
+    if (idSubstringMatch && connectionsByCompId[idSubstringMatch.id]) {
+      return connectionsByCompId[idSubstringMatch.id];
+    }
+    // Fallback to first connected matching schema node
+    const firstConnected = matchingSchemaNodes.find(n => connectionsByCompId[n.id]);
+    if (firstConnected) {
+      return connectionsByCompId[firstConnected.id];
+    }
+  }
+
+  // 5. Fallback to nodeType key
+  if (connectionsByCompId[flowData.nodeType]) {
+    return connectionsByCompId[flowData.nodeType];
+  }
+
+  return {};
+}
+
+/**
+ * Component Graph Expander
+ *
+ * Scans a visual flow graph for component package nodes.
+ * If a component resolves to an internal subflow graph (from an instance override or package template),
+ * this stage:
+ * 1. Clones the internal graph nodes & edges with instance-prefixed IDs.
+ * 2. Performs generic Pin & Variable Binding (maps $TRIG, $ECHO, $PIN1, output variables, and scopes internal variables).
+ * 3. Splices the internal subflow nodes/edges directly into the flow graph using explicit entry/exit declarations.
+ *
+ * If a package does not have an internal graph, it is left intact for builtin generator fallback.
+ */
 export function expandComponentGraphs(
   flowNodes: Node[],
   flowEdges: Edge[],
@@ -176,33 +340,14 @@ export function expandComponentGraphs(
   const resultEdges: Edge[] = flowEdges.map(cloneEdge);
   let hasExpandedComponents = false;
 
-  const normalizePin = (p: string | undefined): string => {
-    if (!p) return '';
-    return p.trim().replace(/^d/i, '');
-  };
-
   // Build helper map of schema wiring connections
-  const pinConnections: Record<string, Record<string, string>> = {};
-  schemaEdges.forEach(edge => {
-    const isSourceUno = edge.source === 'arduino-uno' || edge.source === 'board';
-    const compNodeId = isSourceUno ? edge.target : edge.source;
-    const compPin = isSourceUno ? edge.targetHandle : edge.sourceHandle;
-    const unoPin = isSourceUno ? edge.sourceHandle : edge.targetHandle;
-
-    if (compNodeId && compPin && unoPin) {
-      if (!pinConnections[compNodeId]) {
-        pinConnections[compNodeId] = {};
-      }
-      pinConnections[compNodeId][compPin.toLowerCase()] = normalizePin(unoPin);
-    }
-  });
+  const { connectionsByCompId, compNodes: schemaCompNodes } = parseSchemaPinConnections(schemaNodes, schemaEdges);
 
   flowNodes.forEach(node => {
     const nodeData = node.data as any;
-    const nodeType = nodeData?.nodeType || node.type || '';
     const instanceId = node.id;
     const sanitizedInstanceId = sanitizeIdentifier(instanceId);
-    const params = nodeData?.params || {};
+    const params = { ...(nodeData || {}), ...(nodeData?.params || {}) };
 
     // Authoritative source resolution
     const graphSource = resolveComponentGraphSource(node, context);
@@ -222,71 +367,124 @@ export function expandComponentGraphs(
     const bindings: Record<string, string> = {};
 
     // 1. Resolve Pin Bindings ($TRIG, $ECHO, $PIN1, etc.)
-    const instancePins = pinConnections[instanceId] || pinConnections[nodeType] || {};
-    
-    // Default fallback mappings for HC-SR04
-    const trigPin = instancePins['trig'] || params.trigPin || '9';
-    const echoPin = instancePins['echo'] || params.echoPin || '10';
-    bindings['$TRIG'] = trigPin;
-    bindings['$ECHO'] = echoPin;
+    const instancePins = resolveInstancePinsForFlowNode(
+      node,
+      graphSource.packageId,
+      connectionsByCompId,
+      schemaCompNodes
+    );
 
-    // Generic pin resolution from package pins definition
-    if (pkgDef?.pins) {
+    // Dynamic resolution from declared package pins
+    if (pkgDef?.pins && Array.isArray(pkgDef.pins)) {
       pkgDef.pins.forEach((pin: any) => {
-        const pinKey = pin.id.toLowerCase();
-        const boundPin = instancePins[pinKey] || params[`${pin.id}Pin`] || params[pin.id];
+        const pinId = pin.id; // e.g. 'pin1', 'pin2', 'TRIG', 'ECHO'
+        const pinKey = pinId.toLowerCase();
+
+        const boundPin = 
+          instancePins[pinKey] ||
+          instancePins[pinId] ||
+          (pinKey === 'pin1' ? (instancePins['ao'] || instancePins['signal'] || instancePins['pin'] || instancePins['analog']) : undefined) ||
+          (pinKey === 'trig' ? (instancePins['trigpin'] || instancePins['trig_pin']) : undefined) ||
+          (pinKey === 'echo' ? (instancePins['echopin'] || instancePins['echo_pin']) : undefined) ||
+          params[`${pinId}Pin`] ||
+          params[`${pinKey}Pin`] ||
+          params[pinId] ||
+          params[pinKey] ||
+          (pinKey === 'pin1' ? (params.pin || params.sensorPin) : undefined) ||
+          (pinKey === 'trig' ? (params.trigPin || params.trig) : undefined) ||
+          (pinKey === 'echo' ? (params.echoPin || params.echo) : undefined);
+
         if (boundPin) {
-          bindings[`$${pin.id.toUpperCase()}`] = boundPin;
-          bindings[`$${pin.id}`] = boundPin;
+          const upper = pinId.toUpperCase();
+          const lower = pinId.toLowerCase();
+          const strPin = String(boundPin);
+          bindings[`$${upper}`] = strPin;
+          bindings[`$${lower}`] = strPin;
+          bindings[`$${pinId}`] = strPin;
+
+          // Standard placeholder aliases
+          if (pinKey === 'pin1') {
+            bindings['$PIN'] = strPin;
+            bindings['$pin'] = strPin;
+            bindings['$AO'] = strPin;
+            bindings['$ao'] = strPin;
+            bindings['$SIGNAL'] = strPin;
+            bindings['$signal'] = strPin;
+          } else if (pinKey === 'trig') {
+            bindings['$TRIGPIN'] = strPin;
+            bindings['$trigPin'] = strPin;
+          } else if (pinKey === 'echo') {
+            bindings['$ECHOPIN'] = strPin;
+            bindings['$echoPin'] = strPin;
+          }
         }
       });
     }
-    // Fallback for pin1 (e.g. LDR light sensor)
-    if (!bindings['$PIN1'] && (instancePins['pin1'] || params.pin1 || params.pin || params.sensorPin)) {
-      const p1 = instancePins['pin1'] || params.pin1 || params.pin || params.sensorPin;
-      bindings['$PIN1'] = p1;
-      bindings['$pin1'] = p1;
+
+    // Generic fallback for common placeholders if not declared in pkgDef.pins or un-wired
+    if (!bindings['$TRIG']) {
+      const p = instancePins['trig'] || params.trigPin || params.trig || '9';
+      bindings['$TRIG'] = String(p);
+      bindings['$trig'] = String(p);
+    }
+    if (!bindings['$ECHO']) {
+      const p = instancePins['echo'] || params.echoPin || params.echo || '10';
+      bindings['$ECHO'] = String(p);
+      bindings['$echo'] = String(p);
     }
     if (!bindings['$PIN1']) {
-      bindings['$PIN1'] = 'A0';
+      const p = instancePins['pin1'] || params.pin1 || params.pin || params.sensorPin || 'A0';
+      bindings['$PIN1'] = String(p);
+      bindings['$pin1'] = String(p);
+      bindings['$PIN'] = String(p);
+      bindings['$pin'] = String(p);
     }
 
-    // 2. Resolve Variable Bindings (e.g. target output distance / lightLevel variable)
-    const varDist = params.varDist || params.var || params.target || 'distance';
-    bindings['distance'] = varDist;
+    // 2. Resolve Variable Bindings from declared package outputs
+    const outputVarMap: Record<string, string> = {};
 
-    const outputVarMap: Record<string, string> = {
-      distance: varDist,
-    };
-
-    if (pkgDef?.outputs) {
+    if (pkgDef?.outputs && Array.isArray(pkgDef.outputs) && pkgDef.outputs.length > 0) {
       pkgDef.outputs.forEach((out: any) => {
-        const outId = out.id;
+        const outId = out.id; // e.g. 'lightLevel' or 'distance'
         const capitalized = outId.charAt(0).toUpperCase() + outId.slice(1);
-        const outVar = params[`var${capitalized}`] || 
-                       (outId === 'distance' ? params.varDist : undefined) ||
-                       (outId === 'lightLevel' ? (params.varLight || params.varLightLevel) : undefined) ||
-                       params[outId] || 
-                       params.var || 
-                       params.target || 
-                       outId;
-        bindings[outId] = outVar;
-        outputVarMap[outId] = outVar;
+        
+        const boundVar = 
+          params[`var${capitalized}`] ||
+          (outId === 'distance' ? params.varDist : undefined) ||
+          (outId === 'lightLevel' ? (params.varLight || params.varLightLevel) : undefined) ||
+          params[outId] ||
+          params.var ||
+          params.target ||
+          params.assignTo ||
+          outId;
+
+        outputVarMap[outId] = boundVar;
+        bindings[outId] = boundVar;
+        bindings[`$${outId.toUpperCase()}`] = boundVar;
+        bindings[`$${outId}`] = boundVar;
       });
+    } else {
+      // Fallback for legacy components without outputs array
+      const legacyOut = params.varDist || params.varLight || params.var || params.target || 'val';
+      outputVarMap['val'] = legacyOut;
+      bindings['val'] = legacyOut;
     }
 
-    // 3. Collect internal variables for instance-scoped namespacing (B3)
+    // 3. Collect internal variables for instance-scoped namespacing
     const internalNodes: Node[] = internalGraph.nodes;
     const internalEdges: Edge[] = internalGraph.edges;
+
+    const outputKeys = new Set(Object.keys(outputVarMap));
+    const outputValues = new Set(Object.values(outputVarMap));
 
     const internalVarNames = new Set<string>();
     internalNodes.forEach(subNode => {
       const p = subNode.data?.params as any;
       if (!p) return;
-      if (p.var && typeof p.var === 'string' && !Object.keys(outputVarMap).includes(p.var) && !Object.values(outputVarMap).includes(p.var)) {
+      if (p.var && typeof p.var === 'string' && !outputKeys.has(p.var) && !outputValues.has(p.var)) {
         internalVarNames.add(p.var);
       }
-      if (p.target && typeof p.target === 'string' && !Object.keys(outputVarMap).includes(p.target) && !Object.values(outputVarMap).includes(p.target) && (subNode.data as any)?.nodeType !== 'return') {
+      if (p.target && typeof p.target === 'string' && !outputKeys.has(p.target) && !outputValues.has(p.target) && (subNode.data as any)?.nodeType !== 'return') {
         internalVarNames.add(p.target);
       }
     });
@@ -327,7 +525,7 @@ export function expandComponentGraphs(
       return value;
     };
 
-    // 4. Validate and resolve explicit entry / exit declarations (B4)
+    // 4. Validate and resolve explicit entry / exit declarations
     const explicitEntryId = graphSource.entry || internalGraph.entry;
     const explicitExitId = graphSource.exit || internalGraph.exit;
 
@@ -359,14 +557,30 @@ export function expandComponentGraphs(
       const newId = `${instanceId}_${subNode.id}`;
       const clonedParams = applyBindings(subNode.data?.params || {});
 
-      // For return nodes inside subflow: convert to assignment if output variable mapped
+      // For return nodes inside subflow:
       let updatedNodeType = subNodeType;
       if (subNodeType === 'return') {
-        updatedNodeType = 'assignment';
-        const retVal = clonedParams.value || Object.keys(outputVarMap)[0] || 'distance';
-        const mappedTarget = outputVarMap[retVal] || bindings[retVal] || varDist;
-        clonedParams.target = mappedTarget;
-        clonedParams.expression = clonedParams.value || mappedTarget;
+        const originalVal = ((subNode.data as any)?.params?.value || '') as string;
+        const returnedExpr = ((clonedParams as any)?.value || '') as string;
+
+        // Find which output contract variable this return corresponds to
+        let mappedTarget = '';
+        if (originalVal && outputVarMap[originalVal]) {
+          mappedTarget = outputVarMap[originalVal];
+        } else if (Object.keys(outputVarMap).length > 0) {
+          mappedTarget = Object.values(outputVarMap)[0];
+        }
+
+        if (mappedTarget && returnedExpr && mappedTarget !== returnedExpr) {
+          // Internal calculation being assigned to target output variable
+          updatedNodeType = 'assignment';
+          clonedParams.target = mappedTarget;
+          clonedParams.expression = returnedExpr;
+        } else {
+          // If the subflow node already read/assigned directly to mappedTarget (e.g. lightVal = analogRead(A0)),
+          // the return node becomes a pass-through start/marker that does not generate redundant assignments.
+          updatedNodeType = 'start';
+        }
       }
 
       clonedSubNodes.push({
