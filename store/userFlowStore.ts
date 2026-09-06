@@ -7,6 +7,7 @@ import {
 } from '@xyflow/react'
 import { loadPackage, packageExists, validatePackage } from '../lib/packages/packageLoader'
 import { PackageGraphInstance } from '../lib/registry/components/types'
+import { getComponentPackage } from '../lib/registry/components'
 import { instantiatePackageGraph } from '../lib/packages/packageGraphInstantiator'
 import { usePanelStore } from './usePanelStore'
 import { ProjectHardwareConfig } from '../lib/project/types'
@@ -376,7 +377,10 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
       isUnlocked = Boolean(graphInstance.unlocked)
     }
 
-    const cleanTitle = (title || `📦 ${packageId}`).replace(/^(📦|🔓)\s*/, '')
+    const pkg = getComponentPackage(packageId)
+    const defaultDisplayName = pkg?.metadata?.name || pkg?.name || packageId
+    const formattedDefaultTitle = `${defaultDisplayName.replace(/^Ultrasonic\s+/i, '')} Subflow`
+    const cleanTitle = (title || formattedDefaultTitle).replace(/^(📦|🔓)\s*/, '')
 
     // Create new first-class SubflowDocument
     const newDoc: SubflowDocument = {
@@ -1102,20 +1106,36 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
     const activeDoc = s.documents.find(d => d.id === s.activeDocumentId)
     if (activeDoc?.type === 'subflow') {
       const subInstance = s.subflowInstances[activeDoc.id]
-      if (subInstance && subInstance.unlocked) {
-        const hasMutatingChanges = changes.some(c => c.type !== 'select')
-        return {
-          subflowInstances: {
-            ...s.subflowInstances,
-            [activeDoc.id]: {
-              ...subInstance,
-              nodes: applyNodeChanges(changes, subInstance.nodes),
-              dirty: subInstance.dirty || hasMutatingChanges,
+      if (subInstance) {
+        if (subInstance.unlocked) {
+          const hasMutatingChanges = changes.some(c => c.type !== 'select')
+          return {
+            subflowInstances: {
+              ...s.subflowInstances,
+              [activeDoc.id]: {
+                ...subInstance,
+                nodes: applyNodeChanges(changes, subInstance.nodes),
+                dirty: subInstance.dirty || hasMutatingChanges,
+              }
+            },
+            documents: hasMutatingChanges 
+              ? s.documents.map(d => d.id === activeDoc.id ? { ...d, dirty: true } : d)
+              : s.documents
+          }
+        } else {
+          // Read-only subflow: allow selection changes only, discard mutations
+          const selectionChanges = changes.filter(c => c.type === 'select')
+          if (selectionChanges.length > 0) {
+            return {
+              subflowInstances: {
+                ...s.subflowInstances,
+                [activeDoc.id]: {
+                  ...subInstance,
+                  nodes: applyNodeChanges(selectionChanges, subInstance.nodes),
+                }
+              }
             }
-          },
-          documents: hasMutatingChanges 
-            ? s.documents.map(d => d.id === activeDoc.id ? { ...d, dirty: true } : d)
-            : s.documents
+          }
         }
       }
       return s
@@ -1148,20 +1168,36 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
     const activeDoc = s.documents.find(d => d.id === s.activeDocumentId)
     if (activeDoc?.type === 'subflow') {
       const subInstance = s.subflowInstances[activeDoc.id]
-      if (subInstance && subInstance.unlocked) {
-        const hasMutatingChanges = changes.some(c => c.type !== 'select')
-        return {
-          subflowInstances: {
-            ...s.subflowInstances,
-            [activeDoc.id]: {
-              ...subInstance,
-              edges: applyEdgeChanges(changes, subInstance.edges),
-              dirty: subInstance.dirty || hasMutatingChanges,
+      if (subInstance) {
+        if (subInstance.unlocked) {
+          const hasMutatingChanges = changes.some(c => c.type !== 'select')
+          return {
+            subflowInstances: {
+              ...s.subflowInstances,
+              [activeDoc.id]: {
+                ...subInstance,
+                edges: applyEdgeChanges(changes, subInstance.edges),
+                dirty: subInstance.dirty || hasMutatingChanges,
+              }
+            },
+            documents: hasMutatingChanges 
+              ? s.documents.map(d => d.id === activeDoc.id ? { ...d, dirty: true } : d)
+              : s.documents
+          }
+        } else {
+          // Read-only subflow: allow selection changes only
+          const selectionChanges = changes.filter(c => c.type === 'select')
+          if (selectionChanges.length > 0) {
+            return {
+              subflowInstances: {
+                ...s.subflowInstances,
+                [activeDoc.id]: {
+                  ...subInstance,
+                  edges: applyEdgeChanges(selectionChanges, subInstance.edges),
+                }
+              }
             }
-          },
-          documents: hasMutatingChanges 
-            ? s.documents.map(d => d.id === activeDoc.id ? { ...d, dirty: true } : d)
-            : s.documents
+          }
         }
       }
       return s
