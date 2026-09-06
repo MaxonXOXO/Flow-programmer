@@ -14,10 +14,10 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useFlowStore } from '@/store/userFlowStore'
-import { resolveCanonicalPackageId } from '@/lib/packages/packageGraphInstantiator'
+import { resolveCanonicalPackageId, instantiatePackageGraph } from '@/lib/packages/packageGraphInstantiator'
 import BaseNode from '@/components/nodes/BaseNode'
 import CustomSelect from '@/components/ui/CustomSelect'
-import { Edit2, Copy, Trash2, Sliders, X, Check, Plus, Unlock, RotateCcw, Save } from 'lucide-react'
+import { Edit2, Copy, Trash2, Sliders, X, Check, Plus, Lock } from 'lucide-react'
 
 interface ContextMenuState {
   nodeId: string
@@ -168,19 +168,41 @@ function FlowCanvasInner() {
   const isInSubFlow = subFlowStack.length > 0
   const activePackage = activePackageId ? componentPackages[activePackageId] : null
 
-  const { screenToFlowPosition, setViewport, fitView } = useReactFlow()
+  const { screenToFlowPosition, setViewport, fitView, getViewport } = useReactFlow()
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const [quickEdit, setQuickEdit] = useState<QuickEditState | null>(null)
   const quickEditRef = useRef<HTMLDivElement>(null)
   const [notification, setNotification] = useState<string | null>(null)
+  const prevDocIdRef = useRef<string>(activeDocumentId)
+  const mainFlowViewportRef = useRef<{ x: number; y: number; zoom: number } | null>(null)
 
   useEffect(() => {
-    try {
-      fitView({ duration: 250 });
-    } catch (e) {
-      // Ignored if canvas is not ready yet
+    const prevDocId = prevDocIdRef.current
+    prevDocIdRef.current = activeDocumentId
+
+    // When navigating away from main_flow, preserve its current viewport
+    if (prevDocId === 'main_flow' && activeDocumentId !== 'main_flow') {
+      try {
+        mainFlowViewportRef.current = getViewport()
+      } catch {
+        // Ignored if canvas is not initialized
+      }
     }
-  }, [activeDocumentId, fitView])
+
+    if (activeDocumentId === 'main_flow' && mainFlowViewportRef.current) {
+      // Restore preserved Main Flow viewport
+      try {
+        setViewport(mainFlowViewportRef.current, { duration: 200 })
+      } catch {}
+    } else {
+      // For subflow documents or initial load, fit the graph to viewport
+      try {
+        fitView({ duration: 250 })
+      } catch (e) {
+        // Ignored if canvas is not ready yet
+      }
+    }
+  }, [activeDocumentId, fitView, getViewport, setViewport])
 
   useEffect(() => {
     const handleResetZoom = () => {
@@ -220,6 +242,8 @@ function FlowCanvasInner() {
     const canonicalPkgId = resolveCanonicalPackageId(node)
     if (canonicalPkgId) {
       try {
+        // Validate graph instantiation criteria first to avoid silently opening an empty canvas on error
+        instantiatePackageGraph({ packageId: canonicalPkgId, componentInstanceId: node.id })
         openSubflowDocument({
           packageId: canonicalPkgId,
           componentInstanceId: node.id,
@@ -227,7 +251,7 @@ function FlowCanvasInner() {
         })
         return
       } catch (err: any) {
-        setNotification(err.message || `Failed to open subflow for component package "${canonicalPkgId}"`)
+        setNotification(`Cannot open subflow: ${err.message || err}`)
         return
       }
     }
@@ -421,7 +445,6 @@ function FlowCanvasInner() {
   // Handle right-click context menu on nodes
   const onNodeContextMenu = useCallback(
     (e: React.MouseEvent, node: any) => {
-      if (isReadOnly) return
       e.preventDefault()
       setMenu({
         nodeId: node.id,
@@ -429,7 +452,7 @@ function FlowCanvasInner() {
         y: e.clientY,
       })
     },
-    [isReadOnly]
+    []
   )
 
   // Close context menu on left-clicks (but not quick edit)
@@ -732,7 +755,7 @@ function FlowCanvasInner() {
         </div>
       )}
 
-      {/* Subflow Header Badge (Locked vs Unlocked Clean vs Unlocked Dirty) */}
+      {/* Subflow Header Badge (Component Subflow · Read Only) */}
       {isSubflowDoc && (
         <div style={{
           position: 'absolute',
@@ -741,15 +764,9 @@ function FlowCanvasInner() {
           transform: 'translateX(-50%)',
           background: 'rgba(17, 20, 28, 0.94)',
           backdropFilter: 'blur(12px)',
-          border: isReadOnly 
-            ? '1px solid rgba(95, 163, 255, 0.35)' 
-            : activeDoc.dirty 
-              ? '1px solid rgba(255, 177, 61, 0.45)' 
-              : '1px solid rgba(47, 209, 139, 0.4)',
+          border: '1px solid rgba(95, 163, 255, 0.35)',
           borderRadius: 8,
-          boxShadow: isReadOnly 
-            ? '0 8px 32px rgba(0,0,0,0.6), 0 0 15px rgba(95,163,255,0.1)' 
-            : '0 8px 32px rgba(0,0,0,0.6), 0 0 15px rgba(47,209,139,0.12)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 15px rgba(95,163,255,0.1)',
           padding: '6px 14px',
           zIndex: 100,
           display: 'flex',
@@ -758,21 +775,13 @@ function FlowCanvasInner() {
           fontSize: 11,
           fontFamily: 'var(--font-sans)',
         }}>
-          <span style={{ fontSize: 13 }}>{isReadOnly ? '📦' : '🔓'}</span>
+          <span style={{ fontSize: 13 }}>📦</span>
           <span style={{ color: '#f0f4fc', fontWeight: 700 }}>
             {activeDoc.title}
           </span>
           <span style={{
-            background: isReadOnly 
-              ? 'rgba(95, 163, 255, 0.15)' 
-              : activeDoc.dirty 
-                ? 'rgba(255, 177, 61, 0.15)' 
-                : 'rgba(47, 209, 139, 0.15)',
-            color: isReadOnly 
-              ? '#5fa3ff' 
-              : activeDoc.dirty 
-                ? '#ffb13d' 
-                : '#2fd18b',
+            background: 'rgba(95, 163, 255, 0.15)',
+            color: '#5fa3ff',
             fontSize: 9,
             fontWeight: 800,
             padding: '2px 6px',
@@ -781,100 +790,8 @@ function FlowCanvasInner() {
             textTransform: 'uppercase',
             fontFamily: 'var(--font-mono)'
           }}>
-            {isReadOnly ? 'Component Subflow · Read Only' : activeDoc.dirty ? 'Component Subflow · Modified' : 'Component Subflow · Unlocked'}
+            Component Subflow · Read Only
           </span>
-
-          {isReadOnly ? (
-            <>
-              <div style={{ width: 1, height: 12, background: 'rgba(255, 255, 255, 0.15)', margin: '0 2px' }} />
-              <button
-                onClick={() => unlockSubflowDocument(activeDoc.id)}
-                title="Unlock flow to enable editing this component instance"
-                style={{
-                  background: 'rgba(255, 177, 61, 0.12)',
-                  border: '1px solid rgba(255, 177, 61, 0.35)',
-                  color: '#ffb13d',
-                  fontSize: 10,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  padding: '2px 8px',
-                  borderRadius: 4,
-                  letterSpacing: '0.3px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  transition: 'all 0.15s ease',
-                  fontFamily: 'var(--font-sans)',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255, 177, 61, 0.22)' }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255, 177, 61, 0.12)' }}
-              >
-                <Unlock className="w-3 h-3 text-[#ffb13d]" />
-                Unlock Flow
-              </button>
-            </>
-          ) : (
-            <>
-              <div style={{ width: 1, height: 12, background: 'rgba(255, 255, 255, 0.15)', margin: '0 2px' }} />
-              {activeDoc.dirty && (
-                <button
-                  onClick={() => saveSubflowOverride(activeDoc.id)}
-                  title="Save/commit this customized component implementation for the project"
-                  style={{
-                    background: 'rgba(47, 209, 139, 0.12)',
-                    border: '1px solid rgba(47, 209, 139, 0.35)',
-                    color: '#2fd18b',
-                    fontSize: 10,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    padding: '2px 8px',
-                    borderRadius: 4,
-                    letterSpacing: '0.3px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    transition: 'all 0.15s ease',
-                    fontFamily: 'var(--font-sans)',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(47, 209, 139, 0.22)' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(47, 209, 139, 0.12)' }}
-                >
-                  <Save className="w-3 h-3 text-[#2fd18b]" />
-                  Save Override
-                </button>
-              )}
-              <button
-                onClick={() => {
-                  const confirmed = window.confirm('Revert this component to the package template? Custom edits will be discarded.')
-                  if (confirmed) {
-                    revertSubflowOverride(activeDoc.id)
-                  }
-                }}
-                title="Discard customizations and restore package template"
-                style={{
-                  background: 'rgba(255, 95, 158, 0.12)',
-                  border: '1px solid rgba(255, 95, 158, 0.35)',
-                  color: '#ff5f9e',
-                  fontSize: 10,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  padding: '2px 8px',
-                  borderRadius: 4,
-                  letterSpacing: '0.3px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  transition: 'all 0.15s ease',
-                  fontFamily: 'var(--font-sans)',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255, 95, 158, 0.22)' }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255, 95, 158, 0.12)' }}
-              >
-                <RotateCcw className="w-3 h-3 text-[#ff5f9e]" />
-                Revert to Package
-              </button>
-            </>
-          )}
         </div>
       )}
 
@@ -887,10 +804,11 @@ function FlowCanvasInner() {
         onConnect={onConnect}
         nodesDraggable={!isReadOnly}
         nodesConnectable={!isReadOnly}
+        deleteKeyCode={isReadOnly ? null : ['Backspace', 'Delete']}
         elementsSelectable={true}
-        onNodeDragStart={() => pushHistory()}
-        onNodesDelete={() => pushHistory()}
-        onEdgesDelete={() => pushHistory()}
+        onNodeDragStart={() => { if (!isReadOnly) pushHistory() }}
+        onNodesDelete={() => { if (!isReadOnly) pushHistory() }}
+        onEdgesDelete={() => { if (!isReadOnly) pushHistory() }}
         onNodeClick={(_, node) => setSelectedNode(node.id)}
         onNodeDoubleClick={onNodeDoubleClick}
         onPaneClick={() => { setSelectedNode(null); setMenu(null); setQuickEdit(null) }}
@@ -933,8 +851,8 @@ function FlowCanvasInner() {
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Quick Edit - only show if node has params */}
-          {(() => {
+          {/* Quick Edit - only show if node has params and not read-only */}
+          {!isReadOnly && (() => {
             const node = flowNodes.find(n => n.id === menu.nodeId)
             if (!node) return null
 
@@ -985,27 +903,29 @@ function FlowCanvasInner() {
             ) : null
           })()}
           
-          <button
-            onClick={() => { handleDuplicate(menu.nodeId); setMenu(null) }}
-            style={{
-              width: '100%',
-              background: 'transparent',
-              border: 'none',
-              padding: '6px 12px',
-              fontSize: 11,
-              color: 'var(--color-text-bright)',
-              textAlign: 'left',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = '#1a2233'}
-            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-          >
-            <Copy className="w-3.5 h-3.5 text-[#2fd18b]" />
-            Duplicate Node
-          </button>
+          {!isReadOnly && (
+            <button
+              onClick={() => { handleDuplicate(menu.nodeId); setMenu(null) }}
+              style={{
+                width: '100%',
+                background: 'transparent',
+                border: 'none',
+                padding: '6px 12px',
+                fontSize: 11,
+                color: 'var(--color-text-bright)',
+                textAlign: 'left',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = '#1a2233'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >
+              <Copy className="w-3.5 h-3.5 text-[#2fd18b]" />
+              Duplicate Node
+            </button>
+          )}
 
           <button
             onClick={() => { setSelectedNode(menu.nodeId); setMenu(null) }}
@@ -1029,29 +949,32 @@ function FlowCanvasInner() {
             Inspect Properties
           </button>
 
-          <div style={{ height: 1, background: 'var(--color-border)', margin: '4px 0' }} />
-
-          <button
-            onClick={() => { deleteActiveFlowNode(menu.nodeId); setMenu(null) }}
-            style={{
-              width: '100%',
-              background: 'transparent',
-              border: 'none',
-              padding: '6px 12px',
-              fontSize: 11,
-              color: '#ff5f9e',
-              textAlign: 'left',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = '#331a26'}
-            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-          >
-            <Trash2 className="w-3.5 h-3.5 text-[#ff5f9e]" />
-            Delete Node
-          </button>
+          {!isReadOnly && (
+            <>
+              <div style={{ height: 1, background: 'var(--color-border)', margin: '4px 0' }} />
+              <button
+                onClick={() => { deleteActiveFlowNode(menu.nodeId); setMenu(null) }}
+                style={{
+                  width: '100%',
+                  background: 'transparent',
+                  border: 'none',
+                  padding: '6px 12px',
+                  fontSize: 11,
+                  color: '#ff5f9e',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = '#331a26'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <Trash2 className="w-3.5 h-3.5 text-[#ff5f9e]" />
+                Delete Node
+              </button>
+            </>
+          )}
         </div>
       )}
 
