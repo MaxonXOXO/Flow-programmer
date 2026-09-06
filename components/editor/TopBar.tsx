@@ -56,10 +56,14 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
         return
       }
 
+      const activeDoc = documents.find(d => d.id === activeDocumentId)
+      const isReadOnly = Boolean(activeDoc?.type === 'subflow' && (activeDoc as any).readOnly !== false)
+
       if ((e.ctrlKey || e.metaKey) && e.key === ',') {
         e.preventDefault()
         useSettingsStore.getState().openPreferences()
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        if (isReadOnly) return
         if (e.shiftKey) {
           e.preventDefault()
           redo()
@@ -68,18 +72,22 @@ export default function TopBar({ onCodeOpen }: { onCodeOpen: () => void }) {
           undo()
         }
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+        if (isReadOnly) return
         e.preventDefault()
         redo()
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
         e.preventDefault()
         copySelectedNode()
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x') {
+        if (isReadOnly) return
         e.preventDefault()
         cutSelectedNode()
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+        if (isReadOnly) return
         e.preventDefault()
         pasteNode()
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (isReadOnly) return
         e.preventDefault()
         deleteSelectedNode()
       }
