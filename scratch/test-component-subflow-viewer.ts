@@ -1,5 +1,6 @@
 import { resolveCanonicalPackageId } from '../lib/packages/packageGraphInstantiator';
 import { useFlowStore, SubflowDocument } from '../store/userFlowStore';
+import { getComponentPackage } from '../lib/registry/components';
 
 console.log('=== TEST PHASE 5C: COMPONENT SUBFLOW VIEWER INTEGRATION ===\n');
 
@@ -73,19 +74,50 @@ assert(graphInstance?.entry === 'trig_low_1', 'T4: Instantiated graph entry is "
 assert(graphInstance?.exit === 'return_distance', 'T4: Instantiated graph exit is "return_distance"');
 
 // ─────────────────────────────────────────────────────────────────
-// T5 — Graph isolation & Main Graph Protection
+// T5 — Graph isolation & Main Graph Protection (Section 12 Test)
 // ─────────────────────────────────────────────────────────────────
 console.log('\n--- T5: Graph Isolation & Main Graph Protection ---');
 const mainFlowNodesBefore = useFlowStore.getState().flowNodes;
+const mainFlowEdgesBefore = useFlowStore.getState().flowEdges;
 const activeNodes = useFlowStore.getState().getActiveFlowNodes();
+const activeEdges = useFlowStore.getState().getActiveFlowEdges();
 
 assert(
   activeNodes === graphInstance?.nodes,
   'T5: getActiveFlowNodes() resolves to the subflow graph when subflow document is active'
 );
 assert(
+  activeEdges === graphInstance?.edges,
+  'T5: getActiveFlowEdges() resolves to the subflow edges when subflow document is active'
+);
+assert(
   useFlowStore.getState().flowNodes === mainFlowNodesBefore,
   'T5: Opening subflow document did NOT replace or mutate main flow nodes array'
+);
+assert(
+  useFlowStore.getState().flowEdges === mainFlowEdgesBefore,
+  'T5: Opening subflow document did NOT replace or mutate main flow edges array'
+);
+assert(
+  activeNodes !== mainFlowNodesBefore,
+  'T5: Subflow graph is NOT a clone of main flow graph'
+);
+assert(
+  activeNodes.length !== mainFlowNodesBefore.length || activeNodes[0]?.id !== mainFlowNodesBefore[0]?.id,
+  'T5: Subflow graph nodes are distinct from main flow graph nodes'
+);
+
+// Verify displayed subflow graph is derived from package template, but is not the template reference
+const templatePkg = getComponentPackage('ultrasonic_hcsr04')!;
+const templateGraph = (templatePkg.implementation.graph || templatePkg.implementation.subflow) as any;
+
+assert(
+  activeNodes !== templateGraph.nodes,
+  'T5: Subflow active nodes array is an isolated instance, not the package template reference'
+);
+assert(
+  activeNodes[0] !== templateGraph.nodes[0],
+  'T5: Subflow individual node is a deep clone, not the package template node reference'
 );
 
 // ─────────────────────────────────────────────────────────────────
