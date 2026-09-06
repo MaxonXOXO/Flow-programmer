@@ -14,11 +14,11 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useFlowStore } from '@/store/userFlowStore'
-import { resolveCanonicalPackageId } from '@/lib/packages/packageGraphInstantiator'
+import { resolveCanonicalPackageId, instantiatePackageGraph } from '@/lib/packages/packageGraphInstantiator'
 import UnoNode from './UnoNode'
 import BoardNode from './BoardNode'
 import ComponentNode from './ComponentNode'
-import { Copy, Trash2, Sliders } from 'lucide-react'
+import { Copy, Trash2, Sliders, X } from 'lucide-react'
 
 interface ContextMenuState {
   nodeId: string
@@ -44,6 +44,14 @@ function SchemaCanvasInner() {
 
   const { screenToFlowPosition, setViewport, fitView } = useReactFlow()
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
+  const [notification, setNotification] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 4000)
+      return () => clearTimeout(timer)
+    }
+  }, [notification])
 
   useEffect(() => {
     const handleResetZoom = () => {
@@ -80,18 +88,18 @@ function SchemaCanvasInner() {
   const onNodeDoubleClick = useCallback((_: React.MouseEvent, node: any) => {
     const canonicalPkgId = resolveCanonicalPackageId(node)
     if (canonicalPkgId) {
-      openSubflowDocument({
-        packageId: canonicalPkgId,
-        componentInstanceId: node.id,
-        activate: true,
-      })
-    } else if (node.type === 'componentNode') {
-      const packageId = node.data?.definition?.packageId || node.data?.packageId
-      if (packageId) {
-        openComponentPackage(packageId)
+      try {
+        instantiatePackageGraph({ packageId: canonicalPkgId, componentInstanceId: node.id })
+        openSubflowDocument({
+          packageId: canonicalPkgId,
+          componentInstanceId: node.id,
+          activate: true,
+        })
+      } catch (err: any) {
+        setNotification(`Cannot open subflow: ${err.message || err}`)
       }
     }
-  }, [openSubflowDocument, openComponentPackage])
+  }, [openSubflowDocument])
 
   // Handle right-click context menu on components
   const onNodeContextMenu = useCallback(
@@ -285,6 +293,44 @@ function SchemaCanvasInner() {
               </button>
             </>
           )}
+        </div>
+      )}
+      {notification && (
+        <div style={{
+          position: 'absolute',
+          bottom: 16,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(21, 23, 30, 0.95)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(255, 95, 158, 0.4)',
+          borderRadius: 6,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+          padding: '10px 16px',
+          zIndex: 10002,
+          pointerEvents: 'auto',
+          fontFamily: 'var(--font-sans)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+        }}>
+          <span style={{ fontSize: 13, color: '#ff5f9e' }}>⚠️</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#f0f4fc' }}>
+            {notification}
+          </span>
+          <button
+            onClick={() => setNotification(null)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--color-text-dim)',
+              cursor: 'pointer',
+              marginLeft: 8,
+              padding: 2,
+            }}
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
     </div>
