@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { usePanelStore } from '@/store/usePanelStore'
+import { useFlowStore } from '@/store/userFlowStore'
 import { PanelId, DOCK_SNAP_THRESHOLD, DockPosition } from '@/lib/windowManager/types'
 import {
   X,
@@ -26,6 +27,7 @@ interface DockablePanelProps {
  */
 export default function DockablePanel({ id, children }: DockablePanelProps) {
   const panel = usePanelStore((s) => s.panels[id])
+  const activeSidebarPanel = useFlowStore((s) => s.activeSidebarPanel)
   const floatPanel = usePanelStore((s) => s.floatPanel)
   const dockPanel = usePanelStore((s) => s.dockPanel)
   const togglePanel = usePanelStore((s) => s.togglePanel)
@@ -35,6 +37,10 @@ export default function DockablePanel({ id, children }: DockablePanelProps) {
   const startDrag = usePanelStore((s) => s.startDrag)
   const endDrag = usePanelStore((s) => s.endDrag)
   const setActiveDockZone = usePanelStore((s) => s.setActiveDockZone)
+
+  const displayTitle = id === 'sidebar'
+    ? (activeSidebarPanel === 'components' ? 'Components' : 'Explorer')
+    : panel.title
 
   const titleBarRef = useRef<HTMLDivElement>(null)
   const [isHoveringTitleBar, setIsHoveringTitleBar] = useState(false)
@@ -286,6 +292,7 @@ export default function DockablePanel({ id, children }: DockablePanelProps) {
           flexShrink: 0,
           position: 'relative',
           overflow: 'hidden',
+          borderTop: '1px solid var(--color-border)',
         }
       : {
           width: panel.width,
@@ -295,18 +302,21 @@ export default function DockablePanel({ id, children }: DockablePanelProps) {
           flexShrink: 0,
           position: 'relative',
           overflow: 'hidden',
+          borderRight: panel.dockPosition === 'left' ? '1px solid var(--color-border)' : undefined,
+          borderLeft: panel.dockPosition === 'right' ? '1px solid var(--color-border)' : undefined,
         }
 
     return (
       <div style={containerStyle}>
-        {/* Docked Title Bar */}
+        {/* Docked Title Bar — 35px matching WorkspaceTabBar */}
         <div
           ref={titleBarRef}
           onMouseDown={handleTitleMouseDown}
           onMouseEnter={() => setIsHoveringTitleBar(true)}
           onMouseLeave={() => setIsHoveringTitleBar(false)}
           style={{
-            height: 30,
+            height: 35,
+            boxSizing: 'border-box',
             background: '#12141a',
             borderBottom: '1px solid var(--color-border)',
             display: 'flex',
@@ -334,51 +344,159 @@ export default function DockablePanel({ id, children }: DockablePanelProps) {
               color: 'var(--color-text-dim)',
               textTransform: 'uppercase',
             }}>
-              {panel.title} ({panel.dockPosition})
+              {displayTitle}
             </span>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 2, position: 'relative' }}>
-            {/* Detach / Float button */}
+            {/* Dock Position / Pin Quick Menu Toggle */}
             <button
-              title="Detach to floating window"
+              title="Dock / Pin Options"
+              onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation()
-                const rect = titleBarRef.current?.getBoundingClientRect()
-                floatPanel(
-                  id,
-                  rect ? rect.left : 200,
-                  rect ? rect.top : 100,
-                )
+                setShowDockMenu((v) => !v)
               }}
               style={{
-                background: 'transparent',
+                background: showDockMenu ? 'rgba(255,255,255,0.1)' : 'transparent',
                 border: 'none',
                 color: 'var(--color-text-dim)',
                 cursor: 'pointer',
-                padding: 3,
+                padding: 4,
                 borderRadius: 3,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                opacity: isHoveringTitleBar ? 1 : 0,
-                transition: 'opacity 0.15s, background 0.1s',
+                transition: 'background 0.1s',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
                 e.currentTarget.style.color = 'var(--color-text-bright)'
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent'
-                e.currentTarget.style.color = 'var(--color-text-dim)'
+                if (!showDockMenu) {
+                  e.currentTarget.style.background = 'transparent'
+                  e.currentTarget.style.color = 'var(--color-text-dim)'
+                }
               }}
             >
-              <PinOff className="w-3 h-3" />
+              <Pin className="w-3.5 h-3.5" />
             </button>
+
+            {/* Quick Dock Dropdown Menu for Docked Panel */}
+            {showDockMenu && (
+              <div
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  position: 'absolute',
+                  top: 30,
+                  right: 24,
+                  background: '#1a1d24',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 6,
+                  padding: 4,
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+                  zIndex: 1000,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2,
+                  minWidth: 120,
+                }}
+              >
+                <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    dockPanel(id, 'left')
+                    setShowDockMenu(false)
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px',
+                    background: panel.dockPosition === 'left' ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
+                    border: 'none',
+                    color: panel.dockPosition === 'left' ? '#38bdf8' : '#ccc',
+                    fontSize: 11, cursor: 'pointer',
+                    borderRadius: 3, textAlign: 'left',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = panel.dockPosition === 'left' ? 'rgba(59, 130, 246, 0.15)' : 'transparent'}
+                >
+                  <PanelLeft className="w-3.5 h-3.5 text-[#3b82f6]" /> Dock Left
+                </button>
+
+                <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    dockPanel(id, 'right')
+                    setShowDockMenu(false)
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px',
+                    background: panel.dockPosition === 'right' ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
+                    border: 'none',
+                    color: panel.dockPosition === 'right' ? '#38bdf8' : '#ccc',
+                    fontSize: 11, cursor: 'pointer',
+                    borderRadius: 3, textAlign: 'left',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = panel.dockPosition === 'right' ? 'rgba(59, 130, 246, 0.15)' : 'transparent'}
+                >
+                  <PanelRight className="w-3.5 h-3.5 text-[#3b82f6]" /> Dock Right
+                </button>
+
+                <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    dockPanel(id, 'bottom')
+                    setShowDockMenu(false)
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px',
+                    background: panel.dockPosition === 'bottom' ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
+                    border: 'none',
+                    color: panel.dockPosition === 'bottom' ? '#38bdf8' : '#ccc',
+                    fontSize: 11, cursor: 'pointer',
+                    borderRadius: 3, textAlign: 'left',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = panel.dockPosition === 'bottom' ? 'rgba(59, 130, 246, 0.15)' : 'transparent'}
+                >
+                  <PanelBottom className="w-3.5 h-3.5 text-[#3b82f6]" /> Dock Bottom
+                </button>
+
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '2px 0' }} />
+
+                <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    const rect = titleBarRef.current?.getBoundingClientRect()
+                    floatPanel(id, rect ? rect.left : 200, rect ? rect.top : 100)
+                    setShowDockMenu(false)
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px',
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#ccc',
+                    fontSize: 11, cursor: 'pointer',
+                    borderRadius: 3, textAlign: 'left',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                >
+                  <PinOff className="w-3.5 h-3.5 text-[#a855f7]" /> Float Window
+                </button>
+              </div>
+            )}
 
             {/* Close button */}
             <button
               title="Close panel"
+              onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation()
                 togglePanel(id)
@@ -388,13 +506,12 @@ export default function DockablePanel({ id, children }: DockablePanelProps) {
                 border: 'none',
                 color: 'var(--color-text-dim)',
                 cursor: 'pointer',
-                padding: 3,
+                padding: 4,
                 borderRadius: 3,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                opacity: isHoveringTitleBar ? 1 : 0,
-                transition: 'opacity 0.15s, background 0.1s',
+                transition: 'background 0.1s',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = 'rgba(239, 95, 95, 0.2)'
@@ -405,7 +522,7 @@ export default function DockablePanel({ id, children }: DockablePanelProps) {
                 e.currentTarget.style.color = 'var(--color-text-dim)'
               }}
             >
-              <X className="w-3 h-3" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
@@ -435,7 +552,7 @@ export default function DockablePanel({ id, children }: DockablePanelProps) {
         pointerEvents: 'auto',
         display: 'flex',
         flexDirection: 'column',
-        background: 'rgba(18, 20, 26, 0.94)',
+        background: 'rgba(21, 23, 30, 0.85)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
         border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -451,7 +568,8 @@ export default function DockablePanel({ id, children }: DockablePanelProps) {
         onMouseEnter={() => setIsHoveringTitleBar(true)}
         onMouseLeave={() => setIsHoveringTitleBar(false)}
         style={{
-          height: 32,
+          height: 35,
+          boxSizing: 'border-box',
           background: 'rgba(255, 255, 255, 0.03)',
           borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
           display: 'flex',
@@ -465,7 +583,7 @@ export default function DockablePanel({ id, children }: DockablePanelProps) {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <GripHorizontal className="w-3 h-3 text-[#777] opacity-60" />
+          <GripHorizontal className="w-3.5 h-3.5 text-[#777] opacity-60" />
           <span style={{
             fontSize: 10.5,
             fontWeight: 700,
@@ -473,7 +591,7 @@ export default function DockablePanel({ id, children }: DockablePanelProps) {
             color: 'var(--color-text-normal)',
             textTransform: 'uppercase',
           }}>
-            {panel.title}
+            {displayTitle}
           </span>
         </div>
 
@@ -481,6 +599,7 @@ export default function DockablePanel({ id, children }: DockablePanelProps) {
           {/* Dock Target Quick Menu Toggle */}
           <button
             title="Dock Panel Options"
+            onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation()
               setShowDockMenu((v) => !v)
@@ -490,7 +609,7 @@ export default function DockablePanel({ id, children }: DockablePanelProps) {
               border: 'none',
               color: 'var(--color-text-dim)',
               cursor: 'pointer',
-              padding: 3,
+              padding: 4,
               borderRadius: 3,
               display: 'flex',
               alignItems: 'center',
@@ -508,66 +627,82 @@ export default function DockablePanel({ id, children }: DockablePanelProps) {
               }
             }}
           >
-            <Pin className="w-3 h-3" />
+            <Pin className="w-3.5 h-3.5" />
           </button>
 
           {/* Quick Dock Dropdown Menu */}
           {showDockMenu && (
             <div
+              onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
               style={{
                 position: 'absolute',
-                top: 28,
-                right: 0,
+                top: 30,
+                right: 24,
                 background: '#1a1d24',
                 border: '1px solid var(--color-border)',
                 borderRadius: 6,
                 padding: 4,
-                boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
                 zIndex: 1000,
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 2,
-                minWidth: 110,
+                minWidth: 120,
               }}
             >
               <button
-                onClick={() => { dockPanel(id, 'left'); setShowDockMenu(false); }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  dockPanel(id, 'left')
+                  setShowDockMenu(false)
+                }}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px',
-                  background: 'transparent', border: 'none', color: '#ccc', fontSize: 10, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px',
+                  background: 'transparent', border: 'none', color: '#ccc', fontSize: 11, cursor: 'pointer',
                   borderRadius: 3, textAlign: 'left',
                 }}
                 onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
               >
-                <PanelLeft className="w-3 h-3 text-[#3b82f6]" /> Dock Left
+                <PanelLeft className="w-3.5 h-3.5 text-[#3b82f6]" /> Dock Left
               </button>
 
               <button
-                onClick={() => { dockPanel(id, 'right'); setShowDockMenu(false); }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  dockPanel(id, 'right')
+                  setShowDockMenu(false)
+                }}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px',
-                  background: 'transparent', border: 'none', color: '#ccc', fontSize: 10, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px',
+                  background: 'transparent', border: 'none', color: '#ccc', fontSize: 11, cursor: 'pointer',
                   borderRadius: 3, textAlign: 'left',
                 }}
                 onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
               >
-                <PanelRight className="w-3 h-3 text-[#3b82f6]" /> Dock Right
+                <PanelRight className="w-3.5 h-3.5 text-[#3b82f6]" /> Dock Right
               </button>
 
               <button
-                onClick={() => { dockPanel(id, 'bottom'); setShowDockMenu(false); }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  dockPanel(id, 'bottom')
+                  setShowDockMenu(false)
+                }}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px',
-                  background: 'transparent', border: 'none', color: '#ccc', fontSize: 10, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px',
+                  background: 'transparent', border: 'none', color: '#ccc', fontSize: 11, cursor: 'pointer',
                   borderRadius: 3, textAlign: 'left',
                 }}
                 onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
               >
-                <PanelBottom className="w-3 h-3 text-[#3b82f6]" /> Dock Bottom
+                <PanelBottom className="w-3.5 h-3.5 text-[#3b82f6]" /> Dock Bottom
               </button>
             </div>
           )}
@@ -575,6 +710,7 @@ export default function DockablePanel({ id, children }: DockablePanelProps) {
           {/* Close button */}
           <button
             title="Close panel"
+            onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation()
               togglePanel(id)
@@ -584,7 +720,7 @@ export default function DockablePanel({ id, children }: DockablePanelProps) {
               border: 'none',
               color: 'var(--color-text-dim)',
               cursor: 'pointer',
-              padding: 3,
+              padding: 4,
               borderRadius: 3,
               display: 'flex',
               alignItems: 'center',
@@ -600,7 +736,7 @@ export default function DockablePanel({ id, children }: DockablePanelProps) {
               e.currentTarget.style.color = 'var(--color-text-dim)'
             }}
           >
-            <X className="w-3 h-3" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
