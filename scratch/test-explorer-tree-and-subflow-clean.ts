@@ -27,13 +27,13 @@ const doc = useFlowStore.getState().documents.find(d => d.id === docId);
 assert(doc !== undefined, 'T1: Subflow doc created');
 assert(!doc?.title.startsWith('📦'), `T1: Title does not start with box emoji: "${doc?.title}"`);
 assert(!doc?.title.startsWith('🔓'), `T1: Title does not start with lock emoji: "${doc?.title}"`);
-assert(doc?.title.includes('HC-SR04 Subflow'), `T1: Clean title is "HC-SR04 Subflow", got "${doc?.title}"`);
+assert(Boolean(doc?.title.includes('HC-SR04 Subflow')), `T1: Clean title is "HC-SR04 Subflow", got "${doc?.title}"`);
 
 // 2. Verify subflow unlock preserves clean title
 console.log('\n--- T2: Subflow Unlock Preserves Clean Title ---');
 useFlowStore.getState().unlockSubflowDocument(docId);
 const unlockedDoc = useFlowStore.getState().documents.find(d => d.id === docId);
-assert(unlockedDoc?.unlocked === true, 'T2: Subflow unlocked');
+assert((unlockedDoc as any)?.unlocked === true, 'T2: Subflow unlocked');
 assert(!unlockedDoc?.title.startsWith('📦'), `T2: Unlocked title does not start with box emoji: "${unlockedDoc?.title}"`);
 assert(!unlockedDoc?.title.startsWith('🔓'), `T2: Unlocked title does not start with lock emoji: "${unlockedDoc?.title}"`);
 
