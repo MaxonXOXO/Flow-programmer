@@ -3,11 +3,11 @@ import { Expression } from './ast';
 export function mapLabelToPluginType(label: string): string | undefined {
   const lbl = label.toLowerCase();
   if (lbl.includes('dht')) return 'dht';
-  if (lbl.includes('ultrasonic')) return 'ultrasonic';
+  if (lbl.includes('ultrasonic') || lbl.includes('hcsr04') || lbl.includes('hc-sr04')) return 'ultrasonic';
   if (lbl.includes('servo')) return 'servo';
   if (lbl.includes('lcd')) return 'lcd';
   if (lbl.includes('oled')) return 'oled';
-  if (lbl.includes('ldr')) return 'ldr';
+  if (lbl.includes('ldr') || lbl.includes('light') || lbl.includes('photoresistor')) return 'ldr';
   if (lbl.includes('soil')) return 'soilMoisture';
   if (lbl.includes('water')) return 'waterLevel';
   if (lbl.includes('gas') || lbl.includes('mq')) return 'mqGas';
@@ -186,16 +186,16 @@ export class PluginRegistry {
       codegen: {
         includes: [],
         setup: (instance, pins, params) => {
-          const trig = pins['trig'] || params.trigPin || '9';
-          const echo = pins['echo'] || params.echoPin || '10';
+          const trig = pins['trig'] || pins['trigPin'] || pins['trig_pin'] || pins['TRIG'] || pins['TRIGPIN'] || params.trigPin || '9';
+          const echo = pins['echo'] || pins['echoPin'] || pins['echo_pin'] || pins['ECHO'] || pins['ECHOPIN'] || params.echoPin || '10';
           return [
             `pinMode(${trig}, OUTPUT); // HC-SR04 TRIG`,
             `pinMode(${echo}, INPUT);  // HC-SR04 ECHO`
           ];
         },
         customCodegen: (instance, pins, params, declaredVars, pad) => {
-          const trig = pins['trig'] || params.trigPin || '9';
-          const echo = pins['echo'] || params.echoPin || '10';
+          const trig = pins['trig'] || pins['trigPin'] || pins['trig_pin'] || pins['TRIG'] || pins['TRIGPIN'] || params.trigPin || '9';
+          const echo = pins['echo'] || pins['echoPin'] || pins['echo_pin'] || pins['ECHO'] || pins['ECHOPIN'] || params.echoPin || '10';
           const varDist = params.varDist || 'distance';
           const declDist = declaredVars.has(varDist) ? '' : 'float ';
           const durVar = `duration_${instance}`;
@@ -325,11 +325,11 @@ export class PluginRegistry {
         codegen: {
           includes: [],
           setup: (instance, pins, params) => {
-            const pin = pins['signal'] || params.pin || defaultPin;
+            const pin = pins['signal'] || pins['pin1'] || pins['pin'] || pins['PIN1'] || pins['ao'] || params.pin || params.pin1 || defaultPin;
             return [`pinMode(${pin}, INPUT);`];
           },
           customCodegen: (instance, pins, params, declaredVars, pad) => {
-            const pin = pins['signal'] || params.pin || defaultPin;
+            const pin = pins['signal'] || pins['pin1'] || pins['pin'] || pins['PIN1'] || pins['ao'] || params.pin || params.pin1 || defaultPin;
             const varName = params[defaultVar] || defaultVar;
             const decl = declaredVars.has(varName) ? '' : 'int ';
             return `${pad}${decl}${varName} = analogRead(${pin});`;
@@ -364,11 +364,11 @@ export class PluginRegistry {
         codegen: {
           includes: [],
           setup: (instance, pins, params) => {
-            const pin = pins['signal'] || params.pin || defaultPin;
+            const pin = pins['signal'] || pins['pin1'] || pins['pin'] || pins['PIN1'] || pins['do'] || params.pin || params.pin1 || defaultPin;
             return [`pinMode(${pin}, INPUT);`];
           },
           customCodegen: (instance, pins, params, declaredVars, pad) => {
-            const pin = pins['signal'] || params.pin || defaultPin;
+            const pin = pins['signal'] || pins['pin1'] || pins['pin'] || pins['PIN1'] || pins['do'] || params.pin || params.pin1 || defaultPin;
             const varName = params[defaultVar] || defaultVar;
             const decl = declaredVars.has(varName) ? '' : 'int ';
             return `${pad}${decl}${varName} = digitalRead(${pin});`;
@@ -401,11 +401,11 @@ export class PluginRegistry {
       codegen: {
         includes: [],
         setup: (instance, pins, params) => {
-          const pin = pins['signal'] || params.pin || '4';
+          const pin = pins['signal'] || pins['pin1'] || pins['pin'] || pins['PIN1'] || params.pin || params.pin1 || '4';
           return [`pinMode(${pin}, INPUT);`];
         },
         customCodegen: (instance, pins, params, declaredVars, pad) => {
-          const pin = pins['signal'] || params.pin || '4';
+          const pin = pins['signal'] || pins['pin1'] || pins['pin'] || pins['PIN1'] || params.pin || params.pin1 || '4';
           const varFlame = params.varFlame || 'flameVal';
           const variant = params.variant || 'Active Low';
           const decl = declaredVars.has(varFlame) ? '' : 'int ';
