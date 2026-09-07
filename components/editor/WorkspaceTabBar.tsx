@@ -3,6 +3,7 @@
 import { useFlowStore, SubflowDocument } from '@/store/userFlowStore'
 import { useSettingsStore } from '@/store/useSettingsStore'
 import { Zap, Box, FileCode, FileText, FileJson, X, Plus, Cpu, Braces, Lock, Unlock } from 'lucide-react'
+import { getComponentPackageIcon } from '@/lib/registry/components/componentIcon'
 
 export default function WorkspaceTabBar() {
   const { documents, activeDocumentId, setActiveDocument, closeDocument, openDocument, createFunctionNode, flowNodes, subFlows } = useFlowStore()
@@ -134,7 +135,11 @@ export default function WorkspaceTabBar() {
                   (doc as SubflowDocument).readOnly === false || (doc as SubflowDocument).unlocked ? (
                     <Unlock className="w-3.5 h-3.5 text-[#22c55e]" />
                   ) : (
-                    <Box className="w-3.5 h-3.5 text-[#3b82f6]" />
+                    getComponentPackageIcon((doc as SubflowDocument).packageId, {
+                      className: 'w-3.5 h-3.5',
+                      color: '#38bdf8',
+                      fallback: <Box className="w-3.5 h-3.5 text-[#3b82f6]" />
+                    })
                   )
                 ) : doc.id === 'code_wiring' ? (
                   <FileText className="w-3.5 h-3.5 text-[#38bdf8]" />
