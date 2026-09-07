@@ -53,7 +53,7 @@ export default function SettingsCard({
         pointerEvents: disabled ? 'none' : 'auto',
         transform: isHovered && !disabled ? 'translateY(-1px)' : 'none',
         boxShadow: isHovered && !disabled
-          ? '0 6px 20px rgba(0, 0, 0, 0.4), 0 0 15px rgba(95, 163, 255, 0.08)'
+          ? '0 6px 16px rgba(0, 0, 0, 0.45)'
           : '0 2px 6px rgba(0, 0, 0, 0.2)',
         transition: 'all 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
         ...style,

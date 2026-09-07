@@ -54,15 +54,13 @@ export default function SettingsToggle({
           display: 'flex',
           alignItems: 'center',
           outline: 'none',
-          boxShadow: checked ? '0 0 12px rgba(59, 130, 246, 0.5)' : 'none',
+          boxShadow: 'none',
         }}
         onFocus={(e) => {
-          e.currentTarget.style.boxShadow = checked 
-            ? '0 0 0 2px #5fa3ff, 0 0 12px rgba(59, 130, 246, 0.5)' 
-            : '0 0 0 2px rgba(255, 255, 255, 0.2)'
+          e.currentTarget.style.boxShadow = '0 0 0 2px var(--color-accent-blue)'
         }}
         onBlur={(e) => {
-          e.currentTarget.style.boxShadow = checked ? '0 0 12px rgba(59, 130, 246, 0.5)' : 'none'
+          e.currentTarget.style.boxShadow = 'none'
         }}
         onMouseDown={(e) => {
           if (!disabled) e.currentTarget.style.transform = 'scale(0.95)'

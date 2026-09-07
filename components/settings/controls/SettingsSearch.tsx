@@ -61,11 +61,11 @@ export default function SettingsSearch({ value, onChange }: SettingsSearchProps)
         }}
         onFocus={(e) => {
           e.currentTarget.style.borderColor = 'var(--color-accent-blue)'
-          e.currentTarget.style.boxShadow = '0 0 12px rgba(96, 165, 250, 0.2)'
+          e.currentTarget.style.boxShadow = 'none'
         }}
         onBlur={(e) => {
           e.currentTarget.style.borderColor = '#2a3550'
-          e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.3)'
+          e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.3)'
         }}
       />
       <div style={{
