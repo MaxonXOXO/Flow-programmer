@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 
 import { getAllComponents } from '@/lib/registry/components'
+import { getComponentPackageIcon } from '@/lib/registry/components/componentIcon'
 import ProjectExplorer from '@/components/editor/ProjectExplorer'
 
 const NODE_TYPES = [
@@ -338,7 +339,13 @@ export default function Sidebar() {
                       
                       {/* Icon */}
                       <div className="flex-shrink-0 flex items-center justify-center">
-                        {getLucideIcon(node.icon)}
+                        {activeCanvas === 'schema'
+                          ? getComponentPackageIcon(node.definition || node.id, {
+                              className: 'w-4 h-4',
+                              color: '#2fd18b',
+                              fallback: null,
+                            })
+                          : getLucideIcon(node.icon)}
                       </div>
 
                       {/* Node Label */}
