@@ -200,9 +200,19 @@ export const usePanelStore = create<PanelStore>((set, get) => ({
 
   dockPanel: (id, position) => {
     set((s) => {
+      const panel = s.panels[id]
+      const defaultW = id === 'sidebar' ? 220 : 280
+      const defaultH = 240
+      const updatedPanel = {
+        ...panel,
+        dockPosition: position,
+        isVisible: true,
+        width: panel.width >= panel.minWidth ? panel.width : defaultW,
+        height: position === 'bottom' ? Math.max(panel.height || defaultH, 180) : (panel.height || defaultH),
+      }
       const updated = {
         ...s.panels,
-        [id]: { ...s.panels[id], dockPosition: position, isVisible: true },
+        [id]: updatedPanel,
       }
       persistLayout(updated)
       return { panels: updated }
