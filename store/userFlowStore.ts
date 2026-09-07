@@ -122,6 +122,7 @@ interface FlowStore {
 
   simState: SimState
   selectedNodeId: string | null
+  focusTarget: { id: string; timestamp: number } | null
   project: ProjectConfig | null
   activeCanvas: 'schema' | 'flow'
 
@@ -168,6 +169,7 @@ interface FlowStore {
 
   // Shared actions
   setSelectedNode: (id: string | null) => void
+  focusNodeOnCanvas: (id: string) => void
   setSimState: (state: Partial<SimState>) => void
   setVariable: (name: string, value: unknown) => void
   resetSim: () => void
@@ -257,6 +259,7 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   componentPackages: {},
   activePackageId: null,
   selectedNodeId: null,
+  focusTarget: null,
   project: null,
   activeCanvas: 'schema',
 
@@ -385,7 +388,7 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
     // Create new first-class SubflowDocument
     const newDoc: SubflowDocument = {
       id: docId,
-      title: isUnlocked ? `🔓 ${cleanTitle}` : `📦 ${cleanTitle}`,
+      title: cleanTitle,
       type: 'subflow',
       packageId,
       componentInstanceId,
@@ -480,8 +483,8 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
       ...targetDoc,
       readOnly: false,
       unlocked: true,
-      title: `🔓 ${cleanTitle}`,
-      icon: '🔓',
+      title: cleanTitle,
+      icon: 'subflow',
     }
 
     const updatedInstance: PackageGraphInstance = {
@@ -582,8 +585,8 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
           readOnly: true,
           unlocked: false,
           dirty: false,
-          title: `📦 ${cleanTitle}`,
-          icon: '📦',
+          title: cleanTitle,
+          icon: 'subflow',
         }
         return revertedDoc
       }
@@ -1357,6 +1360,10 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   }),
 
   setSelectedNode: (id) => set({ selectedNodeId: id }),
+  focusNodeOnCanvas: (id) => set({
+    selectedNodeId: id,
+    focusTarget: { id, timestamp: Date.now() },
+  }),
   setSimState: (state) => set((s) => ({ simState: { ...s.simState, ...state } })),
   setVariable: (name, value) => set((s) => ({
     simState: { ...s.simState, variables: { ...s.simState.variables, [name]: value } }
