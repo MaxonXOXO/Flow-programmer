@@ -17,8 +17,7 @@ import {
   FileJson, 
   Lock, 
   Layers,
-  Plus,
-  X
+  Plus
 } from 'lucide-react'
 
 export default function ProjectExplorer() {
@@ -30,7 +29,6 @@ export default function ProjectExplorer() {
     componentPackages,
     activeDocumentId,
     openDocument,
-    toggleSidebar,
   } = useFlowStore()
 
   // Section collapse states
@@ -94,46 +92,6 @@ export default function ProjectExplorer() {
         fontSize: 11,
       }}
     >
-      {/* Top Header */}
-      <div
-        style={{
-          height: 35,
-          padding: '0 12px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderBottom: '1px solid var(--color-border)',
-        }}
-      >
-        <span
-          style={{
-            fontSize: 10,
-            fontWeight: 800,
-            color: 'var(--color-text-dim)',
-            letterSpacing: '1px',
-            textTransform: 'uppercase',
-          }}
-        >
-          EXPLORER
-        </span>
-        <button
-          onClick={toggleSidebar}
-          title="Close Explorer Sidebar"
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: 'var(--color-text-dim)',
-            cursor: 'pointer',
-            padding: 2,
-            display: 'flex',
-            alignItems: 'center',
-          }}
-          onMouseEnter={e => e.currentTarget.style.color = 'var(--color-text-bright)'}
-          onMouseLeave={e => e.currentTarget.style.color = 'var(--color-text-dim)'}
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
-      </div>
 
       {/* Tree View Container */}
       <div
