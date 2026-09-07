@@ -19,6 +19,7 @@ import {
 } from '../ast/ast';
 import { pluginRegistry, mapLabelToPluginType } from '../../ir/plugin';
 import { resolvePackageImplementation, dispatchPackageExecution } from '../packages';
+import { getComponentPackage } from '../../registry/components';
 import { GeneratedCode, BackendContext } from './types';
 
 export interface Connection {
@@ -78,6 +79,147 @@ export abstract class BaseCppGenerator {
       return pin.slice(1);
     }
     return pin;
+  }
+
+  protected formatPin(pin: string, isEsp32: boolean = false): string {
+    if (isEsp32) {
+      if (pin.startsWith('D') && /^\d+$/.test(pin.slice(1))) {
+        return pin.slice(1);
+      }
+      return pin;
+    }
+    return this.pinToNumber(pin);
+  }
+
+  /**
+   * Resolves the authoritative physical pin binding map for a specific component instance
+   * from Schema Canvas connections, normalizing schematic pin names to canonical package
+   * and codegen alias keys ($PIN1, signal, trigPin, echoPin, etc.).
+   */
+  protected resolveInstancePinsMap(
+    compId: string,
+    schemaNodes: Node[] = [],
+    isEsp32: boolean = false
+  ): Record<string, string> {
+    const compConnections = this.connections.filter((c) => c.componentId === compId && !this.isPowerPin(c));
+    const compNode = schemaNodes.find((n) => n.id === compId);
+    const nodeData = (compNode?.data || {}) as any;
+    const packageId = nodeData.params?.packageId || nodeData.packageId || nodeData.componentType;
+    const pkgDef = packageId ? getComponentPackage(packageId) : undefined;
+
+    const pinsMap: Record<string, string> = {};
+
+    // 1. Map explicit physical wire connections
+    compConnections.forEach((c) => {
+      const pinVal = this.formatPin(c.arduinoPin, isEsp32);
+      const rawPin = c.pin;
+      pinsMap[rawPin] = pinVal;
+      pinsMap[rawPin.toLowerCase()] = pinVal;
+      pinsMap[rawPin.toUpperCase()] = pinVal;
+    });
+
+    // 2. Map canonical package declared pins and signals
+    if (pkgDef?.pins && Array.isArray(pkgDef.pins)) {
+      pkgDef.pins.forEach((p: any) => {
+        const pId = p.id;
+        const bound = pinsMap[pId] || pinsMap[pId.toLowerCase()] || pinsMap[pId.toUpperCase()];
+        if (bound) {
+          pinsMap[`$${pId.toUpperCase()}`] = bound;
+          pinsMap[`$${pId.toLowerCase()}`] = bound;
+          pinsMap[`$${pId}`] = bound;
+
+          if (p.signal === 'analog_output' || p.signal === 'analog_input') {
+            pinsMap['signal'] = bound;
+            pinsMap['pin'] = bound;
+            pinsMap['pin1'] = bound;
+            pinsMap['PIN1'] = bound;
+            pinsMap['ao'] = bound;
+            pinsMap['analog'] = bound;
+            pinsMap['sensorPin'] = bound;
+          } else if (p.signal === 'digital_output' || p.signal === 'digital_input') {
+            const lower = pId.toLowerCase();
+            if (lower.includes('trig')) {
+              pinsMap['trig'] = bound;
+              pinsMap['trigPin'] = bound;
+              pinsMap['trig_pin'] = bound;
+              pinsMap['TRIG'] = bound;
+              pinsMap['$trigPin'] = bound;
+              pinsMap['$TRIG'] = bound;
+            } else if (lower.includes('echo')) {
+              pinsMap['echo'] = bound;
+              pinsMap['echoPin'] = bound;
+              pinsMap['echo_pin'] = bound;
+              pinsMap['ECHO'] = bound;
+              pinsMap['$echoPin'] = bound;
+              pinsMap['$ECHO'] = bound;
+            } else {
+              if (!pinsMap['signal']) pinsMap['signal'] = bound;
+              if (!pinsMap['pin']) pinsMap['pin'] = bound;
+            }
+          }
+        }
+      });
+    }
+
+    // 3. Universal canonical aliases (for standard schematic pins)
+    if (pinsMap['pin1']) {
+      const p = pinsMap['pin1'];
+      if (!pinsMap['signal']) pinsMap['signal'] = p;
+      if (!pinsMap['pin']) pinsMap['pin'] = p;
+      if (!pinsMap['PIN1']) pinsMap['PIN1'] = p;
+      if (!pinsMap['$PIN1']) pinsMap['$PIN1'] = p;
+      if (!pinsMap['ao']) pinsMap['ao'] = p;
+      if (!pinsMap['analog']) pinsMap['analog'] = p;
+      if (!pinsMap['sensorPin']) pinsMap['sensorPin'] = p;
+    }
+    if (pinsMap['signal']) {
+      const p = pinsMap['signal'];
+      if (!pinsMap['pin1']) pinsMap['pin1'] = p;
+      if (!pinsMap['pin']) pinsMap['pin'] = p;
+      if (!pinsMap['PIN1']) pinsMap['PIN1'] = p;
+      if (!pinsMap['$PIN1']) pinsMap['$PIN1'] = p;
+    }
+    if (pinsMap['ao']) {
+      const p = pinsMap['ao'];
+      if (!pinsMap['pin1']) pinsMap['pin1'] = p;
+      if (!pinsMap['signal']) pinsMap['signal'] = p;
+      if (!pinsMap['pin']) pinsMap['pin'] = p;
+      if (!pinsMap['PIN1']) pinsMap['PIN1'] = p;
+      if (!pinsMap['$PIN1']) pinsMap['$PIN1'] = p;
+    }
+    if (pinsMap['data']) {
+      const p = pinsMap['data'];
+      if (!pinsMap['signal']) pinsMap['signal'] = p;
+      if (!pinsMap['pin']) pinsMap['pin'] = p;
+      if (!pinsMap['pin1']) pinsMap['pin1'] = p;
+      if (!pinsMap['PIN1']) pinsMap['PIN1'] = p;
+    }
+    if (pinsMap['trig']) {
+      const p = pinsMap['trig'];
+      if (!pinsMap['trigPin']) pinsMap['trigPin'] = p;
+      if (!pinsMap['trig_pin']) pinsMap['trig_pin'] = p;
+      if (!pinsMap['$trigPin']) pinsMap['$trigPin'] = p;
+      if (!pinsMap['$TRIG']) pinsMap['$TRIG'] = p;
+      if (!pinsMap['$trig']) pinsMap['$trig'] = p;
+    }
+    if (pinsMap['echo']) {
+      const p = pinsMap['echo'];
+      if (!pinsMap['echoPin']) pinsMap['echoPin'] = p;
+      if (!pinsMap['echo_pin']) pinsMap['echo_pin'] = p;
+      if (!pinsMap['$echoPin']) pinsMap['$echoPin'] = p;
+      if (!pinsMap['$ECHO']) pinsMap['$ECHO'] = p;
+      if (!pinsMap['$echo']) pinsMap['$echo'] = p;
+    }
+    if (pinsMap['trigPin'] && !pinsMap['trig']) {
+      pinsMap['trig'] = pinsMap['trigPin'];
+      pinsMap['$trigPin'] = pinsMap['trigPin'];
+    }
+    if (pinsMap['echoPin'] && !pinsMap['echo']) {
+      pinsMap['echo'] = pinsMap['echoPin'];
+      pinsMap['$echoPin'] = pinsMap['echoPin'];
+    }
+
+    return pinsMap;
   }
 
   protected safeVarName(label: string): string {
