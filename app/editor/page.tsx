@@ -66,6 +66,14 @@ export default function EditorPage() {
     return () => window.removeEventListener('resize', handleResize)
   }, [validateViewportBounds])
 
+  // Synchronize userFlowStore with window manager visibility state
+  useEffect(() => {
+    useFlowStore.setState({
+      showSidebar: panels.sidebar.isVisible,
+      showProperties: panels.properties.isVisible,
+    })
+  }, [panels.sidebar.isVisible, panels.properties.isVisible])
+
   // Map panel ID to panel content component
   const renderPanelContent = (id: PanelId) => {
     switch (id) {
