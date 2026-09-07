@@ -2,13 +2,9 @@
 
 import { Handle, Position, NodeProps } from '@xyflow/react'
 import { useFlowStore } from '@/store/userFlowStore'
-import { 
-   Lightbulb, Square, Thermometer, Radio, Eye, Sun, 
-   Settings, Wrench, Volume2, Zap, Tv, Monitor, Wifi, GripHorizontal,
-   Flame, Droplets, Waves, Wind, Cpu, Activity
-} from 'lucide-react'
-
+import { GripHorizontal } from 'lucide-react'
 import { ComponentDefinition } from '@/lib/registry/components/types'
+import { getComponentPackageIcon } from '@/lib/registry/components/componentIcon'
 
 // Neon category style mappings
 const categoryStyles: Record<string, { border: string, bg: string, accent: string }> = {
@@ -21,32 +17,6 @@ const categoryStyles: Record<string, { border: string, bg: string, accent: strin
   motor_driver:  { border: '#ffb13d', bg: 'rgba(255, 177, 61, 0.06)', accent: '#ffb13d' },
 }
 
-function getComponentVectorIcon(emoji: string, color: string) {
-  const iconProps = { className: 'w-4 h-4', style: { color } }
-  switch(emoji) {
-    case '💡': return <Lightbulb {...iconProps} />
-    case '⬛': return <Square {...iconProps} />
-    case '🌡': return <Thermometer {...iconProps} />
-    case '📡': return <Radio {...iconProps} />
-    case '👁': return <Eye {...iconProps} />
-    case '☀': return <Sun {...iconProps} />
-    case '⚙': return <Settings {...iconProps} />
-    case '🔧': return <Wrench {...iconProps} />
-    case '🔔': return <Volume2 {...iconProps} />
-    case '⚡': return <Zap {...iconProps} />
-    case '📺': return <Tv {...iconProps} />
-    case '🖥': return <Monitor {...iconProps} />
-    case '📶': return <Wifi {...iconProps} />
-    case '🔥': return <Flame {...iconProps} />
-    case '🌱': return <Droplets {...iconProps} />
-    case '💧': return <Waves {...iconProps} />
-    case '💨': return <Wind {...iconProps} />
-    case '📳': return <Activity {...iconProps} />
-    case '🔌': return <Cpu {...iconProps} />
-    default: return <GripHorizontal {...iconProps} />
-  }
-}
-
 export default function ComponentNode({ id, data, selected }: NodeProps) {
   const { schemaNodes, updateSchemaNodeData } = useFlowStore()
   
@@ -55,7 +25,6 @@ export default function ComponentNode({ id, data, selected }: NodeProps) {
 
   const label = definition ? definition.name : (data.label as string)
   const componentType = definition ? definition.category : (data.componentType as string)
-  const icon = definition ? (definition.icon || '🔌') : (data.icon as string)
   const pins = definition ? definition.pins : (data.pins as { id: string, label: string }[] || [])
   const params = data.params as Record<string, string> | undefined
 
@@ -94,7 +63,11 @@ export default function ComponentNode({ id, data, selected }: NodeProps) {
         gap: 8,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {getComponentVectorIcon(icon, styles.accent)}
+          {getComponentPackageIcon(definition || data, {
+            className: 'w-4 h-4',
+            color: styles.accent,
+            fallback: <GripHorizontal className="w-4 h-4" style={{ color: styles.accent }} />
+          })}
         </div>
         <div>
           <div style={{ color: 'var(--color-text-bright)', fontSize: 11, fontWeight: 700 }}>
