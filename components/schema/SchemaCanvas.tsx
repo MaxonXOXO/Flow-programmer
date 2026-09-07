@@ -43,9 +43,23 @@ function SchemaCanvasInner() {
     pushHistory
   } = useFlowStore()
 
-  const { screenToFlowPosition, setViewport, fitView, getZoom } = useReactFlow()
+  const { screenToFlowPosition, setViewport, fitView, getZoom, setCenter } = useReactFlow()
+  const focusTarget = useFlowStore(s => s.focusTarget)
   const [isZoomLocked, setIsZoomLocked] = useState(false)
   const [lockedZoomLevel, setLockedZoomLevel] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!focusTarget) return
+    const targetNode = schemaNodes.find(n => n.id === focusTarget.id)
+    if (targetNode) {
+      try {
+        const x = targetNode.position.x + (targetNode.width ? Number(targetNode.width) / 2 : 120)
+        const y = targetNode.position.y + (targetNode.height ? Number(targetNode.height) / 2 : 60)
+        const currentZoom = getZoom ? getZoom() : 1
+        setCenter(x, y, { zoom: Math.max(currentZoom, 0.8), duration: 350 })
+      } catch {}
+    }
+  }, [focusTarget, schemaNodes, setCenter, getZoom])
 
   const handleToggleZoomLock = useCallback(() => {
     if (!isZoomLocked) {
