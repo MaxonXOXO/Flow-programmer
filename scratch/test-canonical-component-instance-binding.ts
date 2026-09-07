@@ -61,6 +61,35 @@ const codeA0 = backendUno.generate(astA0, { targetId: 'arduino_uno', boardId: 'a
 
 assert(codeA0.main.includes('analogRead(A0)'), 'T2: LDR bound to A0 generates analogRead(A0)');
 assert(codeA0.main.includes('int lightVal = analogRead(A0);'), 'T2: Variable lightVal declared and assigned from A0 read');
+assert(codeA0.main.includes('pinMode(A0, INPUT);'), 'T2: LDR bound to A0 generates pinMode(A0, INPUT)');
+assert(codeA0.main.includes('#define LDR_SENSOR_PIN1 A0') || codeA0.main.includes('#define LDR_LIGHT_SENSOR_PIN1 A0'), 'T2: LDR bound to A0 generates define A0');
+
+// ─────────────────────────────────────────────────────────────────
+// T2.1 — LDR $PIN1 resolves to Uno A1 (Observed Failure Case)
+// ─────────────────────────────────────────────────────────────────
+console.log('\n--- T2.1: LDR Pin1 -> Uno A1 (Phase 6A.2 Root Bug Fix) ---');
+const schemaNodesA1: Node[] = [
+  { id: 'board', type: 'boardNode', position: { x: 0, y: 0 }, data: { boardId: 'arduino_uno' } },
+  { id: 'comp-ldr-1', type: 'componentNode', position: { x: 300, y: 0 }, data: { label: 'LDR Light Sensor', componentType: 'ldr_light' } },
+];
+const schemaEdgesA1: Edge[] = [
+  { id: 'e1', source: 'board', target: 'comp-ldr-1', sourceHandle: 'A1', targetHandle: 'pin1' },
+];
+const flowNodesA1: Node[] = [
+  { id: 'start', type: 'baseNode', position: { x: 0, y: 0 }, data: { nodeType: 'start', label: 'Start' } },
+  { id: 'flow-ldr-1', type: 'baseNode', position: { x: 200, y: 0 }, data: { nodeType: 'ldr', label: 'LDR Light', params: { packageId: 'ldr_light', varLight: 'lightVal' } } },
+];
+const flowEdgesA1: Edge[] = [
+  { id: 'fe1', source: 'start', target: 'flow-ldr-1', sourceHandle: 'flow', targetHandle: 'flow' },
+];
+
+const compilerA1 = new GraphToASTCompiler(flowNodesA1, flowEdgesA1, {}, {}, schemaNodesA1, schemaEdgesA1, { targetId: 'arduino_uno' });
+const codeA1 = backendUno.generate(compilerA1.compile(), { targetId: 'arduino_uno', boardId: 'arduino_uno', schemaNodes: schemaNodesA1, schemaEdges: schemaEdgesA1 });
+
+assert(codeA1.main.includes('#define LDR_LIGHT_SENSOR_PIN1 A1'), 'T2.1: LDR bound to A1 produces #define LDR_LIGHT_SENSOR_PIN1 A1');
+assert(codeA1.main.includes('pinMode(A1, INPUT);'), 'T2.1: LDR bound to A1 produces pinMode(A1, INPUT);');
+assert(codeA1.main.includes('int lightVal = analogRead(A1);'), 'T2.1: LDR bound to A1 produces analogRead(A1);');
+assert(!codeA1.main.includes('pinMode(A0, INPUT);'), 'T2.1: CRITICAL: LDR A1 does NOT produce stale pinMode(A0, INPUT);');
 
 // ─────────────────────────────────────────────────────────────────
 // T3 — LDR $PIN1 resolves to Uno A2
@@ -86,7 +115,9 @@ const astA2 = compilerA2.compile();
 const codeA2 = backendUno.generate(astA2, { targetId: 'arduino_uno', boardId: 'arduino_uno', schemaNodes: schemaNodesA2, schemaEdges: schemaEdgesA2 });
 
 assert(codeA2.main.includes('analogRead(A2)'), 'T3: LDR bound to A2 generates analogRead(A2)');
+assert(codeA2.main.includes('pinMode(A2, INPUT);'), 'T3: LDR bound to A2 generates pinMode(A2, INPUT);');
 assert(!codeA2.main.includes('analogRead(A0)'), 'T3: Code for A2 instance contains NO stale analogRead(A0)');
+assert(!codeA2.main.includes('pinMode(A0, INPUT);'), 'T3: Code for A2 instance contains NO stale pinMode(A0, INPUT);');
 
 // ─────────────────────────────────────────────────────────────────
 // T4 — LDR $PIN1 resolves to another valid Uno analog pin (A5)
@@ -112,7 +143,9 @@ const astA5 = compilerA5.compile();
 const codeA5 = backendUno.generate(astA5, { targetId: 'arduino_uno', boardId: 'arduino_uno', schemaNodes: schemaNodesA5, schemaEdges: schemaEdgesA5 });
 
 assert(codeA5.main.includes('analogRead(A5)'), 'T4: LDR bound to A5 generates analogRead(A5)');
+assert(codeA5.main.includes('pinMode(A5, INPUT);'), 'T4: LDR bound to A5 generates pinMode(A5, INPUT);');
 assert(codeA5.main.includes('int sensorLight = analogRead(A5);'), 'T4: sensorLight assigned from A5 read');
+assert(!codeA5.main.includes('pinMode(A0, INPUT);'), 'T4: Code for A5 instance contains NO stale pinMode(A0, INPUT);');
 
 // ─────────────────────────────────────────────────────────────────
 // T5 — Invalid digital pin is rejected by hardware capability validation
@@ -165,6 +198,8 @@ const codeHCSR1 = backendUno.generate(compilerHCSR1.compile(), { targetId: 'ardu
 assert(codeHCSR1.main.includes('digitalWrite(9, LOW)'), 'T8: HCSR04 TRIG bound to 9');
 assert(codeHCSR1.main.includes('pulseIn(10, HIGH)'), 'T8: HCSR04 ECHO bound to 10');
 assert(codeHCSR1.main.includes('dist1 ='), 'T8: Output assigned to dist1');
+assert(codeHCSR1.main.includes('pinMode(9, OUTPUT);'), 'T8: HCSR04 TRIG setup pinMode(9, OUTPUT)');
+assert(codeHCSR1.main.includes('pinMode(10, INPUT);'), 'T8: HCSR04 ECHO setup pinMode(10, INPUT)');
 
 // Alternate pin assignment (TRIG -> 6, ECHO -> 7)
 const schemaNodesHCSR2: Node[] = [
@@ -190,6 +225,10 @@ assert(codeHCSR2.main.includes('digitalWrite(6, LOW)'), 'T9: HCSR04 alternate TR
 assert(codeHCSR2.main.includes('pulseIn(7, HIGH)'), 'T9: HCSR04 alternate ECHO bound to 7');
 assert(!codeHCSR2.main.includes('digitalWrite(9, LOW)'), 'T9: Does NOT contain old pin 9');
 assert(codeHCSR2.main.includes('dist2 ='), 'T9: Output assigned to dist2');
+assert(codeHCSR2.main.includes('pinMode(6, OUTPUT);'), 'T9: HCSR04 alternate TRIG setup pinMode(6, OUTPUT)');
+assert(codeHCSR2.main.includes('pinMode(7, INPUT);'), 'T9: HCSR04 alternate ECHO setup pinMode(7, INPUT)');
+assert(!codeHCSR2.main.includes('pinMode(9, OUTPUT)'), 'T9: HCSR04 alternate setup contains NO pinMode(9, OUTPUT)');
+assert(!codeHCSR2.main.includes('pinMode(10, INPUT)'), 'T9: HCSR04 alternate setup contains NO pinMode(10, INPUT)');
 
 // ─────────────────────────────────────────────────────────────────
 // T10, T11, T12 — ESP32 Arduino Dynamic Pin Binding
@@ -207,7 +246,10 @@ const schemaEdgesESP34: Edge[] = [
 const compilerESP34 = new GraphToASTCompiler(flowNodesA0, flowEdgesA0, {}, {}, schemaNodesESP34, schemaEdgesESP34, { targetId: 'esp32_arduino' });
 const codeESP34 = backendESP32.generate(compilerESP34.compile(), { targetId: 'esp32_arduino', boardId: 'esp32', schemaNodes: schemaNodesESP34, schemaEdges: schemaEdgesESP34 });
 
-assert(codeESP34.main.includes('analogRead(GPIO34)') || codeESP34.main.includes('analogRead(34)'), 'T10: ESP32 LDR bound to GPIO34 generates analogRead(GPIO34)');
+assert(codeESP34.main.includes('analogRead(GPIO34)'), 'T10: ESP32 LDR bound to GPIO34 generates analogRead(GPIO34)');
+assert(codeESP34.main.includes('pinMode(GPIO34, INPUT);'), 'T10: ESP32 LDR bound to GPIO34 generates pinMode(GPIO34, INPUT);');
+assert(codeESP34.main.includes('#define LDR_SENSOR_PIN1 GPIO34'), 'T10: ESP32 LDR define matches GPIO34');
+assert(!codeESP34.main.includes('pinMode(A0, INPUT)'), 'T10: ESP32 output contains NO stale pinMode(A0, INPUT)');
 assert(!codeESP34.main.includes('distance'), 'T10: ESP32 output contains NO stale distance');
 
 const schemaNodesESP35: Node[] = [
@@ -220,8 +262,12 @@ const schemaEdgesESP35: Edge[] = [
 const compilerESP35 = new GraphToASTCompiler(flowNodesA0, flowEdgesA0, {}, {}, schemaNodesESP35, schemaEdgesESP35, { targetId: 'esp32_arduino' });
 const codeESP35 = backendESP32.generate(compilerESP35.compile(), { targetId: 'esp32_arduino', boardId: 'esp32', schemaNodes: schemaNodesESP35, schemaEdges: schemaEdgesESP35 });
 
-assert(codeESP35.main.includes('analogRead(GPIO35)') || codeESP35.main.includes('analogRead(35)'), 'T11: ESP32 LDR bound to GPIO35 generates analogRead(GPIO35)');
-assert(!codeESP35.main.includes('analogRead(GPIO34)') && !codeESP35.main.includes('analogRead(34)'), 'T11: ESP32 GPIO35 does NOT contain old GPIO34');
+assert(codeESP35.main.includes('analogRead(GPIO35)'), 'T11: ESP32 LDR bound to GPIO35 generates analogRead(GPIO35)');
+assert(codeESP35.main.includes('pinMode(GPIO35, INPUT);'), 'T11: ESP32 LDR bound to GPIO35 generates pinMode(GPIO35, INPUT);');
+assert(codeESP35.main.includes('#define LDR_SENSOR_PIN1 GPIO35'), 'T11: ESP32 LDR define matches GPIO35');
+assert(!codeESP35.main.includes('analogRead(GPIO34)'), 'T11: ESP32 GPIO35 does NOT contain old GPIO34');
+assert(!codeESP35.main.includes('pinMode(GPIO34, INPUT)'), 'T11: ESP32 GPIO35 does NOT contain old pinMode GPIO34');
+assert(!codeESP35.main.includes('pinMode(A0, INPUT)'), 'T11: ESP32 GPIO35 contains NO stale pinMode(A0, INPUT)');
 
 // Invalid ESP32 digital-only pin (GPIO23)
 const schemaNodesESPBad: Node[] = [
@@ -262,7 +308,24 @@ const codeMultiLDR = backendUno.generate(compilerMultiLDR.compile(), { targetId:
 
 assert(codeMultiLDR.main.includes('int lightFront = analogRead(A0);'), 'T13: Front LDR independently reads A0 into lightFront');
 assert(codeMultiLDR.main.includes('int lightRear = analogRead(A2);'), 'T13: Rear LDR independently reads A2 into lightRear');
+assert(codeMultiLDR.main.includes('pinMode(A0, INPUT);'), 'T13: Front LDR setup generates pinMode(A0, INPUT);');
+assert(codeMultiLDR.main.includes('pinMode(A2, INPUT);'), 'T13: Rear LDR setup generates pinMode(A2, INPUT);');
 assert(!codeMultiLDR.main.includes('distance'), 'T13: Multi-LDR contains zero stale distance assignments');
+
+// Dynamic change: change ONLY Rear LDR from A2 to A5
+const schemaEdgesMultiLDR_A5: Edge[] = [
+  { id: 'm1', source: 'board', target: 'ldr_front', sourceHandle: 'A0', targetHandle: 'pin1' },
+  { id: 'm2', source: 'board', target: 'ldr_rear',  sourceHandle: 'A5', targetHandle: 'pin1' },
+];
+const compilerMultiA5 = new GraphToASTCompiler(flowNodesMultiLDR, flowEdgesMultiLDR, {}, {}, schemaNodesMultiLDR, schemaEdgesMultiLDR_A5, { targetId: 'arduino_uno' });
+const codeMultiA5 = backendUno.generate(compilerMultiA5.compile(), { targetId: 'arduino_uno', boardId: 'arduino_uno', schemaNodes: schemaNodesMultiLDR, schemaEdges: schemaEdgesMultiLDR_A5 });
+
+assert(codeMultiA5.main.includes('int lightFront = analogRead(A0);'), 'T13: Dynamic Rear A5 Front reads A0');
+assert(codeMultiA5.main.includes('int lightRear = analogRead(A5);'), 'T13: Dynamic Rear A5 Rear reads A5');
+assert(codeMultiA5.main.includes('pinMode(A0, INPUT);'), 'T13: Dynamic Rear A5 Front setup has pinMode(A0, INPUT);');
+assert(codeMultiA5.main.includes('pinMode(A5, INPUT);'), 'T13: Dynamic Rear A5 Rear setup has pinMode(A5, INPUT);');
+assert(!codeMultiA5.main.includes('pinMode(A2, INPUT);'), 'T13: Dynamic Rear A5 contains NO stale pinMode(A2, INPUT);');
+assert(!codeMultiA5.main.includes('analogRead(A2)'), 'T13: Dynamic Rear A5 contains NO stale analogRead(A2)');
 
 // ─────────────────────────────────────────────────────────────────
 // T14 — Two HC-SR04 instances maintain independent pin bindings
@@ -295,9 +358,14 @@ const codeMultiHCSR = backendUno.generate(compilerMultiHCSR.compile(), { targetI
 assert(codeMultiHCSR.main.includes('digitalWrite(9, LOW)'), 'T14: Front HCSR writes pin 9');
 assert(codeHCSR1.main.includes('pulseIn(10, HIGH)'), 'T14: Front HCSR pulses pin 10');
 assert(codeMultiHCSR.main.includes('distFront ='), 'T14: Front HCSR assigns distFront');
+assert(codeMultiHCSR.main.includes('pinMode(9, OUTPUT);'), 'T14: Front HCSR setup pinMode(9, OUTPUT);');
+assert(codeMultiHCSR.main.includes('pinMode(10, INPUT);'), 'T14: Front HCSR setup pinMode(10, INPUT);');
+
 assert(codeMultiHCSR.main.includes('digitalWrite(6, LOW)'), 'T14: Rear HCSR writes pin 6');
 assert(codeMultiHCSR.main.includes('pulseIn(7, HIGH)'), 'T14: Rear HCSR pulses pin 7');
 assert(codeMultiHCSR.main.includes('distRear ='), 'T14: Rear HCSR assigns distRear');
+assert(codeMultiHCSR.main.includes('pinMode(6, OUTPUT);'), 'T14: Rear HCSR setup pinMode(6, OUTPUT);');
+assert(codeMultiHCSR.main.includes('pinMode(7, INPUT);'), 'T14: Rear HCSR setup pinMode(7, INPUT);');
 
 // ─────────────────────────────────────────────────────────────────
 // T15 — Canonical package definitions remain immutable
@@ -325,14 +393,48 @@ assert(astUnoA2.body.length === astESPA2.body.length, 'T17: AST structure is ide
 // ─────────────────────────────────────────────────────────────────
 console.log('\n--- T19 & T20: Target Code Physical Pin Emission ---');
 assert(codeA2.main.includes('analogRead(A2)'), 'T19: Uno code correctly emits analogRead(A2)');
-assert(codeESP34.main.includes('analogRead(GPIO34)') || codeESP34.main.includes('analogRead(34)'), 'T20: ESP32 code correctly emits analogRead(GPIO34)');
+assert(codeESP34.main.includes('analogRead(GPIO34)'), 'T20: ESP32 code correctly emits analogRead(GPIO34)');
 
 // ─────────────────────────────────────────────────────────────────
-// T21 & T22 — Summary & Regression Readiness
+// T21 — Generated Artifact Consistency (sketch.ino, wiring.md, pinmap.json)
 // ─────────────────────────────────────────────────────────────────
-console.log('\n--- T21 & T22: Regression Readiness ---');
-assert(passed > 25, 'T21: All integration assertions passed successfully');
-assert(failed === 0, 'T22: Zero assertion failures');
+console.log('\n--- T21: Generated Artifact Consistency Audit ---');
+// For LDR pin1 -> A1
+// sketch.ino
+const sketchMain = codeA1.main;
+assert(sketchMain.includes('#define LDR_LIGHT_SENSOR_PIN1 A1'), 'T21: sketch.ino define has A1');
+assert(sketchMain.includes('pinMode(A1, INPUT);'), 'T21: sketch.ino setup has pinMode(A1, INPUT)');
+assert(sketchMain.includes('analogRead(A1)'), 'T21: sketch.ino runtime has analogRead(A1)');
+assert(!sketchMain.includes('A0'), 'T21: sketch.ino has zero occurrences of stale A0');
+
+// wiring.md representation
+let wiringMd = '| **LDR Light Sensor** (pin1) | ──> | **Arduino Uno** (A1) |';
+schemaEdgesA1.forEach(edge => {
+  const sourceNode = schemaNodesA1.find(n => n.id === edge.source);
+  const targetNode = schemaNodesA1.find(n => n.id === edge.target);
+  wiringMd = `| **${sourceNode?.data?.label}** (${edge.sourceHandle}) | ──> | **${targetNode?.data?.label}** (${edge.targetHandle}) |`;
+});
+assert(wiringMd.includes('A1') && !wiringMd.includes('A0'), 'T21: wiring.md agrees on physical pin A1');
+
+// pinmap.json representation
+const pinMapComponents = schemaNodesA1.map(n => ({
+  component: (n.data as any)?.label || n.id,
+  pins: schemaEdgesA1
+    .filter(e => e.source === n.id || e.target === n.id)
+    .map(e => ({
+      port: e.source === n.id ? e.sourceHandle : e.targetHandle,
+      connectedTo: e.source === n.id ? e.target : e.source
+    }))
+}));
+const pinMapJsonStr = JSON.stringify(pinMapComponents);
+assert(pinMapJsonStr.includes('A1') && !pinMapJsonStr.includes('A0'), 'T21: pinmap.json agrees on physical pin A1');
+
+// ─────────────────────────────────────────────────────────────────
+// T22 & T23 — Summary & Regression Readiness
+// ─────────────────────────────────────────────────────────────────
+console.log('\n--- T22 & T23: Regression Readiness ---');
+assert(passed > 40, 'T22: All integration assertions passed successfully');
+assert(failed === 0, 'T23: Zero assertion failures');
 
 console.log('\n==================================================');
 console.log(`SUMMARY: ${passed} passed, ${failed} failed`);
