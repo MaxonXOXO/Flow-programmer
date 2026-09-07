@@ -5,6 +5,7 @@ import {
   ReactFlow,
   Background,
   Controls,
+  ControlButton,
   MiniMap,
   addEdge,
   Connection,
@@ -17,7 +18,7 @@ import { useFlowStore } from '@/store/userFlowStore'
 import { resolveCanonicalPackageId, instantiatePackageGraph } from '@/lib/packages/packageGraphInstantiator'
 import BaseNode from '@/components/nodes/BaseNode'
 import CustomSelect from '@/components/ui/CustomSelect'
-import { Edit2, Copy, Trash2, Sliders, X, Check, Plus, Lock } from 'lucide-react'
+import { Edit2, Copy, Trash2, Sliders, X, Check, Plus, Lock, Unlock } from 'lucide-react'
 
 interface ContextMenuState {
   nodeId: string
@@ -168,7 +169,25 @@ function FlowCanvasInner() {
   const isInSubFlow = subFlowStack.length > 0
   const activePackage = activePackageId ? componentPackages[activePackageId] : null
 
-  const { screenToFlowPosition, setViewport, fitView, getViewport } = useReactFlow()
+  const { screenToFlowPosition, setViewport, fitView, getViewport, getZoom } = useReactFlow()
+  const [isZoomLocked, setIsZoomLocked] = useState(false)
+  const [lockedZoomLevel, setLockedZoomLevel] = useState<number | null>(null)
+
+  const handleToggleZoomLock = useCallback(() => {
+    if (!isZoomLocked) {
+      try {
+        const zoom = getZoom()
+        setLockedZoomLevel(zoom)
+      } catch {
+        setLockedZoomLevel(1)
+      }
+      setIsZoomLocked(true)
+    } else {
+      setLockedZoomLevel(null)
+      setIsZoomLocked(false)
+    }
+  }, [isZoomLocked, getZoom])
+
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const [quickEdit, setQuickEdit] = useState<QuickEditState | null>(null)
   const quickEditRef = useRef<HTMLDivElement>(null)
@@ -802,6 +821,12 @@ function FlowCanvasInner() {
         onNodesChange={onActiveFlowNodesChange}
         onEdgesChange={onActiveFlowEdgesChange}
         onConnect={onConnect}
+        minZoom={isZoomLocked && lockedZoomLevel !== null ? lockedZoomLevel : 0.1}
+        maxZoom={isZoomLocked && lockedZoomLevel !== null ? lockedZoomLevel : 4}
+        zoomOnScroll={!isZoomLocked}
+        zoomOnPinch={!isZoomLocked}
+        zoomOnDoubleClick={!isZoomLocked}
+        panOnDrag={true}
         nodesDraggable={!isReadOnly}
         nodesConnectable={!isReadOnly}
         deleteKeyCode={isReadOnly ? null : ['Backspace', 'Delete']}
@@ -818,7 +843,22 @@ function FlowCanvasInner() {
         style={{ background: 'var(--color-bg-base)' }}
       >
         {showGrid && <Background variant={BackgroundVariant.Lines} gap={20} size={1} color="rgba(255,255,255,0.03)" />}
-        <Controls style={{ background: 'var(--color-bg-panel)', border: '1px solid var(--color-border)', color: 'var(--color-text-normal)' }} />
+        <Controls
+          showInteractive={false}
+          style={{ background: 'var(--color-bg-panel)', border: '1px solid var(--color-border)', color: 'var(--color-text-normal)' }}
+        >
+          <ControlButton
+            onClick={handleToggleZoomLock}
+            title={isZoomLocked ? 'Unlock Canvas Zoom (Zoom is currently locked)' : 'Lock Canvas Zoom'}
+            aria-label={isZoomLocked ? 'Unlock Canvas Zoom' : 'Lock Canvas Zoom'}
+            style={{
+              color: isZoomLocked ? '#38bdf8' : 'var(--color-text-dim)',
+              background: isZoomLocked ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+            }}
+          >
+            {isZoomLocked ? <Lock className="w-3.5 h-3.5 text-[#38bdf8]" /> : <Unlock className="w-3.5 h-3.5" />}
+          </ControlButton>
+        </Controls>
         {showMinimap && (
           <MiniMap 
             style={{
