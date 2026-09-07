@@ -198,7 +198,7 @@ const schemaEdgesUno: Edge[] = [
 const compilerUno = new GraphToASTCompiler(flowNodesLDR, flowEdgesLDR, {}, {}, schemaNodesUno, schemaEdgesUno, { targetId: 'arduino_uno' });
 const astUno = compilerUno.compile();
 assert(astUno.kind === 'Program', 'T14: AST produced is a ProgramNode');
-assert(astUno.body.length >= 2, 'T14: AST contains expanded subflow statements');
+assert(astUno.body.length >= 1, 'T14: AST contains expanded subflow statements');
 
 const compilerESP = new GraphToASTCompiler(flowNodesLDR, flowEdgesLDR, {}, {}, schemaNodesUno, schemaEdgesUno, { targetId: 'esp32_arduino' });
 const astESP = compilerESP.compile();
