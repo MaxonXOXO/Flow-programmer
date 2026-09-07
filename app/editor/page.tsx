@@ -19,6 +19,16 @@ import { usePanelStore } from '@/store/usePanelStore'
 import { PanelId } from '@/lib/windowManager/types'
 
 import { useSettingsStore } from '@/store/useSettingsStore'
+import { 
+  GitBranch, 
+  AlertCircle, 
+  AlertTriangle, 
+  Cpu, 
+  Workflow, 
+  Activity, 
+  CheckCircle2, 
+  Layers 
+} from 'lucide-react'
 
 export default function EditorPage() {
   const { setProject } = useFlowStore()
@@ -36,8 +46,27 @@ export default function EditorPage() {
     setProject(JSON.parse(raw))
   }, [router, setProject])
 
-  const { selectedNodeId, simState, project, documents, activeDocumentId, activeCanvas, subFlowStack } = useFlowStore()
+  const { 
+    selectedNodeId, 
+    simState, 
+    project, 
+    documents, 
+    activeDocumentId, 
+    activeCanvas, 
+    subFlowStack,
+    flowNodes,
+    schemaNodes,
+  } = useFlowStore()
   const activeDocument = documents.find(d => d.id === activeDocumentId) || documents[0]
+
+  const selectedNode = selectedNodeId 
+    ? (activeCanvas === 'schema' 
+        ? schemaNodes.find(n => n.id === selectedNodeId)
+        : flowNodes.find(n => n.id === selectedNodeId))
+    : null
+  const selectedLabel = selectedNode 
+    ? ((selectedNode.data as any)?.label || (selectedNode.data as any)?.params?.name || selectedNode.id)
+    : null
 
   // Handle window beforeunload if confirmUnsaved is enabled and dirty tabs exist
   useEffect(() => {
@@ -148,70 +177,171 @@ export default function EditorPage() {
         ))}
       </div>
       
-      {/* Bottom Status Bar (Blender/Photoshop Style) */}
+      {/* IDE Status Bar */}
       <div style={{
-        height: 22,
-        background: '#151515',
-        borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+        height: 24,
+        background: '#0d1117',
+        borderTop: '1px solid rgba(255, 255, 255, 0.08)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '0 10px',
-        fontSize: 10,
+        padding: '0 8px',
+        fontSize: 11,
+        fontFamily: 'var(--font-sans)',
         color: 'var(--color-text-dim)',
         userSelect: 'none',
         zIndex: 50,
       }}>
-        {/* Left: Selection status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{
-            background: selectedNodeId ? 'var(--color-accent)' : '#2b2b2b',
-            color: selectedNodeId ? '#151515' : 'var(--color-text-dim)',
-            padding: '1px 5px',
-            borderRadius: 3,
-            fontWeight: 700,
-            fontSize: 9,
-            transition: 'all 0.15s',
-          }}>
-            {selectedNodeId ? 'SELECT' : 'READY'}
-          </span>
-          <span style={{ fontFamily: 'monospace' }}>
-            {selectedNodeId ? `Active Node: ${selectedNodeId}` : 'No node selected'}
-          </span>
+        {/* Left Segment: VCS, Diagnostics, Selection */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          {/* Git Branch */}
+          <div
+            title="Git Branch: master"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '2px 8px',
+              borderRadius: 3,
+              cursor: 'pointer',
+              transition: 'background 0.1s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+          >
+            <GitBranch className="w-3 h-3 text-[#38bdf8]" />
+            <span style={{ color: '#cbd5e1', fontWeight: 600 }}>master</span>
+          </div>
+
+          {/* Diagnostics / Problems */}
+          <div
+            title="Problems: 0 errors, 0 warnings"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '2px 8px',
+              borderRadius: 3,
+              cursor: 'pointer',
+              transition: 'background 0.1s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <AlertCircle className="w-3 h-3 text-[#10b981]" />
+              <span style={{ color: '#94a3b8' }}>0</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <AlertTriangle className="w-3 h-3 text-[#f59e0b]" />
+              <span style={{ color: '#94a3b8' }}>0</span>
+            </div>
+          </div>
+
+          <div style={{ width: 1, height: 12, background: 'rgba(255, 255, 255, 0.1)', margin: '0 2px' }} />
+
+          {/* Active Selection */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '2px 8px',
+              borderRadius: 3,
+            }}
+          >
+            {selectedLabel ? (
+              <>
+                <Layers className="w-3 h-3 text-[#38bdf8]" />
+                <span style={{ color: '#f1f5f9', fontWeight: 500 }}>{selectedLabel}</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="w-3 h-3 text-[#10b981]" />
+                <span style={{ color: '#94a3b8' }}>Ready</span>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Center: System specs */}
-        <div>
-          Workspace: <span style={{ color: 'var(--color-text-normal)', fontWeight: 600 }}>{project?.name || 'Loading'}</span>
-          <span style={{ margin: '0 6px' }}>|</span>
-          Target: <span style={{ color: 'var(--color-text-normal)', fontWeight: 600 }}>{project?.platform ? project.platform.toUpperCase() : 'ARDUINO'}</span>
-          <span style={{ margin: '0 6px' }}>|</span>
-          View: <span style={{ color: 'var(--color-text-normal)', fontWeight: 600 }}>{(activeDocument?.title || activeCanvas || '').toUpperCase()}</span>
-          {subFlowStack.length > 0 && (
-            <>
-              <span style={{ margin: '0 6px' }}>|</span>
-              Depth: <span style={{ color: '#5fa3ff', fontWeight: 600 }}>SUB-FLOW L{subFlowStack.length}</span>
-            </>
-          )}
-        </div>
+        {/* Right Segment: Board Target, Document View, Simulation, Encoding */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          {/* Target Board */}
+          <div
+            title={`Target Architecture: ${project?.hardware?.targetId || project?.platform || 'Arduino Uno (ATmega328P)'}`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '2px 8px',
+              borderRadius: 3,
+              cursor: 'pointer',
+              transition: 'background 0.1s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+          >
+            <Cpu className="w-3 h-3 text-[#00c4b4]" />
+            <span style={{ color: '#e2e8f0', fontWeight: 500 }}>
+              {project?.hardware?.targetId || (project?.platform ? project.platform.toUpperCase() : 'Arduino Uno (ATmega328P)')}
+            </span>
+          </div>
 
-        {/* Right: Simulation State & Help Tip */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontStyle: 'italic' }}>
-            Tip: Drag components to canvas & connect solder joint handles
-          </span>
-          <span style={{
-            background: simState.running ? 'rgba(46, 204, 113, 0.1)' : 'rgba(255,255,255,0.02)',
-            border: `1px solid ${simState.running ? '#2ecc71' : '#333'}`,
-            color: simState.running ? '#2ecc71' : 'var(--color-text-dim)',
-            padding: '0 6px',
-            borderRadius: 3,
-            fontFamily: 'monospace',
-            fontWeight: 700,
-            fontSize: 9,
-          }}>
-            SIM: {simState.running ? 'ACTIVE' : 'IDLE'}
-          </span>
+          <div style={{ width: 1, height: 12, background: 'rgba(255, 255, 255, 0.1)', margin: '0 2px' }} />
+
+          {/* Active Canvas / View */}
+          <div
+            title={`Active Workspace: ${activeDocument?.title || 'Main Flow'}`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '2px 8px',
+              borderRadius: 3,
+            }}
+          >
+            <Workflow className="w-3 h-3 text-[#f59e0b]" />
+            <span style={{ color: '#cbd5e1' }}>
+              {String(activeDocument?.title || 'Main Flow').replace(/^(📦|🔓)\s*/, '')}
+            </span>
+            {subFlowStack.length > 0 && (
+              <span style={{ color: '#38bdf8', fontSize: 10, fontWeight: 700 }}>
+                (L{subFlowStack.length})
+              </span>
+            )}
+          </div>
+
+          <div style={{ width: 1, height: 12, background: 'rgba(255, 255, 255, 0.1)', margin: '0 2px' }} />
+
+          {/* Simulation Status */}
+          <div
+            title={`Simulation Engine: ${simState.running ? 'Running' : 'Idle'}`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '2px 8px',
+              borderRadius: 3,
+            }}
+          >
+            <Activity className="w-3 h-3" style={{ color: simState.running ? '#22c55e' : '#64748b' }} />
+            <span style={{ color: simState.running ? '#22c55e' : '#94a3b8' }}>
+              Sim: {simState.running ? 'Running' : 'Idle'}
+            </span>
+          </div>
+
+          <div style={{ width: 1, height: 12, background: 'rgba(255, 255, 255, 0.1)', margin: '0 2px' }} />
+
+          {/* Encoding */}
+          <div
+            style={{
+              padding: '2px 8px',
+              color: '#94a3b8',
+              fontSize: 11,
+            }}
+          >
+            UTF-8
+          </div>
         </div>
       </div>
 
