@@ -61,38 +61,38 @@ export class ESP32ArduinoBackend extends BaseCppGenerator implements CompilerBac
 
     this.connections.forEach((conn) => {
       if (this.isPowerPin(conn)) return;
+      if (seenComponents.has(conn.componentId)) return;
+      seenComponents.add(conn.componentId);
 
-      const pluginType = mapLabelToPluginType(conn.componentLabel) || conn.componentType;
+      const compNode = schemaNodes.find((n) => n.id === conn.componentId);
+      const nodeData = (compNode?.data || {}) as any;
+      const params = (nodeData?.params as Record<string, string>) || {};
+
+      const packageId = nodeData?.params?.packageId || nodeData?.packageId || nodeData?.componentType || conn.componentType;
+      const pluginType = mapLabelToPluginType(conn.componentLabel) || (packageId === 'ldr_light' ? 'ldr' : packageId === 'ultrasonic_hcsr04' ? 'ultrasonic' : packageId) || conn.componentType;
 
       // Consult Package Execution Resolver with targetId 'esp32_arduino'
-      const resolvedImpl = resolvePackageImplementation(conn.componentId || pluginType, 'esp32_arduino');
+      const resolvedImpl = resolvePackageImplementation(packageId || pluginType, 'esp32_arduino');
       dispatchPackageExecution(resolvedImpl.packageId || pluginType, {
         instanceName: this.safeVarName(conn.componentLabel),
       });
 
-      const plugin = pluginRegistry.get(pluginType);
-      if (!plugin) return;
-
+      const plugin = pluginRegistry.get(pluginType) || (packageId ? pluginRegistry.get(packageId) : undefined);
       const instanceName = this.safeVarName(conn.componentLabel);
 
       // Add includes
-      plugin.codegen.includes.forEach((inc) => includes.add(inc));
-
-      if (seenComponents.has(conn.componentId)) return;
-      seenComponents.add(conn.componentId);
+      if (plugin?.codegen?.includes) {
+        plugin.codegen.includes.forEach((inc) => includes.add(inc));
+      }
+      if (resolvedImpl.dependencies?.includes) {
+        resolvedImpl.dependencies.includes.forEach((inc) => includes.add(inc));
+      }
 
       const compConnections = this.connections.filter((c) => c.componentId === conn.componentId && !this.isPowerPin(c));
-      const pinsMap: Record<string, string> = {};
-      compConnections.forEach((c) => {
-        // Strip 'GPIO' prefix for raw pin numbers if needed, or keep standard GPIO format
-        pinsMap[c.pin] = this.formatEsp32Pin(c.arduinoPin);
-      });
-
-      const compNode = schemaNodes.find((n) => n.id === conn.componentId);
-      const params = (compNode?.data?.params as Record<string, string>) || {};
+      const pinsMap = this.resolveInstancePinsMap(conn.componentId, schemaNodes, true);
 
       // Defines
-      if (plugin.codegen.defines) {
+      if (plugin?.codegen?.defines) {
         defines.push(...plugin.codegen.defines(instanceName, pinsMap));
       } else {
         compConnections.forEach((c) => {
@@ -102,12 +102,23 @@ export class ESP32ArduinoBackend extends BaseCppGenerator implements CompilerBac
       }
 
       // Globals
-      if (plugin.codegen.globals) {
+      if (plugin?.codegen?.globals) {
         globals.push(...plugin.codegen.globals(instanceName, pinsMap, params));
+      }
+      if (resolvedImpl.dependencies?.globals) {
+        resolvedImpl.dependencies.globals.forEach((g) => {
+          const line = g.replace(/\$([a-zA-Z0-9_]+)/g, (_, name) => pinsMap[`$${name}`] || pinsMap[name] || params[name] || `$${name}`);
+          globals.push(line);
+        });
       }
 
       // Setup
-      if (plugin.codegen.setup) {
+      if (resolvedImpl.dependencies?.setup && resolvedImpl.dependencies.setup.length > 0) {
+        resolvedImpl.dependencies.setup.forEach((s) => {
+          const line = s.replace(/\$([a-zA-Z0-9_]+)/g, (_, name) => pinsMap[`$${name}`] || pinsMap[name] || params[name] || `$${name}`);
+          setups.push(`  ${line.endsWith(';') ? line : line + ';'}`);
+        });
+      } else if (plugin?.codegen?.setup) {
         setups.push(...plugin.codegen.setup(instanceName, pinsMap, params).map((line) => `  ${line}`));
       }
     });
@@ -197,9 +208,6 @@ export class ESP32ArduinoBackend extends BaseCppGenerator implements CompilerBac
   }
 
   private formatEsp32Pin(pin: string): string {
-    if (pin.startsWith('GPIO') && /^\d+$/.test(pin.slice(4))) {
-      return pin.slice(4);
-    }
     if (pin.startsWith('D') && /^\d+$/.test(pin.slice(1))) {
       return pin.slice(1);
     }
