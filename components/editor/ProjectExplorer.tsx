@@ -149,7 +149,6 @@ export default function ProjectExplorer() {
                   <TreeItem
                     title="Arduino Uno"
                     icon={<ArduinoIcon size={13} color="#00c4b4" />}
-                    badgeText="BOARD"
                     isActive={activeDocumentId === 'schema' && (selectedNodeId === 'arduino-uno' || selectedNodeId === 'board')}
                     onClick={() => {
                       openDocument({
@@ -165,7 +164,6 @@ export default function ProjectExplorer() {
                   {/* Connected Hardware Components */}
                   {hardwareComponents.map(comp => {
                     const label = (comp.data as any)?.label || comp.id
-                    const badge = (comp.data as any)?.category || (comp.data as any)?.type || 'SENSOR'
                     const isSelected = activeDocumentId === 'schema' && selectedNodeId === comp.id
                     return (
                       <TreeItem
@@ -176,7 +174,6 @@ export default function ProjectExplorer() {
                           color: '#2fd18b',
                           fallback: <Layers className="w-3.5 h-3.5 text-[#64748b]" />
                         })}
-                        badgeText={String(badge).toUpperCase()}
                         isActive={isSelected}
                         onClick={() => {
                           openDocument({
@@ -230,7 +227,6 @@ export default function ProjectExplorer() {
                     <div style={{ marginLeft: 10, paddingLeft: 4, borderLeft: '1px solid rgba(255, 255, 255, 0.08)' }}>
                       {flowNodes.map(node => {
                         const label = (node.data as any)?.label || (node.data as any)?.params?.name || node.id
-                        const badge = getFlowNodeBadge(node)
                         const icon = getFlowNodeIcon(node)
                         const isSelected = activeDocumentId === 'main_flow' && selectedNodeId === node.id
 
@@ -239,7 +235,6 @@ export default function ProjectExplorer() {
                             key={node.id}
                             title={label}
                             icon={icon}
-                            badgeText={badge}
                             isActive={isSelected}
                             onClick={() => {
                               openDocument({
@@ -291,7 +286,6 @@ export default function ProjectExplorer() {
                             title={`${fn.name}()`}
                             icon={<Braces className="w-3.5 h-3.5 text-[#a855f7]" />}
                             isActive={isActive}
-                            badgeText="FUNC"
                             expandable={childNodes.length > 0}
                             expanded={isExpanded}
                             onExpandToggle={() => toggleSubflow(fn.id)}
@@ -310,7 +304,6 @@ export default function ProjectExplorer() {
                             <div style={{ marginLeft: 10, paddingLeft: 4, borderLeft: '1px solid rgba(255, 255, 255, 0.08)' }}>
                               {childNodes.map(cn => {
                                 const label = (cn.data as any)?.label || (cn.data as any)?.params?.name || cn.id
-                                const badge = getFlowNodeBadge(cn)
                                 const icon = getFlowNodeIcon(cn)
                                 const isChildSelected = activeDocumentId === docId && selectedNodeId === cn.id
 
@@ -319,7 +312,6 @@ export default function ProjectExplorer() {
                                     key={cn.id}
                                     title={label}
                                     icon={icon}
-                                    badgeText={badge}
                                     isActive={isChildSelected}
                                     onClick={() => {
                                       openDocument({
@@ -374,7 +366,6 @@ export default function ProjectExplorer() {
                             color: '#38bdf8',
                             fallback: <Package className="w-3.5 h-3.5 text-[#3b82f6]" />
                           })}
-                          badgeText="FLOWPLG"
                           isActive={isActive}
                           onClick={() => {
                             openDocument({
@@ -408,7 +399,6 @@ export default function ProjectExplorer() {
                   <TreeItem
                     title="sketch.ino"
                     icon={<FileCode className="w-3.5 h-3.5 text-[#f97316]" />}
-                    badgeText="C++"
                     isActive={activeDocumentId === 'code_sketch'}
                     onClick={() => {
                       openDocument({
@@ -422,7 +412,6 @@ export default function ProjectExplorer() {
                   <TreeItem
                     title="wiring.md"
                     icon={<FileText className="w-3.5 h-3.5 text-[#38bdf8]" />}
-                    badgeText="MD"
                     isActive={activeDocumentId === 'code_wiring'}
                     onClick={() => {
                       openDocument({
@@ -436,7 +425,6 @@ export default function ProjectExplorer() {
                   <TreeItem
                     title="pinmap.json"
                     icon={<FileJson className="w-3.5 h-3.5 text-[#a855f7]" />}
-                    badgeText="JSON"
                     isActive={activeDocumentId === 'code_pinmap'}
                     onClick={() => {
                       openDocument({
@@ -518,7 +506,6 @@ function TreeFolderHeader({
 function TreeItem({
   title,
   icon,
-  badgeText,
   isActive,
   expandable,
   expanded,
@@ -527,7 +514,6 @@ function TreeItem({
 }: {
   title: string
   icon: React.ReactNode
-  badgeText?: string
   isActive: boolean
   expandable?: boolean
   expanded?: boolean
@@ -590,26 +576,6 @@ function TreeItem({
       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
         {title}
       </span>
-
-      {badgeText && (
-        <span
-          style={{
-            fontSize: 8,
-            fontWeight: 700,
-            color: isActive ? '#93c5fd' : 'var(--color-text-dim)',
-            background: isActive ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-            border: `1px solid ${isActive ? 'rgba(59, 130, 246, 0.3)' : 'rgba(255, 255, 255, 0.08)'}`,
-            padding: '1px 4px',
-            borderRadius: 3,
-            marginLeft: 'auto',
-            letterSpacing: '0.4px',
-            flexShrink: 0,
-            fontFamily: 'var(--font-mono)',
-          }}
-        >
-          {badgeText}
-        </span>
-      )}
     </div>
   )
 }
@@ -643,19 +609,4 @@ function getFlowNodeIcon(node: any) {
     return <Binary className="w-3 h-3 text-[#38bdf8]" />
   }
   return <Zap className="w-3 h-3 text-[#60a5fa]" />
-}
-
-function getFlowNodeBadge(node: any): string {
-  const nodeType = String((node.data as any)?.nodeType || '').toLowerCase()
-  const label = String((node.data as any)?.label || '').toLowerCase()
-
-  if (nodeType === 'start' || label.includes('start')) return 'START'
-  if (nodeType === 'end' || label.includes('end')) return 'END'
-  if (nodeType === 'ultrasonic' || label.includes('ultrasonic')) return 'SENSOR'
-  if (nodeType === 'print' || label.includes('print')) return 'PRINT'
-  if (nodeType === 'delay' || label.includes('delay')) return 'TIME'
-  if (nodeType === 'condition' || nodeType === 'if') return 'LOGIC'
-  if (nodeType === 'function') return 'FUNC'
-  if (nodeType === 'variable' || nodeType === 'calc') return 'DATA'
-  return (node.data as any)?.nodeType ? String((node.data as any).nodeType).toUpperCase() : 'NODE'
 }
