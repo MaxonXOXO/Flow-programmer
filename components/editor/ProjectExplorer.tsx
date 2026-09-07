@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useFlowStore } from '@/store/userFlowStore'
 import ArduinoIcon from '@/components/Customkit/ArduinoIcon'
+import { getComponentPackageIcon } from '@/lib/registry/components/componentIcon'
 import { 
   ChevronDown, 
   ChevronRight, 
@@ -135,7 +136,11 @@ export default function ProjectExplorer() {
                   <TreeItem
                     key={comp.id}
                     title={label}
-                    icon={<Layers className="w-3.5 h-3.5 text-[#38bdf8]" />}
+                    icon={getComponentPackageIcon(comp, {
+                      className: 'w-3.5 h-3.5',
+                      color: '#2fd18b',
+                      fallback: <Layers className="w-3.5 h-3.5 text-[#64748b]" />
+                    })}
                     isActive={false}
                     onClick={() => {
                       openDocument({
@@ -251,7 +256,11 @@ export default function ProjectExplorer() {
                     <TreeItem
                       key={pkg.id}
                       title={pkg.name}
-                      icon={<Package className="w-3.5 h-3.5 text-[#3b82f6]" />}
+                      icon={getComponentPackageIcon(pkg, {
+                        className: 'w-3.5 h-3.5',
+                        color: '#38bdf8',
+                        fallback: <Package className="w-3.5 h-3.5 text-[#3b82f6]" />
+                      })}
                       isActive={isActive}
                       onClick={() => {
                         openDocument({
