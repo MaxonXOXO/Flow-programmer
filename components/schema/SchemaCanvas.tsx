@@ -5,6 +5,7 @@ import {
   ReactFlow,
   Background,
   Controls,
+  ControlButton,
   BackgroundVariant,
   Connection,
   addEdge,
@@ -18,7 +19,7 @@ import { resolveCanonicalPackageId, instantiatePackageGraph } from '@/lib/packag
 import UnoNode from './UnoNode'
 import BoardNode from './BoardNode'
 import ComponentNode from './ComponentNode'
-import { Copy, Trash2, Sliders, X } from 'lucide-react'
+import { Copy, Trash2, Sliders, X, Lock, Unlock } from 'lucide-react'
 
 interface ContextMenuState {
   nodeId: string
@@ -42,7 +43,24 @@ function SchemaCanvasInner() {
     pushHistory
   } = useFlowStore()
 
-  const { screenToFlowPosition, setViewport, fitView } = useReactFlow()
+  const { screenToFlowPosition, setViewport, fitView, getZoom } = useReactFlow()
+  const [isZoomLocked, setIsZoomLocked] = useState(false)
+  const [lockedZoomLevel, setLockedZoomLevel] = useState<number | null>(null)
+
+  const handleToggleZoomLock = useCallback(() => {
+    if (!isZoomLocked) {
+      try {
+        const zoom = getZoom()
+        setLockedZoomLevel(zoom)
+      } catch {
+        setLockedZoomLevel(1)
+      }
+      setIsZoomLocked(true)
+    } else {
+      setLockedZoomLevel(null)
+      setIsZoomLocked(false)
+    }
+  }, [isZoomLocked, getZoom])
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const [notification, setNotification] = useState<string | null>(null)
 
@@ -186,6 +204,12 @@ function SchemaCanvasInner() {
         onNodesChange={onSchemaNodesChange}
         onEdgesChange={onSchemaEdgesChange}
         onConnect={onConnect}
+        minZoom={isZoomLocked && lockedZoomLevel !== null ? lockedZoomLevel : 0.1}
+        maxZoom={isZoomLocked && lockedZoomLevel !== null ? lockedZoomLevel : 4}
+        zoomOnScroll={!isZoomLocked}
+        zoomOnPinch={!isZoomLocked}
+        zoomOnDoubleClick={!isZoomLocked}
+        panOnDrag={true}
         onNodeDragStart={() => pushHistory()}
         onNodesDelete={() => pushHistory()}
         onEdgesDelete={() => pushHistory()}
@@ -201,7 +225,22 @@ function SchemaCanvasInner() {
         style={{ background: 'var(--color-bg-base)' }}
       >
         {showGrid && <Background variant={BackgroundVariant.Lines} gap={20} size={1} color="rgba(255,255,255,0.03)" />}
-        <Controls style={{ background: 'var(--color-bg-panel)', border: '1px solid var(--color-border)', color: 'var(--color-text-normal)' }} />
+        <Controls
+          showInteractive={false}
+          style={{ background: 'var(--color-bg-panel)', border: '1px solid var(--color-border)', color: 'var(--color-text-normal)' }}
+        >
+          <ControlButton
+            onClick={handleToggleZoomLock}
+            title={isZoomLocked ? 'Unlock Canvas Zoom (Zoom is currently locked)' : 'Lock Canvas Zoom'}
+            aria-label={isZoomLocked ? 'Unlock Canvas Zoom' : 'Lock Canvas Zoom'}
+            style={{
+              color: isZoomLocked ? '#38bdf8' : 'var(--color-text-dim)',
+              background: isZoomLocked ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+            }}
+          >
+            {isZoomLocked ? <Lock className="w-3.5 h-3.5 text-[#38bdf8]" /> : <Unlock className="w-3.5 h-3.5" />}
+          </ControlButton>
+        </Controls>
       </ReactFlow>
 
       {/* Floating Neon Context Menu */}
