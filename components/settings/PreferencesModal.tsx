@@ -91,9 +91,9 @@ export default function PreferencesModal() {
           height: '85vh',
           maxHeight: 720,
           background: 'var(--color-bg-panel)',
-          border: '1px solid #2a3550',
+          border: '1px solid #232a3b',
           borderRadius: 12,
-          boxShadow: '0 24px 80px rgba(0, 0, 0, 0.8), 0 0 40px rgba(95, 163, 255, 0.12)',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.08)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
@@ -212,7 +212,6 @@ export default function PreferencesModal() {
                         width: 3,
                         borderRadius: '0 3px 3px 0',
                         background: 'var(--color-accent-blue)',
-                        boxShadow: '0 0 8px var(--color-accent-blue)',
                       }}
                     />
                   )}
