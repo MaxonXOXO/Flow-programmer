@@ -4,6 +4,7 @@ import { useFlowStore } from '@/store/userFlowStore'
 import { useState } from 'react'
 import CustomSelect from '@/components/ui/CustomSelect'
 import ArduinoIcon from '@/components/Customkit/ArduinoIcon'
+import { getComponentPackageIcon, isFlowPackageComponent } from '@/lib/registry/components/componentIcon'
 import { 
   SlidersHorizontal, 
   Settings, 
@@ -171,7 +172,10 @@ const NODE_DESCRIPTIONS: Record<string, { title: string; category: string; descr
 }
 
 // Clean Lucide SVG Icon Renderer (No Emojis)
-function renderNodeIcon(type: string) {
+function renderNodeIcon(type: string, node?: any) {
+  if (node && isFlowPackageComponent(node)) {
+    return getComponentPackageIcon(node, { className: 'w-4 h-4', color: '#2fd18b' })
+  }
   switch (type) {
     case 'start': return <Play className="w-3.5 h-3.5 text-[#3b82f6] fill-current" />
     case 'end': return <Square className="w-3.5 h-3.5 text-[#ef5f5f] fill-current" />
@@ -189,7 +193,7 @@ function renderNodeIcon(type: string) {
     case 'function_call': return <Code2 className="w-3.5 h-3.5 text-[#3b82f6]" />
     case 'print': return <Terminal className="w-3.5 h-3.5 text-[#a5b3cd]" />
     case 'ultrasonic':
-    case 'ultrasonic_hcsr04': return <Ruler className="w-3.5 h-3.5 text-[#3b82f6]" />
+    case 'ultrasonic_hcsr04': return getComponentPackageIcon('ultrasonic_hcsr04', { className: 'w-4 h-4', color: '#2fd18b' })
     case 'dht': return <Thermometer className="w-3.5 h-3.5 text-[#ef5f5f]" />
     case 'servo': return <Cog className="w-3.5 h-3.5 text-[#ffb13d]" />
     case 'led': return <Lightbulb className="w-3.5 h-3.5 text-[#ffb13d]" />
@@ -198,7 +202,7 @@ function renderNodeIcon(type: string) {
     case 'lcd': return <Tv className="w-3.5 h-3.5 text-[#60a5fa]" />
     case 'unoNode': return <ArduinoIcon size={14} color="#00c4b4" />
     case 'boardNode': return <ArduinoIcon size={14} color="#2fd18b" />
-    case 'componentNode': return <Plug className="w-3.5 h-3.5 text-[#2ecc71]" />
+    case 'componentNode': return <Plug className="w-3.5 h-3.5 text-[#64748b]" />
     default: return <Box className="w-3.5 h-3.5 text-[#60a5fa]" />
   }
 }
@@ -359,13 +363,13 @@ export default function PropertiesPanel() {
               width: 28,
               height: 28,
               borderRadius: 6,
-              background: 'rgba(59, 130, 246, 0.12)',
-              border: '1px solid rgba(59, 130, 246, 0.3)',
+              background: isFlowPackageComponent(node) ? 'rgba(47, 209, 139, 0.12)' : 'rgba(59, 130, 246, 0.12)',
+              border: `1px solid ${isFlowPackageComponent(node) ? 'rgba(47, 209, 139, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}>
-              {renderNodeIcon(rawNodeType)}
+              {renderNodeIcon(rawNodeType, node)}
             </div>
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-bright)' }}>
