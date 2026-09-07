@@ -26,12 +26,9 @@ export default function WorkspaceTabBar() {
     if (doc.type === 'subflow') {
       const subDoc = doc as SubflowDocument
       const title = subDoc.title || subDoc.packageId
-      if (subDoc.readOnly === false || subDoc.unlocked) {
-        return title.startsWith('🔓') ? title : `🔓 ${title.replace(/^📦\s*/, '')}`
-      }
-      return title.startsWith('📦') ? title : `📦 ${title}`
+      return title.replace(/^(📦|🔓)\s*/, '')
     }
-    return String(doc.title).replace(/^(ƒ|<>|📄|⚙)\s*/, '')
+    return String(doc.title).replace(/^(ƒ|<>|📄|⚙|📦|🔓)\s*/, '')
   }
 
   const handleAddNewFunction = () => {
