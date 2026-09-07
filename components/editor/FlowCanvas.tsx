@@ -169,9 +169,23 @@ function FlowCanvasInner() {
   const isInSubFlow = subFlowStack.length > 0
   const activePackage = activePackageId ? componentPackages[activePackageId] : null
 
-  const { screenToFlowPosition, setViewport, fitView, getViewport, getZoom } = useReactFlow()
+  const { screenToFlowPosition, setViewport, fitView, getViewport, getZoom, setCenter } = useReactFlow()
+  const focusTarget = useFlowStore(s => s.focusTarget)
   const [isZoomLocked, setIsZoomLocked] = useState(false)
   const [lockedZoomLevel, setLockedZoomLevel] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!focusTarget) return
+    const targetNode = flowNodes.find(n => n.id === focusTarget.id)
+    if (targetNode) {
+      try {
+        const x = targetNode.position.x + (targetNode.width ? Number(targetNode.width) / 2 : 100)
+        const y = targetNode.position.y + (targetNode.height ? Number(targetNode.height) / 2 : 40)
+        const currentZoom = getZoom ? getZoom() : 1
+        setCenter(x, y, { zoom: Math.max(currentZoom, 0.9), duration: 350 })
+      } catch {}
+    }
+  }, [focusTarget, flowNodes, setCenter, getZoom])
 
   const handleToggleZoomLock = useCallback(() => {
     if (!isZoomLocked) {
@@ -255,8 +269,15 @@ function FlowCanvasInner() {
     [isReadOnly, flowEdges, setActiveFlowEdges, pushHistory]
   )
 
-  // Double-click handler: check for canonical component package node or function node
+  // Double-click handler: check for subflow unlock, canonical component package node, or function node
   const onNodeDoubleClick = useCallback((_: React.MouseEvent, node: any) => {
+    // 0. If inside a read-only component subflow, double-clicking any node unlocks it for editing
+    if (isSubflowDoc && isReadOnly && activeDoc) {
+      unlockSubflowDocument(activeDoc.id, (activeDoc as any).componentInstanceId)
+      setNotification('Subflow unlocked for editing. Changes will override this component instance.')
+      return
+    }
+
     // 1. Check if node resolves to a canonical component package
     const canonicalPkgId = resolveCanonicalPackageId(node)
     if (canonicalPkgId) {
@@ -280,7 +301,15 @@ function FlowCanvasInner() {
     if (nodeType === 'function') {
       enterSubFlow(node.id)
     }
-  }, [openSubflowDocument, enterSubFlow])
+  }, [isSubflowDoc, isReadOnly, activeDoc, unlockSubflowDocument, openSubflowDocument, enterSubFlow])
+
+  // Canvas pane double click handler: unlock subflow if clicked on empty canvas in read-only subflow
+  const onPaneDoubleClick = useCallback(() => {
+    if (isSubflowDoc && isReadOnly && activeDoc) {
+      unlockSubflowDocument(activeDoc.id, (activeDoc as any).componentInstanceId)
+      setNotification('Subflow unlocked for editing. Changes will override this component instance.')
+    }
+  }, [isSubflowDoc, isReadOnly, activeDoc, unlockSubflowDocument])
 
   // Handle HTML5 Drag and Drop placement locally inside the provider
   const onDrop = useCallback((e: React.DragEvent) => {
@@ -774,8 +803,8 @@ function FlowCanvasInner() {
         </div>
       )}
 
-      {/* Subflow Header Badge (Component Subflow · Read Only) */}
-      {isSubflowDoc && (
+      {/* Subflow Header Badge (Component Subflow · Read Only or Unlocked) */}
+      {isSubflowDoc && activeDoc && (
         <div style={{
           position: 'absolute',
           top: 12,
@@ -783,34 +812,112 @@ function FlowCanvasInner() {
           transform: 'translateX(-50%)',
           background: 'rgba(17, 20, 28, 0.94)',
           backdropFilter: 'blur(12px)',
-          border: '1px solid rgba(95, 163, 255, 0.35)',
+          border: isReadOnly ? '1px solid rgba(95, 163, 255, 0.35)' : '1px solid rgba(52, 211, 153, 0.4)',
           borderRadius: 8,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 15px rgba(95,163,255,0.1)',
-          padding: '6px 14px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+          padding: '5px 12px',
           zIndex: 100,
           display: 'flex',
           alignItems: 'center',
-          gap: 8,
+          gap: 10,
           fontSize: 11,
           fontFamily: 'var(--font-sans)',
         }}>
-          <span style={{ fontSize: 13 }}>📦</span>
           <span style={{ color: '#f0f4fc', fontWeight: 700 }}>
-            {activeDoc.title}
+            {activeDoc.title.replace(/^(📦|🔓)\s*/, '')}
           </span>
-          <span style={{
-            background: 'rgba(95, 163, 255, 0.15)',
-            color: '#5fa3ff',
-            fontSize: 9,
-            fontWeight: 800,
-            padding: '2px 6px',
-            borderRadius: 4,
-            letterSpacing: '0.5px',
-            textTransform: 'uppercase',
-            fontFamily: 'var(--font-mono)'
-          }}>
-            Component Subflow · Read Only
-          </span>
+          {isReadOnly ? (
+            <button
+              onClick={() => {
+                unlockSubflowDocument(activeDoc.id, (activeDoc as any).componentInstanceId)
+                setNotification('Subflow unlocked for editing. Changes will override this component instance.')
+              }}
+              title="Click or double-click to unlock subflow for editing"
+              style={{
+                background: 'rgba(95, 163, 255, 0.15)',
+                color: '#5fa3ff',
+                border: '1px solid rgba(95, 163, 255, 0.35)',
+                fontSize: 9.5,
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: 4,
+                letterSpacing: '0.4px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(95, 163, 255, 0.25)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(95, 163, 255, 0.15)' }}
+            >
+              <Lock className="w-2.5 h-2.5" />
+              <span>READ ONLY · DOUBLE-CLICK TO UNLOCK</span>
+            </button>
+          ) : (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}>
+              <span style={{
+                background: 'rgba(52, 211, 153, 0.15)',
+                color: '#34d399',
+                border: '1px solid rgba(52, 211, 153, 0.35)',
+                fontSize: 9,
+                fontWeight: 800,
+                padding: '2px 6px',
+                borderRadius: 4,
+                letterSpacing: '0.5px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+              }}>
+                <Unlock className="w-2.5 h-2.5" />
+                <span>UNLOCKED OVERRIDE</span>
+              </span>
+              {activeDoc.dirty && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button
+                    onClick={() => {
+                      saveSubflowOverride(activeDoc.id)
+                      setNotification('Component override saved to project.')
+                    }}
+                    style={{
+                      background: 'rgba(52, 211, 153, 0.2)',
+                      border: '1px solid #34d399',
+                      color: '#34d399',
+                      fontSize: 9,
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Save Override
+                  </button>
+                  <button
+                    onClick={() => {
+                      revertSubflowOverride(activeDoc.id)
+                      setNotification('Reverted component graph to package default.')
+                    }}
+                    style={{
+                      background: 'rgba(239, 68, 68, 0.15)',
+                      border: '1px solid #ef4444',
+                      color: '#ef4444',
+                      fontSize: 9,
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Revert
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -821,6 +928,7 @@ function FlowCanvasInner() {
         onNodesChange={onActiveFlowNodesChange}
         onEdgesChange={onActiveFlowEdgesChange}
         onConnect={onConnect}
+        onDoubleClick={onPaneDoubleClick}
         minZoom={isZoomLocked && lockedZoomLevel !== null ? lockedZoomLevel : 0.1}
         maxZoom={isZoomLocked && lockedZoomLevel !== null ? lockedZoomLevel : 4}
         zoomOnScroll={!isZoomLocked}
