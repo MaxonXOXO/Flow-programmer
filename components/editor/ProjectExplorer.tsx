@@ -40,7 +40,7 @@ export default function ProjectExplorer() {
     activeDocumentId,
     selectedNodeId,
     openDocument,
-    focusNodeOnCanvas,
+    setSelectedNode,
   } = useFlowStore()
 
   // Section collapse states
@@ -157,7 +157,7 @@ export default function ProjectExplorer() {
                         type: 'schema',
                         closable: false,
                       })
-                      focusNodeOnCanvas('arduino-uno')
+                      setSelectedNode('arduino-uno')
                     }}
                   />
 
@@ -182,7 +182,7 @@ export default function ProjectExplorer() {
                             type: 'schema',
                             closable: false,
                           })
-                          focusNodeOnCanvas(comp.id)
+                          setSelectedNode(comp.id)
                         }}
                       />
                     )
@@ -243,7 +243,7 @@ export default function ProjectExplorer() {
                                 type: 'flow',
                                 closable: false,
                               })
-                              focusNodeOnCanvas(node.id)
+                              setSelectedNode(node.id)
                             }}
                           />
                         )
@@ -320,7 +320,7 @@ export default function ProjectExplorer() {
                                         type: 'function',
                                         targetId: fn.id,
                                       })
-                                      focusNodeOnCanvas(cn.id)
+                                      setSelectedNode(cn.id)
                                     }}
                                   />
                                 )

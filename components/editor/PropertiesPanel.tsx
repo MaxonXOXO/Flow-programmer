@@ -16,6 +16,7 @@ import {
   CornerDownLeft,
   Clock,
   Zap,
+  Activity,
   Radio,
   Equal,
   Variable,
@@ -58,6 +59,31 @@ const NODE_DESCRIPTIONS: Record<string, { title: string; category: string; descr
     title: 'Pause Delay',
     category: 'TIMING',
     description: 'Pauses program execution for a specified duration in milliseconds (ms) or microseconds (us).'
+  },
+  digital_read: {
+    title: 'Digital Read',
+    category: 'DIGITAL I/O',
+    description: 'Reads a HIGH or LOW digital value from a pin and assigns it to a target variable.'
+  },
+  digital_write: {
+    title: 'Digital Write',
+    category: 'DIGITAL I/O',
+    description: 'Sets a digital output pin to HIGH (5V) or LOW (0V).'
+  },
+  analog_read: {
+    title: 'Analog Read',
+    category: 'ANALOG I/O',
+    description: 'Reads an analog voltage (0-1023 on AVR, 0-4095 on ESP32) from an analog pin into a target variable.'
+  },
+  pwm_write: {
+    title: 'PWM Write',
+    category: 'ANALOG / PWM I/O',
+    description: 'Outputs an analog (PWM) wave (0-255) to a PWM-capable pin.'
+  },
+  component: {
+    title: 'Component Instance',
+    category: 'HARDWARE COMPONENT',
+    description: 'Instance of a hardware component package composing canonical operations.'
   },
   gpio: {
     title: 'Digital Pin I/O',
@@ -181,6 +207,11 @@ function renderNodeIcon(type: string, node?: any) {
     case 'end': return <Square className="w-3.5 h-3.5 text-[#ef5f5f] fill-current" />
     case 'return': return <CornerDownLeft className="w-3.5 h-3.5 text-[#e67e22]" />
     case 'delay': return <Clock className="w-3.5 h-3.5 text-[#ffb13d]" />
+    case 'digital_read': return <Zap className="w-3.5 h-3.5 text-[#ffb13d]" />
+    case 'digital_write': return <Zap className="w-3.5 h-3.5 text-[#2ecc71]" />
+    case 'analog_read': return <Activity className="w-3.5 h-3.5 text-[#ffb13d]" />
+    case 'pwm_write': return <Activity className="w-3.5 h-3.5 text-[#60a5fa]" />
+    case 'component': return <Box className="w-3.5 h-3.5 text-[#60a5fa]" />
     case 'gpio': return <Zap className="w-3.5 h-3.5 text-[#2ecc71]" />
     case 'pulse_in': return <Radio className="w-3.5 h-3.5 text-[#60a5fa]" />
     case 'assignment': return <Equal className="w-3.5 h-3.5 text-[#3b82f6]" />
@@ -902,7 +933,7 @@ export default function PropertiesPanel() {
                           })
                         }}
                       />
-                    ) : key === 'state' || (key === 'value' && (rawNodeType === 'gpio' || rawNodeType === 'pulse_in')) ? (
+                    ) : key === 'state' || (key === 'value' && (rawNodeType === 'gpio' || rawNodeType === 'digital_write' || rawNodeType === 'pulse_in')) ? (
                       <CustomSelect
                         value={val}
                         options={[

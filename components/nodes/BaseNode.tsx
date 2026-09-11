@@ -33,6 +33,14 @@ const categoryStyles: Record<string, { headerBg: string, iconColor: string, text
   gpio:      { headerBg: 'rgba(95, 163, 255, 0.15)', iconColor: '#5fa3ff', textColor: '#5fa3ff' },
   api:       { headerBg: 'rgba(255, 95, 158, 0.15)', iconColor: '#ff5f9e', textColor: '#ff5f9e' },
   input:     { headerBg: 'rgba(255, 95, 158, 0.15)', iconColor: '#ff5f9e', textColor: '#ff5f9e' },
+
+  // Canonical hardware primitives
+  digital_read:  { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
+  digital_write: { headerBg: 'rgba(95, 163, 255, 0.15)', iconColor: '#5fa3ff', textColor: '#5fa3ff' },
+  analog_read:   { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
+  pwm_write:     { headerBg: 'rgba(95, 163, 255, 0.15)', iconColor: '#5fa3ff', textColor: '#5fa3ff' },
+  pulse_in:      { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
+  component:     { headerBg: 'rgba(95, 163, 255, 0.15)', iconColor: '#5fa3ff', textColor: '#5fa3ff' },
   
   // Specific sensor templates
   dht:          { headerBg: 'rgba(255, 177, 61, 0.15)', iconColor: '#ffb13d', textColor: '#ffb13d' },
@@ -72,6 +80,12 @@ function getNodeHeaderIcon(nodeType: string, color: string, className: string = 
     case 'input': return <Type {...iconProps} />
     case 'sensor': return <Activity {...iconProps} />
     case 'gpio': return <Zap {...iconProps} />
+    case 'digital_read': return <Zap {...iconProps} />
+    case 'digital_write': return <Zap {...iconProps} />
+    case 'analog_read': return <Activity {...iconProps} />
+    case 'pwm_write': return <Activity {...iconProps} />
+    case 'pulse_in': return <Timer {...iconProps} />
+    case 'component': return <Cpu {...iconProps} />
     case 'api': return <Link {...iconProps} />
     
     // Specific sensor templates
@@ -218,7 +232,11 @@ export default function BaseNode({ id, data, selected }: NodeProps) {
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-          {getNodeHeaderIcon(type, style.iconColor)}
+          {nodeData.icon ? (
+            <span style={{ fontSize: 13, lineHeight: 1 }}>{nodeData.icon}</span>
+          ) : (
+            getNodeHeaderIcon(type, style.iconColor)
+          )}
         </div>
         <span style={{ 
           flex: 1, 
@@ -240,7 +258,7 @@ export default function BaseNode({ id, data, selected }: NodeProps) {
           textTransform: 'uppercase',
           fontFamily: 'var(--font-mono)',
         }}>
-          {type}
+          {type === 'component' && params.packageId ? params.packageId : type}
         </span>
         {type === 'function' && (
           <Maximize2 className="w-3 h-3" style={{ color: hasSubFlow ? '#2fd18b' : '#546484', marginLeft: 2 }} />

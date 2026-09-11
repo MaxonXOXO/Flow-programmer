@@ -16,7 +16,7 @@ import {
   BinaryExpressionNode
 } from '../ast/ast';
 import { parseExpressionString } from './expressionParser';
-import { pluginRegistry } from '../../ir/plugin';
+import { normalizeFlowGraph, normalizeFlowGraphNode } from './nodeNormalizer';
 import { expandComponentGraphs, cloneNode, cloneEdge, ComponentCompilationContext } from '../packages/componentExpander';
 
 export class GraphToASTCompiler {
@@ -48,9 +48,15 @@ export class GraphToASTCompiler {
   }
 
   public compile(): ProgramNode {
-    // 0. Clone input nodes & edges to ensure compilation operates on working data without mutating input state
-    const inputNodes = this.flowNodes.map(cloneNode);
-    const inputEdges = this.flowEdges.map(cloneEdge);
+    // 0. Boundary normalization: map legacy node aliases (gpio, sensor, delay ms, var<Sensor>) to canonical primitives/components
+    const normalized = normalizeFlowGraph(this.flowNodes as Node[], this.flowEdges as Edge[]);
+    const inputNodes = normalized.nodes.map(cloneNode);
+    const inputEdges = normalized.edges.map(cloneEdge);
+
+    const normalizedSubFlows: Record<string, { nodes: Node[]; edges: Edge[] }> = {};
+    Object.entries(this.subFlows).forEach(([sfId, sf]) => {
+      normalizedSubFlows[sfId] = normalizeFlowGraph(sf.nodes, sf.edges);
+    });
 
     // Expand component nodes passing schema graph and compilation context
     const expanded = expandComponentGraphs(
@@ -174,9 +180,10 @@ export class GraphToASTCompiler {
     let currentId = startNodeId;
 
     while (currentId && !this.visited.has(currentId)) {
-      const node = nodes.find(n => n.id === currentId);
-      if (!node) break;
+      const rawNode = nodes.find(n => n.id === currentId);
+      if (!rawNode) break;
 
+      const node = normalizeFlowGraphNode(rawNode);
       const data = node.data as any;
       const type = data?.nodeType || 'start';
 
@@ -270,7 +277,7 @@ export class GraphToASTCompiler {
           }
         } as AssignmentNode);
       } else if (type === 'delay') {
-        const duration = data?.params?.duration || data?.params?.ms || '1000';
+        const duration = data?.params?.duration || '1000';
         const unit = data?.params?.unit || 'ms';
         const callee = unit === 'us' ? 'delayMicroseconds' : 'delay';
         body.push({
@@ -283,7 +290,7 @@ export class GraphToASTCompiler {
             arguments: [parseExpressionString(duration, currentId)]
           }
         } as ExpressionStatementNode);
-      } else if (type === 'gpio') {
+      } else if (type === 'digital_write') {
         body.push({
           kind: 'ExpressionStatement',
           nodeId: currentId,
@@ -297,14 +304,43 @@ export class GraphToASTCompiler {
             ]
           }
         } as ExpressionStatementNode);
+      } else if (type === 'digital_read') {
+        const targetVar = data?.params?.target || 'digitalVal';
+        const pin = data?.params?.pin || '2';
+        body.push({
+          kind: 'VariableDeclaration',
+          nodeId: currentId,
+          name: targetVar,
+          varType: 'int',
+          value: {
+            kind: 'CallExpression',
+            nodeId: currentId,
+            callee: 'digitalRead',
+            arguments: [parseExpressionString(pin, currentId)]
+          }
+        } as VariableDeclarationNode);
+      } else if (type === 'pwm_write') {
+        body.push({
+          kind: 'ExpressionStatement',
+          nodeId: currentId,
+          expression: {
+            kind: 'CallExpression',
+            nodeId: currentId,
+            callee: 'analogWrite',
+            arguments: [
+              parseExpressionString(data?.params?.pin || '9', currentId),
+              parseExpressionString(data?.params?.value || '255', currentId)
+            ]
+          }
+        } as ExpressionStatementNode);
       } else if (type === 'pulse_in') {
-        const varName = data?.params?.var || 'duration';
+        const targetVar = data?.params?.target || 'duration';
         const pin = data?.params?.pin || '10';
         const pulseVal = data?.params?.value || 'HIGH';
         body.push({
           kind: 'VariableDeclaration',
           nodeId: currentId,
-          name: varName,
+          name: targetVar,
           varType: 'unsigned long',
           value: {
             kind: 'CallExpression',
@@ -316,13 +352,13 @@ export class GraphToASTCompiler {
             ]
           }
         } as VariableDeclarationNode);
-      } else if (type === 'sensor' || type === 'analog_read' || type === 'analogRead') {
-        const varName = data?.params?.target || data?.params?.var || 'sensorVal';
+      } else if (type === 'analog_read') {
+        const targetVar = data?.params?.target || 'sensorVal';
         const pin = data?.params?.pin || 'A0';
         body.push({
           kind: 'VariableDeclaration',
           nodeId: currentId,
-          name: varName,
+          name: targetVar,
           varType: 'int',
           value: {
             kind: 'CallExpression',
@@ -331,24 +367,10 @@ export class GraphToASTCompiler {
             arguments: [parseExpressionString(pin, currentId)]
           }
         } as VariableDeclarationNode);
-      } else if (pluginRegistry.get(type)) {
-        body.push({
-          kind: 'ExpressionStatement',
-          nodeId: currentId,
-          expression: {
-            kind: 'CallExpression',
-            nodeId: currentId,
-            callee: `${type}.custom`,
-            arguments: [
-              {
-                kind: 'Literal',
-                nodeId: currentId,
-                value: JSON.stringify(data?.params || {}),
-                valueType: 'string'
-              }
-            ]
-          }
-        } as ExpressionStatementNode);
+      } else if (type === 'component') {
+        throw new Error(
+          `Unexpanded component node encountered during AST compilation: "${currentId}" (${data?.label || 'Component'}, package: "${data?.params?.packageId || data?.packageId || 'unknown'}"). Components must be expanded into canonical primitives before code generation.`
+        );
       } else if (type === 'function' || type === 'function_call') {
         const fnName = type === 'function_call' ? (data?.params?.functionName || '') : (data?.params?.name || 'myFn');
         const assignTo = data?.params?.assignTo || '';
@@ -529,6 +551,10 @@ export class GraphToASTCompiler {
         const doneEdge = edges.find(e => e.source === currentId && e.sourceHandle === 'done');
         currentId = doneEdge?.target;
         continue;
+      } else if (type !== 'start') {
+        throw new Error(
+          `Unsupported or unexpanded node type encountered during AST compilation: "${type}" (nodeId: "${currentId}", label: "${data?.label || type}"). All components must expand to canonical primitives.`
+        );
       }
 
       const edge = edges.find(e => e.source === currentId && e.sourceHandle === 'flow');

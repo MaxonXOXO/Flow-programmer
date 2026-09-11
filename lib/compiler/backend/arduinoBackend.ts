@@ -5,7 +5,7 @@ import {
   BlockStatementNode,
   FunctionDeclarationNode,
 } from '../ast/ast';
-import { pluginRegistry, mapLabelToPluginType } from '../../ir/plugin';
+import { pluginRegistry } from '../../ir/plugin';
 import { resolvePackageImplementation, dispatchPackageExecution } from '../packages';
 import { BaseCppGenerator } from './baseCppGenerator';
 import {
@@ -75,16 +75,15 @@ export class ArduinoCppBackend extends BaseCppGenerator implements CompilerBacke
       const nodeData = (compNode?.data || {}) as any;
       const params = (nodeData?.params as Record<string, string>) || {};
 
-      const packageId = nodeData?.params?.packageId || nodeData?.packageId || nodeData?.componentType || conn.componentType;
-      const pluginType = mapLabelToPluginType(conn.componentLabel) || (packageId === 'ldr_light' ? 'ldr' : packageId === 'ultrasonic_hcsr04' ? 'ultrasonic' : packageId) || conn.componentType;
+      const packageId = nodeData?.params?.packageId || nodeData?.packageId || nodeData?.definition?.metadata?.id || nodeData?.definition?.id || nodeData?.componentType || conn.componentType;
 
       // Consult Package Execution Resolver and Dispatcher for implementation strategy
-      const resolvedImpl = resolvePackageImplementation(packageId || pluginType, context.targetId as any);
-      dispatchPackageExecution(resolvedImpl.packageId || pluginType, {
+      const resolvedImpl = resolvePackageImplementation(packageId, context.targetId as any);
+      dispatchPackageExecution(resolvedImpl.packageId || packageId, {
         instanceName: this.safeVarName(conn.componentLabel),
       });
 
-      const plugin = pluginRegistry.get(pluginType) || (packageId ? pluginRegistry.get(packageId) : undefined);
+      const plugin = packageId ? pluginRegistry.get(packageId) : undefined;
       const instanceName = this.safeVarName(conn.componentLabel);
 
       // Add includes

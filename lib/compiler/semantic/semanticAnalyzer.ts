@@ -89,15 +89,39 @@ export class SemanticAnalyzer {
       },
       {
         kind: 'function',
+        name: 'delayMicroseconds',
+        returnType: 'void',
+        parameters: [{ name: 'us', dataType: 'int' }]
+      },
+      {
+        kind: 'function',
         name: 'digitalWrite',
         returnType: 'void',
         parameters: [{ name: 'pin', dataType: 'int' }, { name: 'value', dataType: 'int' }]
       },
       {
         kind: 'function',
+        name: 'digitalRead',
+        returnType: 'int',
+        parameters: [{ name: 'pin', dataType: 'int' }]
+      },
+      {
+        kind: 'function',
         name: 'analogRead',
         returnType: 'int',
         parameters: [{ name: 'pin', dataType: 'int' }]
+      },
+      {
+        kind: 'function',
+        name: 'analogWrite',
+        returnType: 'void',
+        parameters: [{ name: 'pin', dataType: 'int' }, { name: 'value', dataType: 'int' }]
+      },
+      {
+        kind: 'function',
+        name: 'pulseIn',
+        returnType: 'unsigned long',
+        parameters: [{ name: 'pin', dataType: 'int' }, { name: 'value', dataType: 'int' }]
       }
     ];
 

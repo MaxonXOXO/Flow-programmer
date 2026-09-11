@@ -58,12 +58,15 @@ export function resolvePackageImplementation(
     packageId = pkgOrId;
     pkg = getComponentPackage(pkgOrId);
     
-    // Also support matching by common sensor key aliases if needed
     if (!pkg) {
-      if (pkgOrId.includes('ultrasonic') || pkgOrId === 'hcsr04') {
-        pkg = getComponentPackage('ultrasonic_hcsr04');
-      } else if (pkgOrId === 'ldr' || pkgOrId.includes('ldr_light') || pkgOrId.includes('ldr')) {
-        pkg = getComponentPackage('ldr_light');
+      const aliasMap: Record<string, string> = {
+        ldr: 'ldr_light',
+        ultrasonic: 'ultrasonic_hcsr04',
+        hcsr04: 'ultrasonic_hcsr04',
+      };
+      if (aliasMap[pkgOrId]) {
+        packageId = aliasMap[pkgOrId];
+        pkg = getComponentPackage(packageId);
       }
     }
   } else {
@@ -125,7 +128,7 @@ export function resolvePackageImplementation(
     exit,
     subflow: parsedSubflow,
     graph: parsedSubflow,
-    dependencies: impl.dependencies,
+    dependencies: impl.dependencies || (pkg as any)?.dependencies,
     native: impl.native,
     packageId,
     targetId,

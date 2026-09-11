@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState, useEffect, useMemo } from 'react'
+import { useCallback, useState, useEffect, useMemo, useRef } from 'react'
 import {
   ReactFlow,
   Background,
@@ -45,18 +45,21 @@ function SchemaCanvasInner() {
 
   const { screenToFlowPosition, setViewport, fitView, getZoom, setCenter } = useReactFlow()
   const focusTarget = useFlowStore(s => s.focusTarget)
+  const lastHandledFocusTargetRef = useRef<number>(0)
   const [isZoomLocked, setIsZoomLocked] = useState(false)
   const [lockedZoomLevel, setLockedZoomLevel] = useState<number | null>(null)
 
   useEffect(() => {
-    if (!focusTarget) return
+    if (!focusTarget || focusTarget.timestamp === lastHandledFocusTargetRef.current) return
+    lastHandledFocusTargetRef.current = focusTarget.timestamp
+
     const targetNode = schemaNodes.find(n => n.id === focusTarget.id)
     if (targetNode) {
       try {
         const x = targetNode.position.x + (targetNode.width ? Number(targetNode.width) / 2 : 120)
         const y = targetNode.position.y + (targetNode.height ? Number(targetNode.height) / 2 : 60)
         const currentZoom = getZoom ? getZoom() : 1
-        setCenter(x, y, { zoom: Math.max(currentZoom, 0.8), duration: 350 })
+        setCenter(x, y, { zoom: currentZoom, duration: 250 })
       } catch {}
     }
   }, [focusTarget, schemaNodes, setCenter, getZoom])

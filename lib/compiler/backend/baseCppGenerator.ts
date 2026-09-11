@@ -17,7 +17,7 @@ import {
   CallExpressionNode,
   FunctionDeclarationNode,
 } from '../ast/ast';
-import { pluginRegistry, mapLabelToPluginType } from '../../ir/plugin';
+import { pluginRegistry } from '../../ir/plugin';
 import { resolvePackageImplementation, dispatchPackageExecution } from '../packages';
 import { getComponentPackage } from '../../registry/components';
 import { GeneratedCode, BackendContext } from './types';

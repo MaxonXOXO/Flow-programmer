@@ -90,14 +90,6 @@ export function resolveComponentGraphSource(
 
   // 1. Resolve canonical package implementation
   let pkgResolved = resolvePackageImplementation(candidate, targetId);
-  if ((!pkgResolved.graph && !pkgResolved.subflow) || pkgResolved.packageId === 'unknown') {
-    const label = (nodeData?.label || '').toLowerCase();
-    if (label.includes('ultrasonic')) {
-      pkgResolved = resolvePackageImplementation('ultrasonic_hcsr04', targetId);
-    } else if (label.includes('ldr') || label.includes('light')) {
-      pkgResolved = resolvePackageImplementation('ldr_light', targetId);
-    }
-  }
 
   const packageId = pkgResolved.packageId;
   const componentInstanceId = node.id;
@@ -270,19 +262,11 @@ export function resolveInstancePinsForFlowNode(
     return connectionsByCompId[directSchemaNode.id];
   }
 
-  // 4. Match against schemaCompNodes by component type / package ID / label
+  // 4. Match against schemaCompNodes by component type / package ID
   const matchingSchemaNodes = schemaCompNodes.filter(n => {
     const sData = (n.data || {}) as any;
-    const sType = sData.componentType || sData.nodeType || sData.params?.packageId || sData.packageId || sData.definition?.metadata?.id;
-    const sLabel = (sData.label || '').toLowerCase();
-    const fLabel = (flowData.label || '').toLowerCase();
-
-    return (
-      sType === packageId || 
-      sType === flowData.nodeType ||
-      (packageId === 'ldr_light' && (sType === 'ldr' || sType === 'ldr_light' || sLabel.includes('ldr') || sLabel.includes('light'))) ||
-      (packageId === 'ultrasonic_hcsr04' && (sType === 'ultrasonic' || sType === 'ultrasonic_hcsr04' || sType === 'hcsr04' || sLabel.includes('ultrasonic')))
-    );
+    const sPkgId = sData.params?.packageId || sData.packageId || sData.definition?.metadata?.id || sData.definition?.id || sData.componentType || sData.nodeType;
+    return sPkgId === packageId || sPkgId === flowData.packageId || sPkgId === flowData.params?.packageId;
   });
 
   if (matchingSchemaNodes.length === 1) {
@@ -309,9 +293,9 @@ export function resolveInstancePinsForFlowNode(
     }
   }
 
-  // 5. Fallback to nodeType key
-  if (connectionsByCompId[flowData.nodeType]) {
-    return connectionsByCompId[flowData.nodeType];
+  // 5. Fallback to packageId key
+  if (connectionsByCompId[packageId]) {
+    return connectionsByCompId[packageId];
   }
 
   return {};
@@ -380,19 +364,16 @@ export function expandComponentGraphs(
         const pinId = pin.id; // e.g. 'pin1', 'pin2', 'TRIG', 'ECHO'
         const pinKey = pinId.toLowerCase();
 
+        // 1. Resolve from instancePins (Schema wire connections) or parameters
         const boundPin = 
-          instancePins[pinKey] ||
           instancePins[pinId] ||
-          (pinKey === 'pin1' ? (instancePins['ao'] || instancePins['signal'] || instancePins['pin'] || instancePins['analog']) : undefined) ||
-          (pinKey === 'trig' ? (instancePins['trigpin'] || instancePins['trig_pin']) : undefined) ||
-          (pinKey === 'echo' ? (instancePins['echopin'] || instancePins['echo_pin']) : undefined) ||
-          params[`${pinId}Pin`] ||
-          params[`${pinKey}Pin`] ||
+          instancePins[pinKey] ||
           params[pinId] ||
           params[pinKey] ||
-          (pinKey === 'pin1' ? (params.pin || params.sensorPin) : undefined) ||
-          (pinKey === 'trig' ? (params.trigPin || params.trig) : undefined) ||
-          (pinKey === 'echo' ? (params.echoPin || params.echo) : undefined);
+          params[`${pinId}Pin`] ||
+          params[`${pinKey}Pin`] ||
+          // Fallback for single signal pin
+          (pkgDef.pins.length <= 2 ? (params.pin || params.sensorPin) : undefined);
 
         if (boundPin) {
           const upper = pinId.toUpperCase();
@@ -401,8 +382,11 @@ export function expandComponentGraphs(
           bindings[`$${upper}`] = strPin;
           bindings[`$${lower}`] = strPin;
           bindings[`$${pinId}`] = strPin;
+          bindings[`$${upper}PIN`] = strPin;
+          bindings[`$${lower}pin`] = strPin;
+          bindings[`$${pinId}Pin`] = strPin;
 
-          // Standard placeholder aliases
+          // Standard aliases for common pin roles
           if (pinKey === 'pin1') {
             bindings['$PIN'] = strPin;
             bindings['$pin'] = strPin;
@@ -410,34 +394,9 @@ export function expandComponentGraphs(
             bindings['$ao'] = strPin;
             bindings['$SIGNAL'] = strPin;
             bindings['$signal'] = strPin;
-          } else if (pinKey === 'trig') {
-            bindings['$TRIGPIN'] = strPin;
-            bindings['$trigPin'] = strPin;
-          } else if (pinKey === 'echo') {
-            bindings['$ECHOPIN'] = strPin;
-            bindings['$echoPin'] = strPin;
           }
         }
       });
-    }
-
-    // Generic fallback for common placeholders if not declared in pkgDef.pins or un-wired
-    if (!bindings['$TRIG']) {
-      const p = instancePins['trig'] || params.trigPin || params.trig || '9';
-      bindings['$TRIG'] = String(p);
-      bindings['$trig'] = String(p);
-    }
-    if (!bindings['$ECHO']) {
-      const p = instancePins['echo'] || params.echoPin || params.echo || '10';
-      bindings['$ECHO'] = String(p);
-      bindings['$echo'] = String(p);
-    }
-    if (!bindings['$PIN1']) {
-      const p = instancePins['pin1'] || params.pin1 || params.pin || params.sensorPin || 'A0';
-      bindings['$PIN1'] = String(p);
-      bindings['$pin1'] = String(p);
-      bindings['$PIN'] = String(p);
-      bindings['$pin'] = String(p);
     }
 
     // 2. Resolve Variable Bindings from declared package outputs
@@ -448,13 +407,14 @@ export function expandComponentGraphs(
         const outId = out.id; // e.g. 'lightLevel' or 'distance'
         const capitalized = outId.charAt(0).toUpperCase() + outId.slice(1);
         
+        // Prioritize canonical target parameter
         const boundVar = 
+          params.target ||
+          params[outId] ||
+          params.var ||
           params[`var${capitalized}`] ||
           (outId === 'distance' ? params.varDist : undefined) ||
           (outId === 'lightLevel' ? (params.varLight || params.varLightLevel) : undefined) ||
-          params[outId] ||
-          params.var ||
-          params.target ||
           params.assignTo ||
           outId;
 

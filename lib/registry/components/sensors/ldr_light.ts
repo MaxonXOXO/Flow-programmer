@@ -32,7 +32,9 @@ export const LDRLightPackage: PackageDefinition = {
   dependencies: {
     includes: [],
     globals:  [],
-    setup:    [],
+    setup: [
+      'pinMode($pin1, INPUT);',
+    ],
   },
 
   implementations: {

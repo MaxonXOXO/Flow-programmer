@@ -16,6 +16,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import { useFlowStore } from '@/store/userFlowStore'
 import { resolveCanonicalPackageId, instantiatePackageGraph } from '@/lib/packages/packageGraphInstantiator'
+import { getComponentPackage } from '@/lib/registry/components'
 import BaseNode from '@/components/nodes/BaseNode'
 import CustomSelect from '@/components/ui/CustomSelect'
 import { Edit2, Copy, Trash2, Sliders, X, Check, Plus, Lock, Unlock } from 'lucide-react'
@@ -87,6 +88,9 @@ const getMiniMapNodeColor = (node: any) => {
     case 'oled':
       return '#ff5f9e'
     case 'condition':
+    case 'analog_read':
+    case 'digital_read':
+    case 'pulse_in':
     case 'sensor':
     case 'dht':
     case 'ultrasonic':
@@ -103,6 +107,9 @@ const getMiniMapNodeColor = (node: any) => {
     case 'assignment':
     case 'function':
     case 'function_call':
+    case 'digital_write':
+    case 'pwm_write':
+    case 'component':
     case 'gpio':
     case 'lcd':
       return '#5fa3ff'
@@ -171,18 +178,21 @@ function FlowCanvasInner() {
 
   const { screenToFlowPosition, setViewport, fitView, getViewport, getZoom, setCenter } = useReactFlow()
   const focusTarget = useFlowStore(s => s.focusTarget)
+  const lastHandledFocusTargetRef = useRef<number>(0)
   const [isZoomLocked, setIsZoomLocked] = useState(false)
   const [lockedZoomLevel, setLockedZoomLevel] = useState<number | null>(null)
 
   useEffect(() => {
-    if (!focusTarget) return
+    if (!focusTarget || focusTarget.timestamp === lastHandledFocusTargetRef.current) return
+    lastHandledFocusTargetRef.current = focusTarget.timestamp
+
     const targetNode = flowNodes.find(n => n.id === focusTarget.id)
     if (targetNode) {
       try {
         const x = targetNode.position.x + (targetNode.width ? Number(targetNode.width) / 2 : 100)
         const y = targetNode.position.y + (targetNode.height ? Number(targetNode.height) / 2 : 40)
         const currentZoom = getZoom ? getZoom() : 1
-        setCenter(x, y, { zoom: Math.max(currentZoom, 0.9), duration: 350 })
+        setCenter(x, y, { zoom: currentZoom, duration: 250 })
       } catch {}
     }
   }, [focusTarget, flowNodes, setCenter, getZoom])
@@ -327,127 +337,110 @@ function FlowCanvasInner() {
     const params = { ...nodeConfig.params }
     let msg = ''
 
-    if (nodeConfig.nodeType === 'ultrasonic') {
-      const usedTrigPins = flowNodes
-        .filter(n => (n.data as any)?.nodeType === 'ultrasonic')
-        .map(n => (n.data as any)?.params?.trigPin)
-      const usedEchoPins = flowNodes
-        .filter(n => (n.data as any)?.nodeType === 'ultrasonic')
-        .map(n => (n.data as any)?.params?.echoPin)
+    // Generic metadata-driven pin auto-mapping:
+    const packageId = params.packageId || resolveCanonicalPackageId({ data: nodeConfig })
+    const pkg = packageId ? getComponentPackage(packageId) : undefined
 
-      const ultrasonicCompIds = [...new Set(conns.filter(c => c.componentLabel.toLowerCase().includes('ultrasonic')).map(c => c.componentId))]
-      let targetId = ultrasonicCompIds.find(id => {
-        const trig = conns.find(c => c.componentId === id && c.pin === 'trig')?.arduinoPin
-        const echo = conns.find(c => c.componentId === id && c.pin === 'echo')?.arduinoPin
-        return !usedTrigPins.includes(trig ? pinToNumber(trig) : null) && !usedEchoPins.includes(echo ? pinToNumber(echo) : null)
+    if (pkg && pkg.pins && pkg.pins.length > 0) {
+      // Find schema nodes representing this package
+      const compInstances = schemaNodes.filter(sn => resolveCanonicalPackageId(sn) === packageId)
+      
+      // Collect pins already assigned to existing flow nodes of this package
+      const existingFlowNodes = flowNodes.filter(n => {
+        const d = (n.data as any) || {}
+        return d.params?.packageId === packageId || resolveCanonicalPackageId(n) === packageId
       })
-      if (!targetId && ultrasonicCompIds.length > 0) targetId = ultrasonicCompIds[0]
 
-      if (targetId) {
-        const trig = conns.find(c => c.componentId === targetId && c.pin === 'trig')
-        const echo = conns.find(c => c.componentId === targetId && c.pin === 'echo')
-        if (trig) params.trigPin = pinToNumber(trig.arduinoPin)
-        if (echo) params.echoPin = pinToNumber(echo.arduinoPin)
-        
-        const compLabel = conns.find(c => c.componentId === targetId)?.componentLabel || 'Ultrasonic Sensor'
-        if (trig && echo) {
-          msg = `Auto-mapped ${compLabel} pins: TRIG = ${trig.arduinoPin}, ECHO = ${echo.arduinoPin}`
-        } else if (trig) {
-          msg = `Auto-mapped ${compLabel} pin: TRIG = ${trig.arduinoPin}`
-        } else if (echo) {
-          msg = `Auto-mapped ${compLabel} pin: ECHO = ${echo.arduinoPin}`
+      const usedPins = new Set(
+        existingFlowNodes.flatMap(n => {
+          const p = (n.data as any)?.params || {}
+          return Object.entries(p)
+            .filter(([k, v]) => (k.toLowerCase().includes('pin') || k === 'pin') && typeof v === 'string')
+            .map(([_, v]) => pinToNumber(v as string))
+        })
+      )
+
+      const signalPins = pkg.pins.filter(p => p.signal !== 'power' && p.signal !== 'ground')
+      let targetCompId = compInstances.map(sn => sn.id).find(id => {
+        const compConns = conns.filter(c => c.componentId === id)
+        const isAnyPinUsed = compConns.some(c => usedPins.has(pinToNumber(c.arduinoPin)))
+        return !isAnyPinUsed
+      }) || (compInstances.length > 0 ? compInstances[0].id : undefined)
+
+      if (targetCompId) {
+        const compConns = conns.filter(c => c.componentId === targetCompId)
+        const compLabel = compInstances.find(sn => sn.id === targetCompId)?.data?.label || pkg.metadata?.name || 'Component'
+        const mappedParts: string[] = []
+
+        for (const pin of signalPins) {
+          let conn = compConns.find(c => c.pin.toLowerCase() === pin.id.toLowerCase())
+          if (!conn && signalPins.length === 1 && compConns.length > 0) {
+            conn = compConns.find(c => !['vcc', 'gnd', '5v', '3.3v'].includes(c.arduinoPin.toLowerCase()))
+          }
+          if (conn) {
+            const pinNumber = pinToNumber(conn.arduinoPin)
+            params[pin.id] = pinNumber
+            params[`${pin.id}Pin`] = pinNumber
+            if (signalPins.length === 1) {
+              params.pin = pinNumber
+            }
+            mappedParts.push(`${pin.label || pin.id.toUpperCase()} = ${conn.arduinoPin}`)
+          }
+        }
+
+        if (mappedParts.length > 0) {
+          msg = `Auto-mapped ${compLabel}: ${mappedParts.join(', ')}`
         }
       }
-    } else if (nodeConfig.nodeType === 'dht') {
-      const usedPins = flowNodes.filter(n => (n.data as any)?.nodeType === 'dht').map(n => (n.data as any)?.params?.pin)
-      const compIds = [...new Set(conns.filter(c => c.componentLabel.toLowerCase().includes('dht')).map(c => c.componentId))]
-      let targetId = compIds.find(id => {
-        const dataPin = conns.find(c => c.componentId === id && c.pin === 'data')?.arduinoPin
-        return !usedPins.includes(dataPin ? pinToNumber(dataPin) : null)
-      })
-      if (!targetId && compIds.length > 0) targetId = compIds[0]
-
-      if (targetId) {
-        const dataPin = conns.find(c => c.componentId === targetId && c.pin === 'data')
-        if (dataPin) {
-          params.pin = pinToNumber(dataPin.arduinoPin)
-          const compLabel = conns.find(c => c.componentId === targetId)?.componentLabel || 'DHT Sensor'
-          msg = `Auto-mapped ${compLabel} to Pin ${dataPin.arduinoPin}`
-        }
-      }
-    } else if (nodeConfig.nodeType === 'pir') {
-      const usedPins = flowNodes.filter(n => (n.data as any)?.nodeType === 'pir').map(n => (n.data as any)?.params?.pin)
-      const compIds = [...new Set(conns.filter(c => c.componentLabel.toLowerCase().includes('pir')).map(c => c.componentId))]
-      let targetId = compIds.find(id => {
-        const outPin = conns.find(c => c.componentId === id && c.pin === 'out')?.arduinoPin
-        return !usedPins.includes(outPin ? pinToNumber(outPin) : null)
-      })
-      if (!targetId && compIds.length > 0) targetId = compIds[0]
-
-      if (targetId) {
-        const outPin = conns.find(c => c.componentId === targetId && c.pin === 'out')
-        if (outPin) {
-          params.pin = pinToNumber(outPin.arduinoPin)
-          const compLabel = conns.find(c => c.componentId === targetId)?.componentLabel || 'PIR Sensor'
-          msg = `Auto-mapped ${compLabel} to Pin ${outPin.arduinoPin}`
-        }
-      }
-    } else if (nodeConfig.nodeType === 'ldr') {
-      const usedPins = flowNodes.filter(n => (n.data as any)?.nodeType === 'ldr').map(n => (n.data as any)?.params?.pin)
-      const compIds = [...new Set(conns.filter(c => c.componentLabel.toLowerCase().includes('ldr')).map(c => c.componentId))]
-      let targetId = compIds.find(id => {
-        const ldrPin = conns.find(c => c.componentId === id && !['vcc', 'gnd', '5v', '3.3v'].includes(c.arduinoPin.toLowerCase()))?.arduinoPin
-        return !usedPins.includes(ldrPin ? pinToNumber(ldrPin) : null)
-      })
-      if (!targetId && compIds.length > 0) targetId = compIds[0]
-
-      if (targetId) {
-        const ldrPin = conns.find(c => c.componentId === targetId && !['vcc', 'gnd', '5v', '3.3v'].includes(c.arduinoPin.toLowerCase()))
-        if (ldrPin) {
-          params.pin = pinToNumber(ldrPin.arduinoPin)
-          const compLabel = conns.find(c => c.componentId === targetId)?.componentLabel || 'LDR Sensor'
-          msg = `Auto-mapped ${compLabel} to Pin ${ldrPin.arduinoPin}`
-        }
-      }
-    } else if (nodeConfig.nodeType === 'servo') {
-      const usedPins = flowNodes.filter(n => (n.data as any)?.nodeType === 'servo').map(n => (n.data as any)?.params?.pin)
-      const compIds = [...new Set(conns.filter(c => c.componentLabel.toLowerCase().includes('servo')).map(c => c.componentId))]
-      let targetId = compIds.find(id => {
-        const sigPin = conns.find(c => c.componentId === id && c.pin === 'signal')?.arduinoPin
-        return !usedPins.includes(sigPin ? pinToNumber(sigPin) : null)
-      })
-      if (!targetId && compIds.length > 0) targetId = compIds[0]
-
-      if (targetId) {
-        const sigPin = conns.find(c => c.componentId === targetId && c.pin === 'signal')
-        if (sigPin) {
-          params.pin = pinToNumber(sigPin.arduinoPin)
-          const compLabel = conns.find(c => c.componentId === targetId)?.componentLabel || 'Servo Motor'
-          msg = `Auto-mapped ${compLabel} to Pin ${sigPin.arduinoPin}`
-        }
-      }
-    } else if (nodeConfig.nodeType === 'sensor') {
-      const usedPins = flowNodes.filter(n => (n.data as any)?.nodeType === 'sensor').map(n => (n.data as any)?.params?.pin)
-      const sensorConns = conns.filter(c => c.componentType === 'sensor' && !['vcc', 'gnd', '5v', '3.3v'].includes(c.arduinoPin.toLowerCase()))
-      let targetConn = sensorConns.find(c => !usedPins.includes(pinToNumber(c.arduinoPin)))
-      if (!targetConn && sensorConns.length > 0) targetConn = sensorConns[0]
-
+    } else if (nodeConfig.nodeType === 'analog_read') {
+      const usedPins = flowNodes
+        .filter(n => (n.data as any)?.nodeType === 'analog_read')
+        .map(n => pinToNumber((n.data as any)?.params?.pin || ''))
+      const analogConns = conns.filter(c => c.arduinoPin.toUpperCase().startsWith('A') && !['vcc', 'gnd', '5v', '3.3v'].includes(c.arduinoPin.toLowerCase()))
+      let targetConn = analogConns.find(c => !usedPins.includes(pinToNumber(c.arduinoPin))) || (analogConns.length > 0 ? analogConns[0] : null)
       if (targetConn) {
         params.pin = pinToNumber(targetConn.arduinoPin)
         msg = `Auto-mapped ${targetConn.componentLabel} to Pin ${targetConn.arduinoPin}`
       }
-    } else if (nodeConfig.nodeType === 'gpio') {
-      const usedPins = flowNodes.filter(n => (n.data as any)?.nodeType === 'gpio').map(n => (n.data as any)?.params?.pin)
-      const actuatorConns = conns.filter(c => 
-        (c.componentType === 'actuator' || c.componentLabel.toLowerCase().includes('led') || c.componentLabel.toLowerCase().includes('buzzer') || c.componentLabel.toLowerCase().includes('relay')) && 
+    } else if (nodeConfig.nodeType === 'digital_read' || nodeConfig.nodeType === 'pulse_in') {
+      const usedPins = flowNodes
+        .filter(n => ['digital_read', 'pulse_in'].includes((n.data as any)?.nodeType))
+        .map(n => pinToNumber((n.data as any)?.params?.pin || ''))
+      const inputConns = conns.filter(c => 
+        (c.componentType === 'sensor' || c.componentLabel.toLowerCase().includes('button') || c.componentLabel.toLowerCase().includes('switch')) &&
         !['vcc', 'gnd', '5v', '3.3v'].includes(c.arduinoPin.toLowerCase())
       )
-      let targetConn = actuatorConns.find(c => !usedPins.includes(pinToNumber(c.arduinoPin)))
-      if (!targetConn && actuatorConns.length > 0) targetConn = actuatorConns[0]
-
+      let targetConn = inputConns.find(c => !usedPins.includes(pinToNumber(c.arduinoPin))) || (inputConns.length > 0 ? inputConns[0] : null)
       if (targetConn) {
         params.pin = pinToNumber(targetConn.arduinoPin)
         msg = `Auto-mapped ${targetConn.componentLabel} to Pin ${targetConn.arduinoPin}`
+      }
+    } else if (nodeConfig.nodeType === 'digital_write') {
+      const usedPins = flowNodes
+        .filter(n => ['digital_write', 'gpio'].includes((n.data as any)?.nodeType))
+        .map(n => pinToNumber((n.data as any)?.params?.pin || ''))
+      const outputConns = conns.filter(c => 
+        (c.componentType === 'actuator' || c.componentLabel.toLowerCase().includes('led') || c.componentLabel.toLowerCase().includes('relay') || c.componentLabel.toLowerCase().includes('buzzer')) &&
+        !['vcc', 'gnd', '5v', '3.3v'].includes(c.arduinoPin.toLowerCase())
+      )
+      let targetConn = outputConns.find(c => !usedPins.includes(pinToNumber(c.arduinoPin))) || (outputConns.length > 0 ? outputConns[0] : null)
+      if (targetConn) {
+        params.pin = pinToNumber(targetConn.arduinoPin)
+        msg = `Auto-mapped ${targetConn.componentLabel} to Pin ${targetConn.arduinoPin}`
+      }
+    } else if (nodeConfig.nodeType === 'pwm_write') {
+      const pwmPins = ['3', '5', '6', '9', '10', '11']
+      const usedPins = flowNodes
+        .filter(n => (n.data as any)?.nodeType === 'pwm_write')
+        .map(n => pinToNumber((n.data as any)?.params?.pin || ''))
+      const pwmConns = conns.filter(c => 
+        pwmPins.includes(pinToNumber(c.arduinoPin)) &&
+        !['vcc', 'gnd', '5v', '3.3v'].includes(c.arduinoPin.toLowerCase())
+      )
+      let targetConn = pwmConns.find(c => !usedPins.includes(pinToNumber(c.arduinoPin))) || (pwmConns.length > 0 ? pwmConns[0] : null)
+      if (targetConn) {
+        params.pin = pinToNumber(targetConn.arduinoPin)
+        msg = `Auto-mapped PWM ${targetConn.componentLabel} to Pin ${targetConn.arduinoPin}`
       }
     }
 

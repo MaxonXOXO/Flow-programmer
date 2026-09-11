@@ -35,7 +35,7 @@
       "position": { "x": 340, "y": 200 },
       "data": {
         "label": "TRIG Write LOW",
-        "nodeType": "gpio",
+        "nodeType": "digital_write",
         "icon": "⚡",
         "params": {
           "pin": "$TRIG",
@@ -63,7 +63,7 @@
       "position": { "x": 820, "y": 200 },
       "data": {
         "label": "TRIG Write HIGH",
-        "nodeType": "gpio",
+        "nodeType": "digital_write",
         "icon": "⚡",
         "params": {
           "pin": "$TRIG",
@@ -91,7 +91,7 @@
       "position": { "x": 1300, "y": 200 },
       "data": {
         "label": "TRIG Write LOW",
-        "nodeType": "gpio",
+        "nodeType": "digital_write",
         "icon": "⚡",
         "params": {
           "pin": "$TRIG",
