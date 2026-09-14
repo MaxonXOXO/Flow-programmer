@@ -231,11 +231,11 @@ export default function SplashScreen() {
   //  WELCOME VIEW
   // ═════════════════════════════════════
   const welcomeView = (
-    <div style={{ flex: 1, overflow: 'auto', display: 'flex', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
-      <div style={{ width: '100%', maxWidth: 880, padding: '48px 40px 40px' }}>
+    <div style={{ flex: 1, overflow: 'auto', display: 'flex', justifyContent: 'flex-start', position: 'relative', zIndex: 1 }}>
+      <div style={{ width: '100%', maxWidth: 600, padding: '52px clamp(32px, 5vw, 64px) 40px' }}>
 
         {/* Hero */}
-        <div style={{ marginBottom: 40 }}>
+        <div style={{ marginBottom: 36 }}>
           <h1 style={{
             margin: 0, color: 'var(--color-text-bright)',
             fontSize: 28, fontWeight: 800, letterSpacing: '-.4px', lineHeight: 1.2,
@@ -244,14 +244,14 @@ export default function SplashScreen() {
           </h1>
           <p style={{
             margin: '8px 0 0', color: 'rgba(255,255,255,0.45)',
-            fontSize: 13, lineHeight: 1.5, maxWidth: 440,
+            fontSize: 13, lineHeight: 1.5, maxWidth: 460,
           }}>
-            Visual embedded development  design, simulate, and deploy hardware flows from one workspace.
+            Visual embedded development — design, simulate, and deploy hardware flows from one workspace.
           </p>
         </div>
 
         {/* Primary Actions */}
-        <div style={{ display: 'flex', gap: 10, marginBottom: 40 }}>
+        <div style={{ display: 'flex', gap: 12, marginBottom: 36, maxWidth: 532 }}>
           <button
             onClick={openNewProject}
             style={{
@@ -337,7 +337,7 @@ export default function SplashScreen() {
             <span style={{ color: 'var(--color-text-dim)', fontSize: 11, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase' }}>Recent Projects</span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: 520 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 532 }}>
             {recentProjects.length ? recentProjects.slice(0, 5).map(project => (
               <button
                 key={project.name}
@@ -394,8 +394,8 @@ export default function SplashScreen() {
   //  NEW PROJECT VIEW (in-page, Cubase style)
   // ═════════════════════════════════════
   const newProjectView = (
-    <div style={{ flex: 1, overflow: 'auto', display: 'flex', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
-      <div style={{ width: '100%', maxWidth: 740, padding: '40px 40px 40px' }}>
+    <div style={{ flex: 1, overflow: 'auto', display: 'flex', justifyContent: 'flex-start', position: 'relative', zIndex: 1 }}>
+      <div style={{ width: '100%', maxWidth: 740, padding: '40px clamp(32px, 5vw, 64px) 40px' }}>
 
         {/* Page Title */}
         <div style={{ marginBottom: 32 }}>

@@ -107,7 +107,7 @@ export default function ProjectExplorer() {
         color: 'var(--color-text-normal)',
         userSelect: 'none',
         fontFamily: 'var(--font-sans)',
-        fontSize: 11,
+        fontSize: 12,
       }}
     >
       {/* Tree View Container */}
@@ -115,21 +115,21 @@ export default function ProjectExplorer() {
         style={{
           flex: 1,
           overflowY: 'auto',
-          padding: '6px 0',
+          padding: '10px 8px 18px',
           scrollbarWidth: 'thin',
         }}
       >
         {/* Project Root Folder */}
         <TreeFolderHeader
           title={project?.name || 'untitled_flow'}
-          icon={sections.root ? <FolderOpen className="w-3.5 h-3.5 text-[#eab308]" /> : <Folder className="w-3.5 h-3.5 text-[#eab308]" />}
+          icon={sections.root ? <FolderOpen className="w-4 h-4 text-[#eab308]" /> : <Folder className="w-4 h-4 text-[#eab308]" />}
           expanded={sections.root}
           onToggle={() => toggleSection('root')}
           depth={0}
         />
 
         {sections.root && (
-          <div style={{ marginLeft: 10, paddingLeft: 4, borderLeft: '1px solid rgba(255, 255, 255, 0.08)' }}>
+          <div style={{ marginLeft: 12, paddingLeft: 6, paddingTop: 6, borderLeft: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', gap: 12 }}>
             
             {/* ==========================================
                 1. HARDWARE (SCHEMATIC)
@@ -137,18 +137,17 @@ export default function ProjectExplorer() {
             <div>
               <TreeFolderHeader
                 title="Hardware"
-                icon={(!project?.platform || project.platform.toLowerCase().includes('arduino')) ? <ArduinoIcon size={13} color="#00c4b4" /> : <Cpu className="w-3.5 h-3.5 text-[#60a5fa]" />}
+                icon={(!project?.platform || project.platform.toLowerCase().includes('arduino')) ? <ArduinoIcon size={15} color="#00c4b4" /> : <Cpu className="w-4 h-4 text-[#60a5fa]" />}
                 expanded={sections.hardware}
                 onToggle={() => toggleSection('hardware')}
-                badge={1 + hardwareComponents.length}
                 depth={1}
               />
               {sections.hardware && (
-                <div style={{ marginLeft: 10, paddingLeft: 4, borderLeft: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                <div style={{ marginLeft: 12, paddingLeft: 6, paddingTop: 4, paddingBottom: 4, borderLeft: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {/* Arduino Uno Board Node */}
                   <TreeItem
                     title="Arduino Uno"
-                    icon={<ArduinoIcon size={13} color="#00c4b4" />}
+                    icon={<ArduinoIcon size={14} color="#00c4b4" />}
                     isActive={activeDocumentId === 'schema' && (selectedNodeId === 'arduino-uno' || selectedNodeId === 'board')}
                     onClick={() => {
                       openDocument({
@@ -170,9 +169,9 @@ export default function ProjectExplorer() {
                         key={comp.id}
                         title={label}
                         icon={getComponentPackageIcon(comp, {
-                          className: 'w-3.5 h-3.5',
+                          className: 'w-4 h-4',
                           color: '#2fd18b',
-                          fallback: <Layers className="w-3.5 h-3.5 text-[#64748b]" />
+                          fallback: <Layers className="w-4 h-4 text-[#64748b]" />
                         })}
                         isActive={isSelected}
                         onClick={() => {
@@ -194,20 +193,20 @@ export default function ProjectExplorer() {
             {/* ==========================================
                 2. LOGIC (FLOWS & NODES)
             ========================================== */}
-            <div style={{ marginTop: 2 }}>
+            <div>
               <TreeFolderHeader
                 title="Logic"
-                icon={<Workflow className="w-3.5 h-3.5 text-[#f59e0b]" />}
+                icon={<Workflow className="w-4 h-4 text-[#f59e0b]" />}
                 expanded={sections.logic}
                 onToggle={() => toggleSection('logic')}
                 depth={1}
               />
               {sections.logic && (
-                <div style={{ marginLeft: 10, paddingLeft: 4, borderLeft: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                <div style={{ marginLeft: 12, paddingLeft: 6, paddingTop: 4, paddingBottom: 4, borderLeft: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {/* Main Flow Header / Item */}
                   <TreeItem
                     title="Main Flow"
-                    icon={<Zap className="w-3.5 h-3.5 text-[#f59e0b]" />}
+                    icon={<Zap className="w-4 h-4 text-[#f59e0b]" />}
                     isActive={activeDocumentId === 'main_flow' && !selectedNodeId}
                     expandable={flowNodes.length > 0}
                     expanded={sections.mainFlowNodes}
@@ -224,7 +223,7 @@ export default function ProjectExplorer() {
 
                   {/* Nested Main Flow Nodes */}
                   {sections.mainFlowNodes && flowNodes.length > 0 && (
-                    <div style={{ marginLeft: 10, paddingLeft: 4, borderLeft: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    <div style={{ marginLeft: 12, paddingLeft: 6, paddingTop: 3, paddingBottom: 3, borderLeft: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', gap: 2 }}>
                       {flowNodes.map(node => {
                         const label = (node.data as any)?.label || (node.data as any)?.params?.name || node.id
                         const icon = getFlowNodeIcon(node)
@@ -257,19 +256,18 @@ export default function ProjectExplorer() {
             {/* ==========================================
                 3. SUBFLOWS (FUNCTIONS)
             ========================================== */}
-            <div style={{ marginTop: 2 }}>
+            <div>
               <TreeFolderHeader
                 title="Subflows"
-                icon={<Braces className="w-3.5 h-3.5 text-[#a855f7]" />}
+                icon={<Braces className="w-4 h-4 text-[#a855f7]" />}
                 expanded={sections.functions}
                 onToggle={() => toggleSection('functions')}
-                badge={functionNodes.length}
                 depth={1}
               />
               {sections.functions && (
-                <div style={{ marginLeft: 10, paddingLeft: 4, borderLeft: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                <div style={{ marginLeft: 12, paddingLeft: 6, paddingTop: 4, paddingBottom: 4, borderLeft: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {functionNodes.length === 0 ? (
-                    <div style={{ padding: '3px 8px', color: 'var(--color-text-dim)', fontSize: 10, fontStyle: 'italic' }}>
+                    <div style={{ padding: '5px 8px', color: 'var(--color-text-dim)', fontSize: 11.5, fontStyle: 'italic' }}>
                       (No subflows defined)
                     </div>
                   ) : (
@@ -284,7 +282,7 @@ export default function ProjectExplorer() {
                         <div key={fn.id}>
                           <TreeItem
                             title={`${fn.name}()`}
-                            icon={<Braces className="w-3.5 h-3.5 text-[#a855f7]" />}
+                            icon={<Braces className="w-4 h-4 text-[#a855f7]" />}
                             isActive={isActive}
                             expandable={childNodes.length > 0}
                             expanded={isExpanded}
@@ -301,7 +299,7 @@ export default function ProjectExplorer() {
 
                           {/* Subflow Child Nodes */}
                           {isExpanded && childNodes.length > 0 && (
-                            <div style={{ marginLeft: 10, paddingLeft: 4, borderLeft: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                            <div style={{ marginLeft: 12, paddingLeft: 6, paddingTop: 3, paddingBottom: 3, borderLeft: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', gap: 2 }}>
                               {childNodes.map(cn => {
                                 const label = (cn.data as any)?.label || (cn.data as any)?.params?.name || cn.id
                                 const icon = getFlowNodeIcon(cn)
@@ -338,19 +336,18 @@ export default function ProjectExplorer() {
             {/* ==========================================
                 4. PACKAGES
             ========================================== */}
-            <div style={{ marginTop: 2 }}>
+            <div>
               <TreeFolderHeader
                 title="Packages"
-                icon={<Package className="w-3.5 h-3.5 text-[#3b82f6]" />}
+                icon={<Package className="w-4 h-4 text-[#3b82f6]" />}
                 expanded={sections.packages}
                 onToggle={() => toggleSection('packages')}
-                badge={packageList.length}
                 depth={1}
               />
               {sections.packages && (
-                <div style={{ marginLeft: 10, paddingLeft: 4, borderLeft: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                <div style={{ marginLeft: 12, paddingLeft: 6, paddingTop: 4, paddingBottom: 4, borderLeft: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {packageList.length === 0 ? (
-                    <div style={{ padding: '3px 8px', color: 'var(--color-text-dim)', fontSize: 10 }}>
+                    <div style={{ padding: '5px 8px', color: 'var(--color-text-dim)', fontSize: 11.5 }}>
                       (Standard Libraries)
                     </div>
                   ) : (
@@ -362,9 +359,9 @@ export default function ProjectExplorer() {
                           key={pkg.id}
                           title={pkg.name}
                           icon={getComponentPackageIcon(pkg, {
-                            className: 'w-3.5 h-3.5',
+                            className: 'w-4 h-4',
                             color: '#38bdf8',
-                            fallback: <Package className="w-3.5 h-3.5 text-[#3b82f6]" />
+                            fallback: <Package className="w-4 h-4 text-[#3b82f6]" />
                           })}
                           isActive={isActive}
                           onClick={() => {
@@ -386,19 +383,19 @@ export default function ProjectExplorer() {
             {/* ==========================================
                 5. GENERATED FILES
             ========================================== */}
-            <div style={{ marginTop: 2 }}>
+            <div>
               <TreeFolderHeader
                 title="Generated"
-                icon={<Settings className="w-3.5 h-3.5 text-[#f97316]" />}
+                icon={<Settings className="w-4 h-4 text-[#f97316]" />}
                 expanded={sections.generated}
                 onToggle={() => toggleSection('generated')}
                 depth={1}
               />
               {sections.generated && (
-                <div style={{ marginLeft: 10, paddingLeft: 4, borderLeft: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                <div style={{ marginLeft: 12, paddingLeft: 6, paddingTop: 4, paddingBottom: 4, borderLeft: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <TreeItem
                     title="sketch.ino"
-                    icon={<FileCode className="w-3.5 h-3.5 text-[#f97316]" />}
+                    icon={<FileCode className="w-4 h-4 text-[#f97316]" />}
                     isActive={activeDocumentId === 'code_sketch'}
                     onClick={() => {
                       openDocument({
@@ -411,7 +408,7 @@ export default function ProjectExplorer() {
                   />
                   <TreeItem
                     title="wiring.md"
-                    icon={<FileText className="w-3.5 h-3.5 text-[#38bdf8]" />}
+                    icon={<FileText className="w-4 h-4 text-[#38bdf8]" />}
                     isActive={activeDocumentId === 'code_wiring'}
                     onClick={() => {
                       openDocument({
@@ -424,7 +421,7 @@ export default function ProjectExplorer() {
                   />
                   <TreeItem
                     title="pinmap.json"
-                    icon={<FileJson className="w-3.5 h-3.5 text-[#a855f7]" />}
+                    icon={<FileJson className="w-4 h-4 text-[#a855f7]" />}
                     isActive={activeDocumentId === 'code_pinmap'}
                     onClick={() => {
                       openDocument({
@@ -467,31 +464,35 @@ function TreeFolderHeader({
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 5,
-        padding: '3px 8px',
+        gap: 7,
+        padding: depth === 0 ? '6px 8px' : '5px 8px',
         cursor: 'pointer',
         color: 'var(--color-text-normal)',
-        borderRadius: 4,
+        borderRadius: 5,
         transition: 'background 0.1s',
       }}
-      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)' }}
+      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)' }}
       onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
     >
       <span style={{ color: 'var(--color-text-dim)', display: 'flex', alignItems: 'center' }}>
-        {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+        {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
       </span>
       {icon && <span style={{ display: 'flex', alignItems: 'center' }}>{icon}</span>}
-      <span style={{ fontSize: 11, fontWeight: depth === 0 ? 700 : 600, color: depth === 0 ? '#f1f5f9' : 'var(--color-text-bright)' }}>
+      <span style={{
+        fontSize: depth === 0 ? 13 : 12.5,
+        fontWeight: depth === 0 ? 750 : 650,
+        color: depth === 0 ? '#f8fafc' : 'var(--color-text-bright)',
+      }}>
         {title}
       </span>
       {badge !== undefined && badge > 0 && (
         <span
           style={{
-            fontSize: 9,
+            fontSize: 9.5,
             fontWeight: 700,
-            background: 'rgba(255, 255, 255, 0.06)',
+            background: 'rgba(255, 255, 255, 0.07)',
             color: 'var(--color-text-dim)',
-            padding: '1px 5px',
+            padding: '1px 6px',
             borderRadius: 8,
             marginLeft: 2,
           }}
@@ -526,19 +527,19 @@ function TreeItem({
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 6,
-        padding: '3px 6px',
-        borderRadius: 4,
+        gap: 7,
+        padding: '5px 8px',
+        borderRadius: 5,
         cursor: 'pointer',
-        background: isActive ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+        background: isActive ? 'rgba(56, 189, 248, 0.16)' : 'transparent',
         color: isActive ? '#ffffff' : 'var(--color-text-normal)',
-        fontWeight: isActive ? 600 : 400,
-        fontSize: 11,
+        fontWeight: isActive ? 600 : 450,
+        fontSize: 12,
         transition: 'all 0.1s ease',
       }}
       onMouseEnter={e => {
         if (!isActive) {
-          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)'
+          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'
           e.currentTarget.style.color = 'var(--color-text-bright)'
         }
       }}
@@ -563,10 +564,10 @@ function TreeItem({
             padding: '1px 2px',
           }}
         >
-          {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+          {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
         </span>
       ) : (
-        <span style={{ width: 12, flexShrink: 0 }} />
+        <span style={{ width: 14, flexShrink: 0 }} />
       )}
 
       <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
@@ -585,28 +586,28 @@ function getFlowNodeIcon(node: any) {
   const label = String((node.data as any)?.label || '').toLowerCase()
 
   if (nodeType === 'start' || label.includes('start')) {
-    return <Play className="w-3 h-3 text-[#10b981]" fill="#10b981" />
+    return <Play className="w-3.5 h-3.5 text-[#10b981]" fill="#10b981" />
   }
   if (nodeType === 'end' || label.includes('end')) {
-    return <Square className="w-3 h-3 text-[#f43f5e]" fill="#f43f5e" />
+    return <Square className="w-3.5 h-3.5 text-[#f43f5e]" fill="#f43f5e" />
   }
   if (nodeType === 'ultrasonic' || label.includes('ultrasonic')) {
-    return <Radio className="w-3 h-3 text-[#10b981]" />
+    return <Radio className="w-3.5 h-3.5 text-[#10b981]" />
   }
   if (nodeType === 'print' || label.includes('print')) {
-    return <Terminal className="w-3 h-3 text-[#06b6d4]" />
+    return <Terminal className="w-3.5 h-3.5 text-[#06b6d4]" />
   }
   if (nodeType === 'delay' || label.includes('delay')) {
-    return <Clock className="w-3 h-3 text-[#f59e0b]" />
+    return <Clock className="w-3.5 h-3.5 text-[#f59e0b]" />
   }
   if (nodeType === 'condition' || nodeType === 'if' || label.includes('if')) {
-    return <GitBranch className="w-3 h-3 text-[#eab308]" />
+    return <GitBranch className="w-3.5 h-3.5 text-[#eab308]" />
   }
   if (nodeType === 'function' || label.includes('function')) {
-    return <Braces className="w-3 h-3 text-[#a855f7]" />
+    return <Braces className="w-3.5 h-3.5 text-[#a855f7]" />
   }
   if (nodeType === 'variable' || nodeType === 'calc' || label.includes('var')) {
-    return <Binary className="w-3 h-3 text-[#38bdf8]" />
+    return <Binary className="w-3.5 h-3.5 text-[#38bdf8]" />
   }
-  return <Zap className="w-3 h-3 text-[#60a5fa]" />
+  return <Zap className="w-3.5 h-3.5 text-[#60a5fa]" />
 }
