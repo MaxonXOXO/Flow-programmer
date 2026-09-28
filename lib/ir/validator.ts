@@ -96,6 +96,7 @@ export class IRValidator {
     this.globalScope.define({ name: 'Serial.print', type: 'function', dataType: 'void' });
     this.globalScope.define({ name: 'Serial.parseInt', type: 'function', dataType: 'int' });
     this.globalScope.define({ name: 'delay', type: 'function', dataType: 'void' });
+    this.globalScope.define({ name: 'delayMicroseconds', type: 'function', dataType: 'void' });
     this.globalScope.define({ name: 'digitalWrite', type: 'function', dataType: 'void' });
     this.globalScope.define({ name: 'analogRead', type: 'function', dataType: 'int' });
   }

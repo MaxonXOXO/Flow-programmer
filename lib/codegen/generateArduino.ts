@@ -640,10 +640,14 @@ function generateNodeCode(
       break
     }
 
-    case 'delay':
-      lines.push(`${pad}delay(${data.params?.ms || '1000'});`)
+    case 'delay': {
+      const duration = data.params?.duration || data.params?.ms || '1000'
+      const unit = data.params?.unit || 'ms'
+      const callee = unit === 'us' ? 'delayMicroseconds' : 'delay'
+      lines.push(`${pad}${callee}(${duration});`)
       lines.push(followFlow())
       break
+    }
 
     case 'gpio': {
       const gpioPin = data.params?.pin || '13'

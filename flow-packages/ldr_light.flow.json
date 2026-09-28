@@ -23,9 +23,8 @@
       "type": "baseNode",
       "position": { "x": 100, "y": 200 },
       "data": {
-        "label": "Start Reading",
+        "label": "Start",
         "nodeType": "start",
-        "icon": "▶",
         "params": {}
       }
     },
@@ -34,12 +33,10 @@
       "type": "baseNode",
       "position": { "x": 340, "y": 200 },
       "data": {
-        "label": "Read Light Level",
+        "label": "Analog Read",
         "nodeType": "analog_read",
-        "icon": "⚡",
         "params": {
           "pin": "$PIN1",
-          "var": "lightLevel",
           "target": "lightLevel"
         }
       }
@@ -49,9 +46,8 @@
       "type": "baseNode",
       "position": { "x": 580, "y": 200 },
       "data": {
-        "label": "Output Light Level",
+        "label": "Return",
         "nodeType": "return",
-        "icon": "⬛",
         "params": {
           "value": "lightLevel"
         }

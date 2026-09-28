@@ -12,6 +12,7 @@ import {
   ConnectionMode,
   ReactFlowProvider,
   useReactFlow,
+  useUpdateNodeInternals,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useFlowStore } from '@/store/userFlowStore'
@@ -186,10 +187,68 @@ function SchemaCanvasInner() {
     return () => window.removeEventListener('click', handleCloseMenu)
   }, [])
 
-  const isBoardNode = (nodeId: string) => {
+  const updateNodeInternals = useUpdateNodeInternals()
+  const prevOrientationsRef = useRef<Map<string, boolean>>(new Map())
+
+  const isBoardNode = useCallback((nodeId: string) => {
     const n = schemaNodes.find(item => item.id === nodeId)
     return nodeId === 'arduino-uno' || nodeId === 'board' || n?.type === 'boardNode' || n?.type === 'unoNode'
-  }
+  }, [schemaNodes])
+
+  // Global dynamic handle synchronization during drag
+  const onNodeDrag = useCallback((_: React.MouseEvent, node: any) => {
+    const isBoard = isBoardNode(node.id)
+    if (isBoard) {
+      // MCU Board is moving: check all components for orientation flips
+      const boardWidth = node.measured?.width || node.width || 310
+      const boardCenterX = node.position.x + boardWidth / 2
+      const flippedIds: string[] = []
+
+      schemaNodes.forEach(n => {
+        if (!isBoardNode(n.id)) {
+          const compWidth = n.measured?.width || n.width || 160
+          const compCenterX = n.position.x + compWidth / 2
+          const pinsOnRight = compCenterX < boardCenterX
+          const prev = prevOrientationsRef.current.get(n.id)
+          if (prev !== undefined && prev !== pinsOnRight) {
+            flippedIds.push(n.id)
+          }
+          prevOrientationsRef.current.set(n.id, pinsOnRight)
+        }
+      })
+
+      if (flippedIds.length > 0) {
+        updateNodeInternals(flippedIds)
+      }
+    } else {
+      // Component is moving: check orientation against MCU Board
+      const boardNode = schemaNodes.find(n => isBoardNode(n.id))
+      if (boardNode) {
+        const boardWidth = boardNode.measured?.width || (boardNode as any).width || 310
+        const boardCenterX = boardNode.position.x + boardWidth / 2
+        const compWidth = node.measured?.width || node.width || 160
+        const compCenterX = node.position.x + compWidth / 2
+        const pinsOnRight = compCenterX < boardCenterX
+
+        const prev = prevOrientationsRef.current.get(node.id)
+        if (prev !== undefined && prev !== pinsOnRight) {
+          updateNodeInternals(node.id)
+        }
+        prevOrientationsRef.current.set(node.id, pinsOnRight)
+      }
+    }
+  }, [schemaNodes, isBoardNode, updateNodeInternals])
+
+  const onNodeDragStop = useCallback((_: React.MouseEvent, node: any) => {
+    if (isBoardNode(node.id)) {
+      const compIds = schemaNodes.filter(n => !isBoardNode(n.id)).map(n => n.id)
+      if (compIds.length > 0) {
+        updateNodeInternals(compIds)
+      }
+    } else {
+      updateNodeInternals(node.id)
+    }
+  }, [schemaNodes, isBoardNode, updateNodeInternals])
 
   // Duplicate schematic component
   const handleDuplicate = (nodeId: string) => {
@@ -228,6 +287,8 @@ function SchemaCanvasInner() {
         zoomOnDoubleClick={!isZoomLocked}
         panOnDrag={true}
         onNodeDragStart={() => pushHistory()}
+        onNodeDrag={onNodeDrag}
+        onNodeDragStop={onNodeDragStop}
         onNodesDelete={() => pushHistory()}
         onEdgesDelete={() => pushHistory()}
         onNodeClick={(_, node) => setSelectedNode(node.id)}

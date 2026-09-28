@@ -267,6 +267,11 @@ export class SimulationEngine {
               return { currentNodeId: nodeId, done: false, delayMs: ms };
             }
 
+            if (expr.callee === 'delayMicroseconds') {
+              const us = Number(this.evaluate(expr.arguments[0], frame.variables));
+              return { currentNodeId: nodeId, done: false, delayMs: Math.max(1, Math.round(us / 1000)) };
+            }
+
             if (expr.callee === 'digitalWrite') {
               const pin = this.evaluate(expr.arguments[0], frame.variables);
               const val = this.evaluate(expr.arguments[1], frame.variables);

@@ -380,7 +380,9 @@ function FlowCanvasInner() {
           if (conn) {
             const pinNumber = pinToNumber(conn.arduinoPin)
             params[pin.id] = pinNumber
-            params[`${pin.id}Pin`] = pinNumber
+            if (pin.id !== 'pin1' && !pin.id.toLowerCase().endsWith('pin')) {
+              params[`${pin.id}Pin`] = pinNumber
+            }
             if (signalPins.length === 1) {
               params.pin = pinNumber
             }

@@ -21,9 +21,8 @@
             "type": "baseNode",
             "position": { "x": 100, "y": 200 },
             "data": {
-                "label": "Start Measurement",
+                "label": "Start",
                 "nodeType": "start",
-                "icon": "▶",
                 "params": {}
             }
         },
@@ -32,9 +31,8 @@
             "type": "baseNode",
             "position": { "x": 340, "y": 200 },
             "data": {
-                "label": "TRIG Write LOW",
-                "nodeType": "gpio",
-                "icon": "⚡",
+                "label": "Digital Write",
+                "nodeType": "digital_write",
                 "params": {
                     "pin": "$TRIG",
                     "value": "LOW"
@@ -46,9 +44,8 @@
             "type": "baseNode",
             "position": { "x": 580, "y": 200 },
             "data": {
-                "label": "Delay 2 us",
+                "label": "Delay",
                 "nodeType": "delay",
-                "icon": "⏱",
                 "params": {
                     "duration": "2",
                     "unit": "us"
@@ -60,9 +57,8 @@
             "type": "baseNode",
             "position": { "x": 820, "y": 200 },
             "data": {
-                "label": "TRIG Write HIGH",
-                "nodeType": "gpio",
-                "icon": "⚡",
+                "label": "Digital Write",
+                "nodeType": "digital_write",
                 "params": {
                     "pin": "$TRIG",
                     "value": "HIGH"
@@ -74,9 +70,8 @@
             "type": "baseNode",
             "position": { "x": 1060, "y": 200 },
             "data": {
-                "label": "Delay 10 us",
+                "label": "Delay",
                 "nodeType": "delay",
-                "icon": "⏱",
                 "params": {
                     "duration": "10",
                     "unit": "us"
@@ -88,9 +83,8 @@
             "type": "baseNode",
             "position": { "x": 1300, "y": 200 },
             "data": {
-                "label": "TRIG Write LOW",
-                "nodeType": "gpio",
-                "icon": "⚡",
+                "label": "Digital Write",
+                "nodeType": "digital_write",
                 "params": {
                     "pin": "$TRIG",
                     "value": "LOW"
@@ -102,13 +96,12 @@
             "type": "baseNode",
             "position": { "x": 1540, "y": 200 },
             "data": {
-                "label": "Read ECHO Pulse",
+                "label": "Pulse In",
                 "nodeType": "pulse_in",
-                "icon": "⏱",
                 "params": {
                     "pin": "$ECHO",
                     "value": "HIGH",
-                    "var": "duration"
+                    "target": "duration"
                 }
             }
         },
@@ -117,9 +110,8 @@
             "type": "baseNode",
             "position": { "x": 1780, "y": 200 },
             "data": {
-                "label": "Calculate Distance",
+                "label": "Assignment",
                 "nodeType": "assignment",
-                "icon": "x=",
                 "params": {
                     "target": "distance",
                     "expression": "duration * 0.034 / 2"
@@ -131,9 +123,8 @@
             "type": "baseNode",
             "position": { "x": 2020, "y": 200 },
             "data": {
-                "label": "Output Distance",
+                "label": "Return",
                 "nodeType": "return",
-                "icon": "⬛",
                 "params": {
                     "value": "distance"
                 }

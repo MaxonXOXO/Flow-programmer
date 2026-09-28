@@ -6,7 +6,8 @@ import {
   PlayCircle, StopCircle, GitFork, RotateCw, Timer, 
   Binary, Braces, Printer, Type, Activity, Zap, Link,
   Eye, Thermometer, Radio, Sun, Wrench, Tv, Monitor,
-  Flame, Droplets, Waves, Wind, Cpu, Maximize2, Plus, Trash2
+  Flame, Droplets, Waves, Wind, Cpu, Maximize2, Plus, Trash2,
+  Lightbulb, Volume2, Square, Settings, Wifi, HelpCircle
 } from 'lucide-react'
 
 interface BaseNodeData {
@@ -62,9 +63,135 @@ const categoryStyles: Record<string, { headerBg: string, iconColor: string, text
   l293d:        { headerBg: 'rgba(165, 179, 205, 0.15)', iconColor: '#a5b3cd', textColor: '#a5b3cd' },
 }
 
+// Map package IDs to their canonical Lucide vector icons
+function getComponentIconByPackageId(packageId: string, iconProps: any) {
+  const norm = packageId.toLowerCase().trim()
+  switch (norm) {
+    case 'ldr_light':
+    case 'ldr':
+      return <Sun {...iconProps} />
+    case 'ultrasonic_hcsr04':
+    case 'ultrasonic':
+      return <Radio {...iconProps} />
+    case 'dht11':
+    case 'dht22':
+    case 'dht':
+      return <Thermometer {...iconProps} />
+    case 'pir_motion':
+    case 'pir':
+      return <Eye {...iconProps} />
+    case 'ir_obstacle':
+    case 'ir':
+      return <Eye {...iconProps} />
+    case 'flame_sensor':
+    case 'flame':
+      return <Flame {...iconProps} />
+    case 'soil_moisture':
+    case 'soilmoisture':
+      return <Droplets {...iconProps} />
+    case 'water_level':
+    case 'waterlevel':
+      return <Waves {...iconProps} />
+    case 'mq_gas':
+    case 'mqgas':
+      return <Wind {...iconProps} />
+    case 'vibration_sensor':
+    case 'vibration':
+      return <Activity {...iconProps} />
+    case 'servo_motor':
+    case 'servo':
+      return <Wrench {...iconProps} />
+    case 'lcd_16x2':
+    case 'lcd':
+      return <Tv {...iconProps} />
+    case 'oled_display':
+    case 'oled':
+      return <Monitor {...iconProps} />
+    case 'l298n':
+    case 'l293d':
+      return <Cpu {...iconProps} />
+    case 'led':
+      return <Lightbulb {...iconProps} />
+    case 'relay':
+      return <Zap {...iconProps} />
+    case 'buzzer':
+      return <Volume2 {...iconProps} />
+    case 'push_button':
+    case 'button':
+      return <PlayCircle {...iconProps} />
+    default:
+      return null
+  }
+}
+
+// Convert emoji/symbol strings to Lucide vector icons (prevents raw text emojis on canvas)
+function getVectorIconFromSymbol(symbol: string, iconProps: any) {
+  switch (symbol) {
+    case '💡': return <Lightbulb {...iconProps} />
+    case '⬛': return <StopCircle {...iconProps} />
+    case '🌡':
+    case '🌡️': return <Thermometer {...iconProps} />
+    case '📡': return <Radio {...iconProps} />
+    case '👁':
+    case '👁️': return <Eye {...iconProps} />
+    case '☀':
+    case '☀️': return <Sun {...iconProps} />
+    case '⚙':
+    case '⚙️': return <Settings {...iconProps} />
+    case '🔧': return <Wrench {...iconProps} />
+    case '🔔': return <Volume2 {...iconProps} />
+    case '⚡': return <Zap {...iconProps} />
+    case '📺': return <Tv {...iconProps} />
+    case '🖥':
+    case '🖥️': return <Monitor {...iconProps} />
+    case '📶': return <Wifi {...iconProps} />
+    case '🔥': return <Flame {...iconProps} />
+    case '🌱': return <Droplets {...iconProps} />
+    case '💧': return <Waves {...iconProps} />
+    case '💨': return <Wind {...iconProps} />
+    case '📳': return <Activity {...iconProps} />
+    case '🔌': return <Cpu {...iconProps} />
+    case '▶':
+    case '▶️': return <PlayCircle {...iconProps} />
+    case '↩': return <StopCircle {...iconProps} />
+    case '◇': return <GitFork {...iconProps} />
+    case '↻': return <RotateCw {...iconProps} />
+    case '⏱':
+    case '⏱️': return <Timer {...iconProps} />
+    case 'x=': return <Binary {...iconProps} />
+    case 'ƒ()':
+    case '{}': return <Braces {...iconProps} />
+    case 'call()': return <PlayCircle {...iconProps} />
+    case '»': return <Printer {...iconProps} />
+    case '←': return <Type {...iconProps} />
+    case '≋':
+    case '○': return <Activity {...iconProps} />
+    case '⇌': return <Link {...iconProps} />
+    default: return null
+  }
+}
+
 // Get vector icons for node headers
-function getNodeHeaderIcon(nodeType: string, color: string, className: string = 'w-4 h-4') {
+function getNodeHeaderIcon(
+  nodeType: string, 
+  color: string, 
+  className: string = 'w-4 h-4',
+  packageId?: string,
+  rawIcon?: string
+) {
   const iconProps = { className, style: { color } }
+
+  // 1. If component package ID is specified, use the package-specific Lucide vector icon
+  if (packageId) {
+    const pkgIcon = getComponentIconByPackageId(packageId, iconProps)
+    if (pkgIcon) return pkgIcon
+  }
+
+  // 2. Specific sensor templates / legacy component aliases
+  const compIcon = getComponentIconByPackageId(nodeType, iconProps)
+  if (compIcon) return compIcon
+
+  // 3. Known Flow-IDE canonical primitive node types
   switch (nodeType) {
     case 'start': return <PlayCircle {...iconProps} />
     case 'end': return <StopCircle {...iconProps} />
@@ -87,28 +214,49 @@ function getNodeHeaderIcon(nodeType: string, color: string, className: string = 
     case 'pulse_in': return <Timer {...iconProps} />
     case 'component': return <Cpu {...iconProps} />
     case 'api': return <Link {...iconProps} />
-    
-    // Specific sensor templates
-    case 'dht': return <Thermometer {...iconProps} />
-    case 'ultrasonic': return <Radio {...iconProps} />
-    case 'pir': return <Eye {...iconProps} />
-    case 'ldr': return <Sun {...iconProps} />
-    case 'ir': return <Eye {...iconProps} />
-    case 'flame': return <Flame {...iconProps} />
-    case 'soilMoisture': return <Droplets {...iconProps} />
-    case 'waterLevel': return <Waves {...iconProps} />
-    case 'mqGas': return <Wind {...iconProps} />
-    case 'vibration': return <Activity {...iconProps} />
-    
-    // Specific control devices
-    case 'servo': return <Wrench {...iconProps} />
-    case 'lcd': return <Tv {...iconProps} />
-    case 'oled': return <Monitor {...iconProps} />
-    case 'l298n': return <Cpu {...iconProps} />
-    case 'l293d': return <Cpu {...iconProps} />
-    
-    default: return <PlayCircle {...iconProps} />
   }
+
+  if (rawIcon) {
+    const symIcon = getVectorIconFromSymbol(rawIcon, iconProps)
+    if (symIcon) return symIcon
+  }
+
+  // 5. Default fallback
+  return <PlayCircle {...iconProps} />
+}
+
+const HIDDEN_INTERNAL_PARAMS = new Set([
+  'packageId',
+  'componentInstanceId',
+  'subflowDocId',
+  'componentId',
+  'instanceId',
+])
+
+export function getVisibleNodeParams(params: Record<string, string>): [string, string][] {
+  return Object.entries(params).filter(([key]) => {
+    if (HIDDEN_INTERNAL_PARAMS.has(key)) return false
+    // Hide redundant pin aliases: e.g. hide 'pin1Pin' if 'pin1' is present
+    if (key.endsWith('Pin')) {
+      const base = key.slice(0, -3)
+      if (params[base] !== undefined) return false
+    }
+    // Hide generic 'pin' alias if 'pin1' or 'trig' or 'signal' is present
+    if (key === 'pin') {
+      if (params.pin1 !== undefined || params.trig !== undefined || params.signal !== undefined) {
+        return false
+      }
+    }
+    // Hide legacy 'var' if 'target' is present
+    if (key === 'var' && params.target !== undefined) {
+      return false
+    }
+    // Hide legacy 'ms' if 'duration' is present
+    if (key === 'ms' && params.duration !== undefined) {
+      return false
+    }
+    return true
+  })
 }
 
 export default function BaseNode({ id, data, selected }: NodeProps) {
@@ -132,7 +280,23 @@ export default function BaseNode({ id, data, selected }: NodeProps) {
     return pNode
   })() : null
 
-  const actualParams = parentFnNode ? (parentFnNode.data as any)?.params || {} : params
+  let rawParams = parentFnNode ? (parentFnNode.data as any)?.params || {} : params
+  // Uniform normalization for delay primitive: ensure duration & unit are always present
+  if (type === 'delay') {
+    if (rawParams.ms && !rawParams.duration) {
+      rawParams = {
+        duration: String(rawParams.ms),
+        unit: rawParams.unit || 'ms',
+        ...rawParams,
+      }
+    } else if (!rawParams.unit && rawParams.duration) {
+      rawParams = {
+        unit: 'ms',
+        ...rawParams,
+      }
+    }
+  }
+  const actualParams = rawParams
 
   const handleAddInputOnNode = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -232,11 +396,7 @@ export default function BaseNode({ id, data, selected }: NodeProps) {
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-          {nodeData.icon ? (
-            <span style={{ fontSize: 13, lineHeight: 1 }}>{nodeData.icon}</span>
-          ) : (
-            getNodeHeaderIcon(type, style.iconColor)
-          )}
+          {getNodeHeaderIcon(type, style.iconColor, 'w-4 h-4', params?.packageId, nodeData.icon)}
         </div>
         <span style={{ 
           flex: 1, 
@@ -592,7 +752,7 @@ export default function BaseNode({ id, data, selected }: NodeProps) {
             )
           })()
         ) : (
-          Object.entries(params).map(([key, val]) => (
+          getVisibleNodeParams(actualParams).map(([key, val]) => (
             <div key={key}>
               <div style={{
                 fontSize: 8.5,

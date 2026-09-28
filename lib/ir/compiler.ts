@@ -264,14 +264,17 @@ export class GraphToIRCompiler {
           }
         });
       } else if (type === 'delay') {
+        const duration = data?.params?.duration || data?.params?.ms || '1000';
+        const unit = data?.params?.unit || 'ms';
+        const callee = unit === 'us' ? 'delayMicroseconds' : 'delay';
         body.push({
           type: 'ExpressionStatement',
           nodeId: currentId,
           expression: {
             type: 'FunctionCallExpression',
             nodeId: currentId,
-            callee: 'delay',
-            arguments: [parseExpressionString(data?.params?.ms || '1000', currentId)]
+            callee: callee,
+            arguments: [parseExpressionString(duration, currentId)]
           }
         });
       } else if (type === 'gpio') {

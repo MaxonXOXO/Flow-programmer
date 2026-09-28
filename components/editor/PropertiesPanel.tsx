@@ -5,6 +5,7 @@ import { useState } from 'react'
 import CustomSelect from '@/components/ui/CustomSelect'
 import ArduinoIcon from '@/components/Customkit/ArduinoIcon'
 import { getComponentPackageIcon, isFlowPackageComponent } from '@/lib/registry/components/componentIcon'
+import { getVisibleNodeParams } from '@/components/nodes/BaseNode'
 import { 
   SlidersHorizontal, 
   Settings, 
@@ -364,6 +365,26 @@ export default function PropertiesPanel() {
     }
   }
 
+  // Uniform normalization for delay primitive: ensure duration & unit are always present
+  if (rawNodeType === 'delay') {
+    if (params.ms && !params.duration) {
+      params = {
+        duration: String(params.ms),
+        unit: params.unit || 'ms',
+        ...params,
+      }
+    } else if (!params.unit && params.duration) {
+      params = {
+        unit: 'ms',
+        ...params,
+      }
+    }
+  }
+
+  const visibleParamEntries = rawNodeType === 'function' || rawNodeType === 'function_call' 
+    ? Object.entries(params) 
+    : getVisibleNodeParams(params)
+
   const handleLabelChange = (newLabel: string) => {
     const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData
     updater(node.id, { ...data, label: newLabel })
@@ -496,7 +517,7 @@ export default function PropertiesPanel() {
       </div>
 
       {/* Accordion 2: Editable Parameters & Inputs */}
-      {Object.keys(params).length > 0 && (
+      {visibleParamEntries.length > 0 && (
         <div style={{ borderBottom: '1px solid var(--color-border)' }}>
           <div 
             onClick={() => toggleSection('params')}
@@ -912,7 +933,7 @@ export default function PropertiesPanel() {
                   );
                 })()
               ) : (
-                Object.entries(params).map(([key, val]) => (
+                visibleParamEntries.map(([key, val]) => (
                   <div key={key}>
                     <div style={{ fontSize: 9.5, color: 'var(--color-text-dim)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>
                       {key.replace(/([A-Z])/g, ' $1')}
@@ -970,9 +991,13 @@ export default function PropertiesPanel() {
                         placeholder={`e.g. value for ${key}`}
                         onChange={e => {
                           const updater = activeCanvas === 'schema' ? updateSchemaNodeData : updateFlowNodeData
+                          const updatedParams = { ...params, [key]: e.target.value }
+                          if (rawNodeType === 'delay' && key === 'duration') {
+                            updatedParams.ms = e.target.value
+                          }
                           updater(node.id, {
                             ...data,
-                            params: { ...params, [key]: e.target.value }
+                            params: updatedParams
                           })
                         }}
                         style={{

@@ -24,7 +24,7 @@ const NODE_TYPES = [
       { type: 'return',    label: 'Return',       icon: '↩',   nodeType: 'return',    params: { value: '' } },
       { type: 'condition', label: 'If Condition',  icon: '◇',   nodeType: 'condition', params: { condition: 'x > 0' } },
       { type: 'loop',      label: 'For Loop',      icon: '↻',   nodeType: 'loop',      params: { from: '0', to: '10', step: '1', var: 'i' } },
-      { type: 'delay',     label: 'Delay',         icon: '⏱',   nodeType: 'delay',     params: { ms: '500' } },
+      { type: 'delay',     label: 'Delay',         icon: '⏱',   nodeType: 'delay',     params: { duration: '500', unit: 'ms' } },
     ]
   },
   {

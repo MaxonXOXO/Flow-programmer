@@ -1,10 +1,13 @@
 'use client'
 
-import { Handle, Position, NodeProps } from '@xyflow/react'
+import { useLayoutEffect, useEffect } from 'react'
+import { Handle, Position, NodeProps, useUpdateNodeInternals } from '@xyflow/react'
 import { useFlowStore } from '@/store/userFlowStore'
 import { GripHorizontal } from 'lucide-react'
 import { ComponentDefinition } from '@/lib/registry/components/types'
 import { getComponentPackageIcon } from '@/lib/registry/components/componentIcon'
+
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
 // Neon category style mappings
 const categoryStyles: Record<string, { border: string, bg: string, accent: string }> = {
@@ -17,8 +20,10 @@ const categoryStyles: Record<string, { border: string, bg: string, accent: strin
   motor_driver:  { border: '#ffb13d', bg: 'rgba(255, 177, 61, 0.06)', accent: '#ffb13d' },
 }
 
-export default function ComponentNode({ id, data, selected }: NodeProps) {
+export default function ComponentNode(props: NodeProps) {
+  const { id, data, selected } = props
   const { schemaNodes, updateSchemaNodeData } = useFlowStore()
+  const updateNodeInternals = useUpdateNodeInternals()
   
   // Accept ComponentDefinition from data.definition, fallback to legacy schema properties
   const definition = data.definition as ComponentDefinition | undefined
@@ -34,12 +39,28 @@ export default function ComponentNode({ id, data, selected }: NodeProps) {
   const thisNode = schemaNodes.find(n => n.id === id)
   const boardNode = schemaNodes.find(n => n.type === 'boardNode' || n.type === 'unoNode' || n.id === 'arduino-uno' || n.id === 'board')
   
-  const compX = thisNode ? thisNode.position.x : 0
-  const boardX = boardNode ? boardNode.position.x : 350
+  // Use live drag coordinates when available to prevent lag during dragging
+  const compX = typeof (props as any).positionAbsoluteX === 'number'
+    ? (props as any).positionAbsoluteX
+    : (thisNode?.position.x ?? 0)
+  const boardX = typeof (boardNode as any)?.positionAbsoluteX === 'number'
+    ? (boardNode as any).positionAbsoluteX
+    : (boardNode?.position.x ?? 350)
 
-  // If component is to the LEFT of Board (compX < boardX), pins face RIGHT towards Board.
-  // If component is to the RIGHT of Board (compX >= boardX), pins face LEFT towards Board.
-  const pinsOnRight = compX < boardX
+  const boardWidth = (boardNode?.measured?.width || (boardNode as any)?.width || 310)
+  const compWidth = ((props as any).width || (props as any).measured?.width || 160)
+
+  const compCenterX = compX + compWidth / 2
+  const boardCenterX = boardX + boardWidth / 2
+
+  // If component center is to the LEFT of Board center, pins face RIGHT towards Board.
+  // If component center is to the RIGHT of Board center, pins face LEFT towards Board.
+  const pinsOnRight = compCenterX < boardCenterX
+
+  // Globally sync React Flow's internal handle bounds whenever orientation or pin count changes
+  useIsomorphicLayoutEffect(() => {
+    updateNodeInternals(id)
+  }, [id, pinsOnRight, pins.length, updateNodeInternals])
 
   return (
     <div style={{
@@ -103,6 +124,7 @@ export default function ComponentNode({ id, data, selected }: NodeProps) {
                   {pin.label}
                 </span>
                 <Handle
+                  key={`${pin.id}-right`}
                   type="source"
                   position={Position.Right}
                   id={pin.id}
@@ -125,6 +147,7 @@ export default function ComponentNode({ id, data, selected }: NodeProps) {
             ) : (
               <>
                 <Handle
+                  key={`${pin.id}-left`}
                   type="source"
                   position={Position.Left}
                   id={pin.id}
