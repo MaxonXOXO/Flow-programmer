@@ -1,12 +1,15 @@
-﻿import { PackageDefinition } from '../types';
+import { PackageDefinition } from '../types';
 
 export const PushButtonPackage: PackageDefinition = {
+  id: 'push_button',
+  version: '1.0.0',
+
   metadata: {
     id: 'push_button',
     name: 'Push Button',
     description: 'Tactile momentary push button switch',
     category: 'sensor',
-    icon: 'â¬›',
+    icon: '🔘',
     tags: ['button', 'input', 'switch', 'tactile'],
   },
 
@@ -27,5 +30,5 @@ export const PushButtonPackage: PackageDefinition = {
     setup:    [],
   },
 
-  implementation: { type: 'builtin' },
+  implementation: { strategy: 'builtin', type: 'builtin' },
 };

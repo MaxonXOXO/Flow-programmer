@@ -2,6 +2,7 @@ import { Node, Edge } from '@xyflow/react';
 import { PackageGraphInstance } from '../registry/components/types';
 import { getComponentPackage } from '../registry/components';
 import { resolvePackageImplementation } from '../compiler/packages/packageResolver';
+import { normalizePackageId } from '../compiler/parser/nodeNormalizer';
 
 export interface InstantiatePackageGraphParams {
   packageId: string;
@@ -26,12 +27,17 @@ export function resolveCanonicalPackageId(node: any): string | undefined {
 
   if (!candidate || typeof candidate !== 'string') return undefined;
 
-  const resolved = resolvePackageImplementation(candidate);
-  if (resolved && resolved.packageId && resolved.packageId !== 'unknown') {
-    const pkg = getComponentPackage(resolved.packageId);
-    if (pkg) {
-      return resolved.packageId;
+  const normalized = normalizePackageId(candidate);
+  try {
+    const resolved = resolvePackageImplementation(normalized);
+    if (resolved && resolved.packageId && resolved.packageId !== 'unknown') {
+      const pkg = getComponentPackage(resolved.packageId);
+      if (pkg) {
+        return resolved.packageId;
+      }
     }
+  } catch {
+    return undefined;
   }
   return undefined;
 }

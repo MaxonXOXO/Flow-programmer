@@ -1,7 +1,17 @@
 import { PackageDefinition } from '../types';
 import ultrasonicFlowJson from '../../../../flow-packages/ultrasonic_hcsr04.flow.json';
 
+const ULTRASONIC_SUBFLOW_GRAPH = {
+  entry: (ultrasonicFlowJson as any).entry || 'trig_low_1',
+  exit: (ultrasonicFlowJson as any).exit || 'return_distance',
+  nodes: (ultrasonicFlowJson as any).nodes || [],
+  edges: (ultrasonicFlowJson as any).edges || [],
+};
+
 export const UltrasonicHCSR04Package: PackageDefinition = {
+  id: 'ultrasonic_hcsr04',
+  version: '1.0.0',
+
   metadata: {
     id: 'ultrasonic_hcsr04',
     name: 'Ultrasonic HC-SR04',
@@ -43,19 +53,44 @@ export const UltrasonicHCSR04Package: PackageDefinition = {
     includes: [],
     globals:  [],
     setup: [
-      'pinMode($trigPin, OUTPUT)',
-      'pinMode($echoPin, INPUT)',
+      'pinMode($trig, OUTPUT);',
+      'pinMode($echo, INPUT);',
     ],
   },
 
-  implementation: {
-    strategy: 'builtin',
-    version: 1,
-    graph: {
-      entry: (ultrasonicFlowJson as any).entry || 'trig_low_1',
-      exit: (ultrasonicFlowJson as any).exit || 'return_distance',
-      nodes: (ultrasonicFlowJson as any).nodes || [],
-      edges: (ultrasonicFlowJson as any).edges || [],
+  implementations: {
+    arduino_uno: {
+      strategy: 'graph',
+      version: 1,
+      entry: ULTRASONIC_SUBFLOW_GRAPH.entry,
+      exit: ULTRASONIC_SUBFLOW_GRAPH.exit,
+      graph: ULTRASONIC_SUBFLOW_GRAPH,
+      subflow: ULTRASONIC_SUBFLOW_GRAPH,
     },
+    esp32_arduino: {
+      strategy: 'graph',
+      version: 1,
+      entry: ULTRASONIC_SUBFLOW_GRAPH.entry,
+      exit: ULTRASONIC_SUBFLOW_GRAPH.exit,
+      graph: ULTRASONIC_SUBFLOW_GRAPH,
+      subflow: ULTRASONIC_SUBFLOW_GRAPH,
+    },
+    generic: {
+      strategy: 'graph',
+      version: 1,
+      entry: ULTRASONIC_SUBFLOW_GRAPH.entry,
+      exit: ULTRASONIC_SUBFLOW_GRAPH.exit,
+      graph: ULTRASONIC_SUBFLOW_GRAPH,
+      subflow: ULTRASONIC_SUBFLOW_GRAPH,
+    },
+  },
+
+  implementation: {
+    strategy: 'graph',
+    version: 1,
+    entry: ULTRASONIC_SUBFLOW_GRAPH.entry,
+    exit: ULTRASONIC_SUBFLOW_GRAPH.exit,
+    graph: ULTRASONIC_SUBFLOW_GRAPH,
+    subflow: ULTRASONIC_SUBFLOW_GRAPH,
   },
 };

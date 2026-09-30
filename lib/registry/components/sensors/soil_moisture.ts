@@ -1,12 +1,15 @@
-﻿import { PackageDefinition } from '../types';
+import { PackageDefinition } from '../types';
 
 export const SoilMoisturePackage: PackageDefinition = {
+  id: 'soil_moisture',
+  version: '1.0.0',
+
   metadata: {
     id: 'soil_moisture',
     name: 'Soil Moisture Sensor',
     description: 'Capacitive or resistive soil moisture detection sensor',
     category: 'sensor',
-    icon: 'ðŸŒ±',
+    icon: '🌱',
     tags: ['moisture', 'soil', 'agriculture', 'plant'],
   },
 
@@ -18,7 +21,7 @@ export const SoilMoisturePackage: PackageDefinition = {
   ],
 
   outputs: [
-    { id: 'moisture', label: 'Moisture Level', type: 'int', description: 'Raw analog moisture value (0â€“1023; lower = wetter on resistive sensors)' },
+    { id: 'moisture', label: 'Moisture Level', type: 'int', description: 'Raw analog moisture value (0–1023; lower = wetter on resistive sensors)' },
   ],
 
   properties: [],
@@ -29,5 +32,5 @@ export const SoilMoisturePackage: PackageDefinition = {
     setup:    [],
   },
 
-  implementation: { type: 'builtin' },
+  implementation: { strategy: 'builtin', type: 'builtin' },
 };

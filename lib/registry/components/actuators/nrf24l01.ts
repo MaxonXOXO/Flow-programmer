@@ -1,12 +1,15 @@
-﻿import { PackageDefinition } from '../types';
+import { PackageDefinition } from '../types';
 
 export const NRF24L01Package: PackageDefinition = {
+  id: 'nrf24l01',
+  version: '1.0.0',
+
   metadata: {
     id: 'nrf24l01',
     name: 'NRF24L01',
-    description: '2.4 GHz RF transceiver module â€” peer-to-peer wireless communication',
+    description: '2.4 GHz RF transceiver module — peer-to-peer wireless communication',
     category: 'communication',
-    icon: 'ðŸ“¡',
+    icon: '📡',
     tags: ['nrf24', 'comms', 'rf', 'wireless', 'spi', '2.4ghz'],
   },
 
@@ -30,14 +33,14 @@ export const NRF24L01Package: PackageDefinition = {
       defaultValue: 76,
       min: 0,
       max: 125,
-      description: 'RF channel (0â€“125). Must be the same on both transmitter and receiver',
+      description: 'RF channel (0–125). Must be the same on both transmitter and receiver',
     },
     {
       id: 'address',
       label: 'Pipe Address',
       type: 'string',
       defaultValue: '00001',
-      description: '5-character pipe address string â€” must match on both ends',
+      description: '5-character pipe address string — must match on both ends',
     },
   ],
 
@@ -52,5 +55,5 @@ export const NRF24L01Package: PackageDefinition = {
     ],
   },
 
-  implementation: { type: 'builtin' },
+  implementation: { strategy: 'builtin', type: 'builtin' },
 };

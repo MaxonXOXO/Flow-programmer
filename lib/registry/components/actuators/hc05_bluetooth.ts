@@ -1,12 +1,15 @@
-﻿import { PackageDefinition } from '../types';
+import { PackageDefinition } from '../types';
 
 export const HC05BluetoothPackage: PackageDefinition = {
+  id: 'hc05_bluetooth',
+  version: '1.0.0',
+
   metadata: {
     id: 'hc05_bluetooth',
     name: 'HC-05 Bluetooth',
     description: 'Bluetooth serial communication module (SPP profile)',
     category: 'communication',
-    icon: 'ðŸ“¶',
+    icon: '📶',
     tags: ['bluetooth', 'comms', 'serial', 'wireless', 'hc05'],
   },
 
@@ -31,7 +34,7 @@ export const HC05BluetoothPackage: PackageDefinition = {
         { label: '57600',  value: 57600  },
         { label: '115200', value: 115200 },
       ],
-      description: 'Serial communication speed â€” must match the module\'s configured baud rate',
+      description: "Serial communication speed — must match the module's configured baud rate",
     },
   ],
 
@@ -41,5 +44,5 @@ export const HC05BluetoothPackage: PackageDefinition = {
     setup:    ['bt.begin($baudRate)'],
   },
 
-  implementation: { type: 'builtin' },
+  implementation: { strategy: 'builtin', type: 'builtin' },
 };

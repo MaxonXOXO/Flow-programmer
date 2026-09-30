@@ -1,12 +1,15 @@
-﻿import { PackageDefinition } from '../types';
+import { PackageDefinition } from '../types';
 
 export const IRObstaclePackage: PackageDefinition = {
+  id: 'ir_obstacle',
+  version: '1.0.0',
+
   metadata: {
     id: 'ir_obstacle',
     name: 'IR Obstacle Sensor',
-    description: 'Infrared obstacle avoidance sensor â€” detects objects in front',
+    description: 'Infrared obstacle avoidance sensor — detects objects in front',
     category: 'sensor',
-    icon: 'ðŸ‘',
+    icon: '👁️',
     tags: ['obstacle', 'infrared', 'avoidance', 'ir'],
   },
 
@@ -28,5 +31,5 @@ export const IRObstaclePackage: PackageDefinition = {
     setup:    [],
   },
 
-  implementation: { type: 'builtin' },
+  implementation: { strategy: 'builtin', type: 'builtin' },
 };

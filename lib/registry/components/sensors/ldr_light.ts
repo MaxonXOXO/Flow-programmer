@@ -9,6 +9,9 @@ const LDR_SUBFLOW_GRAPH = {
 };
 
 export const LDRLightPackage: PackageDefinition = {
+  id: 'ldr_light',
+  version: '1.0.0',
+
   metadata: {
     id: 'ldr_light',
     name: 'LDR Light Sensor',
@@ -44,6 +47,7 @@ export const LDRLightPackage: PackageDefinition = {
       entry: LDR_SUBFLOW_GRAPH.entry,
       exit: LDR_SUBFLOW_GRAPH.exit,
       graph: LDR_SUBFLOW_GRAPH,
+      subflow: LDR_SUBFLOW_GRAPH,
     },
     esp32_arduino: {
       strategy: 'graph',
@@ -51,6 +55,7 @@ export const LDRLightPackage: PackageDefinition = {
       entry: LDR_SUBFLOW_GRAPH.entry,
       exit: LDR_SUBFLOW_GRAPH.exit,
       graph: LDR_SUBFLOW_GRAPH,
+      subflow: LDR_SUBFLOW_GRAPH,
     },
     generic: {
       strategy: 'graph',
@@ -58,13 +63,17 @@ export const LDRLightPackage: PackageDefinition = {
       entry: LDR_SUBFLOW_GRAPH.entry,
       exit: LDR_SUBFLOW_GRAPH.exit,
       graph: LDR_SUBFLOW_GRAPH,
+      subflow: LDR_SUBFLOW_GRAPH,
     },
   },
 
   implementation: {
     strategy: 'graph',
     version: 1,
+    entry: LDR_SUBFLOW_GRAPH.entry,
+    exit: LDR_SUBFLOW_GRAPH.exit,
     graph: LDR_SUBFLOW_GRAPH,
+    subflow: LDR_SUBFLOW_GRAPH,
   },
 };
 

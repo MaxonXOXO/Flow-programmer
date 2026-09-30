@@ -189,7 +189,7 @@ const flowEdgesLDR: Edge[] = [
 ];
 const schemaNodesUno: Node[] = [
   { id: 'arduino-uno', type: 'boardNode', position: { x: 0, y: 0 }, data: { boardId: 'arduino_uno' } },
-  { id: 'ldr_node', type: 'componentNode', position: { x: 300, y: 0 }, data: { label: 'LDR Sensor', componentType: 'ldr' } },
+  { id: 'ldr_node', type: 'componentNode', position: { x: 300, y: 0 }, data: { label: 'LDR Sensor', componentType: 'ldr', packageId: 'ldr_light' } },
 ];
 const schemaEdgesUno: Edge[] = [
   { id: 'se1', source: 'arduino-uno', target: 'ldr_node', sourceHandle: 'A0', targetHandle: 'pin1' },
@@ -216,7 +216,7 @@ assert(generatedUno.main.includes('sunlight ='), 'T16: Generated Arduino code as
 
 const schemaNodesESP: Node[] = [
   { id: 'board', type: 'boardNode', position: { x: 0, y: 0 }, data: { boardId: 'esp32' } },
-  { id: 'ldr_node', type: 'componentNode', position: { x: 300, y: 0 }, data: { label: 'LDR Sensor', componentType: 'ldr' } },
+  { id: 'ldr_node', type: 'componentNode', position: { x: 300, y: 0 }, data: { label: 'LDR Sensor', componentType: 'ldr', packageId: 'ldr_light' } },
 ];
 const schemaEdgesESP: Edge[] = [
   { id: 'se2', source: 'board', target: 'ldr_node', sourceHandle: 'GPIO34', targetHandle: 'pin1' },
@@ -315,7 +315,7 @@ const flowEdgesOverride: Edge[] = [
 ];
 const schemaNodesOverride: Node[] = [
   { id: 'arduino-uno', type: 'boardNode', position: { x: 0, y: 0 }, data: { boardId: 'arduino_uno' } },
-  { id: 'ldr_front', type: 'componentNode', position: { x: 300, y: 0 }, data: { label: 'LDR Sensor', componentType: 'ldr' } },
+  { id: 'ldr_front', type: 'componentNode', position: { x: 300, y: 0 }, data: { label: 'LDR Sensor', componentType: 'ldr', packageId: 'ldr_light' } },
 ];
 const schemaEdgesOverride: Edge[] = [
   { id: 'se1', source: 'arduino-uno', target: 'ldr_front', sourceHandle: 'A0', targetHandle: 'pin1' },

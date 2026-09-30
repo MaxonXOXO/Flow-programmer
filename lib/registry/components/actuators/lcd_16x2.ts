@@ -1,12 +1,15 @@
-﻿import { PackageDefinition } from '../types';
+import { PackageDefinition } from '../types';
 
 export const LCD16x2Package: PackageDefinition = {
+  id: 'lcd_16x2',
+  version: '1.0.0',
+
   metadata: {
     id: 'lcd_16x2',
     name: 'LCD 16x2',
-    description: '16-column Ã— 2-row liquid crystal display via I2C backpack',
+    description: '16-column × 2-row liquid crystal display via I2C backpack',
     category: 'display',
-    icon: 'ðŸ“º',
+    icon: '📺',
     tags: ['lcd', 'display', 'text', 'i2c', '16x2'],
   },
 
@@ -53,5 +56,5 @@ export const LCD16x2Package: PackageDefinition = {
     setup:    ['lcd.init()', 'lcd.backlight()'],
   },
 
-  implementation: { type: 'builtin' },
+  implementation: { strategy: 'builtin', type: 'builtin' },
 };

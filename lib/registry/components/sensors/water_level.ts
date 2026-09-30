@@ -1,12 +1,15 @@
-﻿import { PackageDefinition } from '../types';
+import { PackageDefinition } from '../types';
 
 export const WaterLevelPackage: PackageDefinition = {
+  id: 'water_level',
+  version: '1.0.0',
+
   metadata: {
     id: 'water_level',
     name: 'Water Level Sensor',
     description: 'Resistive water level / water presence detection sensor',
     category: 'sensor',
-    icon: 'ðŸ’§',
+    icon: '💧',
     tags: ['water', 'level', 'liquid', 'flood'],
   },
 
@@ -17,7 +20,7 @@ export const WaterLevelPackage: PackageDefinition = {
   ],
 
   outputs: [
-    { id: 'waterLevel', label: 'Water Level', type: 'int', description: 'Raw analog water level value (0â€“1023)' },
+    { id: 'waterLevel', label: 'Water Level', type: 'int', description: 'Raw analog water level value (0–1023)' },
   ],
 
   properties: [],
@@ -28,5 +31,5 @@ export const WaterLevelPackage: PackageDefinition = {
     setup:    [],
   },
 
-  implementation: { type: 'builtin' },
+  implementation: { strategy: 'builtin', type: 'builtin' },
 };

@@ -14,6 +14,16 @@ import {
   TargetId,
   TargetImplementation
 } from './types';
+import { validatePackageDefinition } from '../../compiler/packages/packageValidator';
+import type { ValidationResult } from '../../compiler/packages/packageContract';
+
+function throwRegistrationError(pkgId: string, result: ValidationResult): never {
+  const firstErr = result.diagnostics.find(d => d.severity !== 'warning') || result.diagnostics[0];
+  const code = firstErr?.code || 'PACKAGE_VALIDATION_FAILED';
+  const path = firstErr?.path ? ` at ${firstErr.path}` : '';
+  const message = firstErr?.message || result.errors.join('; ');
+  throw new Error(`[Registry] Registration failed for package "${pkgId}": [${code}] ${message}${path}`);
+}
 
 // ─── Sensor Imports ───────────────────────────────────────────────
 import { DHT11Package } from './sensors/dht11';
@@ -115,15 +125,16 @@ function deepClone<T>(obj: T): T {
  * a package's metadata section onto the top-level object.
  */
 export function makePackage(pkg: PackageDefinition | CanonicalComponentDefinition, fallbackPackageId?: string): ComponentPackage {
-  const id = pkg.metadata?.id || pkg.id || fallbackPackageId || 'unknown';
-  const name = pkg.metadata?.name || pkg.name || id;
+  const id = pkg.id || pkg.metadata?.id || fallbackPackageId;
+  const name = pkg.metadata?.name || pkg.name || id || '';
   const category = pkg.metadata?.category || pkg.category || 'sensor';
   const icon = pkg.metadata?.icon || pkg.icon || '🔌';
   const description = pkg.metadata?.description || pkg.description || '';
   const tags = pkg.metadata?.tags || pkg.tags || [];
+  const version = (pkg as any).version !== undefined ? (pkg as any).version : (pkg.metadata as any)?.version;
 
-  const baseMetadata = pkg.metadata || {
-    id,
+  const baseMetadata = pkg.metadata ? deepClone(pkg.metadata) : {
+    id: id || '',
     name,
     category,
     icon,
@@ -133,7 +144,9 @@ export function makePackage(pkg: PackageDefinition | CanonicalComponentDefinitio
 
   return {
     ...deepClone(pkg),
-    metadata: deepClone(baseMetadata),
+    id: id as string,
+    version: version as string,
+    metadata: baseMetadata,
     pins: deepClone(pkg.pins || []),
     outputs: deepClone(pkg.outputs || []),
     properties: deepClone(pkg.properties || []),
@@ -141,7 +154,6 @@ export function makePackage(pkg: PackageDefinition | CanonicalComponentDefinitio
     implementation: deepClone(pkg.implementation || { strategy: 'builtin' }),
     implementations: deepClone(pkg.implementations),
     // Flat shims — mirror metadata fields
-    id,
     name,
     category,
     icon,
@@ -181,29 +193,33 @@ const BUILTIN_PACKAGES: PackageDefinition[] = [
  * The central registry of all Component Packages.
  * Keys must match each package's metadata.id exactly.
  */
-const COMPONENT_REGISTRY: Record<string, ComponentPackage> = Object.fromEntries(
-  BUILTIN_PACKAGES.map(pkg => [pkg.metadata.id, makePackage(pkg)])
-);
+const COMPONENT_REGISTRY: Record<string, ComponentPackage> = {};
 
 /**
  * Package Manifest registry.
  */
-const PACKAGE_REGISTRY: Record<string, PackageManifest> = Object.fromEntries(
-  BUILTIN_PACKAGES.map(pkg => [
-    pkg.metadata.id,
-    {
-      id: pkg.metadata.id,
-      name: pkg.metadata.name,
-      version: '1.0.0',
-      description: pkg.metadata.description,
-      tags: pkg.metadata.tags,
-      components: { [pkg.metadata.id]: pkg },
-    }
-  ])
-);
+const PACKAGE_REGISTRY: Record<string, PackageManifest> = {};
+
+// Ingest and validate all builtin packages at startup
+for (const pkg of BUILTIN_PACKAGES) {
+  const normalized = makePackage(pkg);
+  const validation = validatePackageDefinition(normalized);
+  if (!validation.valid) {
+    throwRegistrationError(normalized.id, validation);
+  }
+  COMPONENT_REGISTRY[normalized.id] = deepClone(normalized);
+  PACKAGE_REGISTRY[normalized.id] = {
+    id: normalized.id,
+    name: normalized.metadata.name,
+    version: normalized.version,
+    description: normalized.metadata.description,
+    tags: normalized.metadata.tags,
+    components: { [normalized.id]: deepClone(normalized) },
+  };
+}
 
 // Register canonical package namespaces
-PACKAGE_REGISTRY[BasicSensorsManifest.id] = BasicSensorsManifest;
+PACKAGE_REGISTRY[BasicSensorsManifest.id] = deepClone(BasicSensorsManifest);
 
 // ─── Public API ───────────────────────────────────────────────────
 
@@ -211,24 +227,25 @@ PACKAGE_REGISTRY[BasicSensorsManifest.id] = BasicSensorsManifest;
  * Get a Package Manifest by its unique package identifier.
  */
 export function getPackage(packageId: string): PackageManifest | undefined {
-  return PACKAGE_REGISTRY[packageId];
+  const manifest = PACKAGE_REGISTRY[packageId];
+  return manifest ? deepClone(manifest) : undefined;
 }
 
 /**
  * Get all registered Package Manifests.
  */
 export function getAllPackages(): PackageManifest[] {
-  return Object.values(PACKAGE_REGISTRY);
+  return Object.values(PACKAGE_REGISTRY).map(p => deepClone(p));
 }
 
 /**
  * Get a Component Package by its unique identifier (or packageId + componentId).
  */
 export function getComponentDefinition(id: string, packageId?: string): ComponentPackage | undefined {
-  if (COMPONENT_REGISTRY[id]) {
+  if (id && typeof id === 'string' && Object.prototype.hasOwnProperty.call(COMPONENT_REGISTRY, id)) {
     return deepClone(COMPONENT_REGISTRY[id]);
   }
-  if (packageId && PACKAGE_REGISTRY[packageId]) {
+  if (packageId && Object.prototype.hasOwnProperty.call(PACKAGE_REGISTRY, packageId)) {
     const pkg = PACKAGE_REGISTRY[packageId];
     const components = Array.isArray(pkg.components) ? pkg.components : Object.values(pkg.components);
     const found = components.find(c => (c.metadata?.id === id || c.id === id));
@@ -282,33 +299,84 @@ export function getComponentDependencies(id: string, targetId: TargetId = 'gener
 
 /**
  * Dynamically register a package manifest and expose its components in the registry.
+ * Validation occurs BEFORE any registry mutation (atomic registration).
  */
 export function registerPackage(manifest: PackageManifest): void {
-  PACKAGE_REGISTRY[manifest.id] = manifest;
+  if (!manifest || typeof manifest !== 'object') {
+    throw new Error('[Registry] Invalid package manifest: must be a non-null object.');
+  }
 
-  const components = Array.isArray(manifest.components) 
+  const rawComponents = Array.isArray(manifest.components) 
     ? manifest.components 
-    : Object.values(manifest.components);
+    : Object.values(manifest.components || {});
 
-  for (const comp of components) {
+  // Atomicity: Validate ALL candidate components first.
+  const normalizedComponents: ComponentPackage[] = [];
+  for (const comp of rawComponents) {
     const normalized = makePackage(comp, manifest.id);
-    COMPONENT_REGISTRY[normalized.id] = normalized;
+    const validation = validatePackageDefinition(normalized);
+    if (!validation.valid) {
+      throwRegistrationError(normalized.id, validation);
+    }
+    normalizedComponents.push(normalized);
+  }
+
+  // Commit atomically only after 100% of candidate components pass validation
+  PACKAGE_REGISTRY[manifest.id] = deepClone(manifest);
+  for (const comp of normalizedComponents) {
+    COMPONENT_REGISTRY[comp.id] = deepClone(comp);
   }
 }
 
 /**
  * Dynamically register a single component.
+ * Validation occurs BEFORE registry mutation (atomic registration).
  */
 export function registerComponent(comp: CanonicalComponentDefinition | PackageDefinition, packageId?: string): ComponentPackage {
   const normalized = makePackage(comp, packageId);
-  COMPONENT_REGISTRY[normalized.id] = normalized;
-  return normalized;
+  const validation = validatePackageDefinition(normalized);
+  if (!validation.valid) {
+    throwRegistrationError(normalized.id, validation);
+  }
+
+  // Commit atomically only after validation passes
+  COMPONENT_REGISTRY[normalized.id] = deepClone(normalized);
+  return deepClone(normalized);
 }
 
 // ─── Convenience: componentsRegistry (used by SchemaCanvas) ──────
 
 /**
  * Direct registry map access.
+ * Protected by a readonly proxy returning defensive copies to guarantee registry immutability.
  */
-export const componentsRegistry = COMPONENT_REGISTRY;
+export const componentsRegistry: Readonly<Record<string, ComponentPackage>> = new Proxy(
+  COMPONENT_REGISTRY,
+  {
+    get(target, prop, receiver) {
+      if (typeof prop === 'string' && Object.prototype.hasOwnProperty.call(target, prop)) {
+        return deepClone(target[prop]);
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+    set() {
+      throw new Error('[Registry] Cannot directly mutate componentsRegistry. Use registerComponent() or registerPackage().');
+    },
+    deleteProperty() {
+      throw new Error('[Registry] Cannot directly delete from componentsRegistry.');
+    },
+    defineProperty() {
+      throw new Error('[Registry] Cannot directly define property on componentsRegistry.');
+    },
+    has(target, prop) {
+      return Reflect.has(target, prop);
+    },
+    ownKeys(target) {
+      return Reflect.ownKeys(target);
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+  }
+);
 

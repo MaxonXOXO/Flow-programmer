@@ -293,6 +293,10 @@ export interface PackageManifest {
 // ─── Package Definition (used by individual single-component package files) ─
 
 export interface PackageDefinition extends CanonicalComponentDefinition {
+  /** Canonical package identifier */
+  id?: string;
+  /** Package semver string */
+  version?: string;
   /** Descriptive metadata */
   metadata: PackageMetadata;
   /** Physical hardware pins */
@@ -313,6 +317,8 @@ export interface ComponentPackage extends PackageDefinition {
   // ─── Flat Compatibility Shims ─────────────────────────────────
   /** @see metadata.id */
   id: string;
+  /** Package semver string */
+  version: string;
   /** @see metadata.name */
   name: string;
   /** @see metadata.category */

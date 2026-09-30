@@ -1,18 +1,21 @@
-﻿import { PackageDefinition } from '../types';
+import { PackageDefinition } from '../types';
 
 export const DCMotorPackage: PackageDefinition = {
+  id: 'dc_motor',
+  version: '1.0.0',
+
   metadata: {
     id: 'dc_motor',
     name: 'DC Motor',
-    description: 'Standard brushed DC motor â€” requires a motor driver to operate',
+    description: 'Standard brushed DC motor — requires a motor driver to operate',
     category: 'actuator',
-    icon: 'âš™',
+    icon: '⚙️',
     tags: ['motor', 'dc', 'actuator', 'brushed'],
   },
 
   pins: [
     { id: 'pos', label: '+', signal: 'power',  required: true },
-    { id: 'neg', label: 'âˆ’', signal: 'ground', required: true },
+    { id: 'neg', label: '-', signal: 'ground', required: true },
   ],
 
   outputs: [],
@@ -25,5 +28,5 @@ export const DCMotorPackage: PackageDefinition = {
     setup:    [],
   },
 
-  implementation: { type: 'builtin' },
+  implementation: { strategy: 'builtin', type: 'builtin' },
 };

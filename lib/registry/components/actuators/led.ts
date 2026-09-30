@@ -1,18 +1,21 @@
-﻿import { PackageDefinition } from '../types';
+import { PackageDefinition } from '../types';
 
 export const LEDPackage: PackageDefinition = {
+  id: 'led',
+  version: '1.0.0',
+
   metadata: {
     id: 'led',
     name: 'LED',
-    description: 'Light Emitting Diode â€” simple digital output indicator',
+    description: 'Light Emitting Diode — simple digital output indicator',
     category: 'actuator',
-    icon: 'ðŸ’¡',
+    icon: '💡',
     tags: ['led', 'light', 'indicator', 'output'],
   },
 
   pins: [
     { id: 'anode',   label: 'Anode (+)',   signal: 'digital_input', required: true },
-    { id: 'cathode', label: 'Cathode (âˆ’)', signal: 'ground',        required: true },
+    { id: 'cathode', label: 'Cathode (-)', signal: 'ground',        required: true },
   ],
 
   outputs: [],
@@ -25,5 +28,5 @@ export const LEDPackage: PackageDefinition = {
     setup:    [],
   },
 
-  implementation: { type: 'builtin' },
+  implementation: { strategy: 'builtin', type: 'builtin' },
 };

@@ -1,12 +1,15 @@
-﻿import { PackageDefinition } from '../types';
+import { PackageDefinition } from '../types';
 
 export const FlameSensorPackage: PackageDefinition = {
+  id: 'flame_sensor',
+  version: '1.0.0',
+
   metadata: {
     id: 'flame_sensor',
     name: 'Flame Sensor',
-    description: 'Flame detection sensor â€” outputs both digital and analog signals',
+    description: 'Flame detection sensor — outputs both digital and analog signals',
     category: 'sensor',
-    icon: 'ðŸ”¥',
+    icon: '🔥',
     tags: ['flame', 'fire', 'safety'],
   },
 
@@ -19,7 +22,7 @@ export const FlameSensorPackage: PackageDefinition = {
 
   outputs: [
     { id: 'flameDigital', label: 'Flame Detected (Digital)', type: 'bool', description: 'True when flame is detected (digital threshold)' },
-    { id: 'flameAnalog',  label: 'Flame Level (Analog)',     type: 'int',  description: 'Raw analog flame intensity (0â€“1023)' },
+    { id: 'flameAnalog',  label: 'Flame Level (Analog)',     type: 'int',  description: 'Raw analog flame intensity (0–1023)' },
   ],
 
   properties: [],
@@ -30,5 +33,5 @@ export const FlameSensorPackage: PackageDefinition = {
     setup:    [],
   },
 
-  implementation: { type: 'builtin' },
+  implementation: { strategy: 'builtin', type: 'builtin' },
 };

@@ -1,12 +1,15 @@
-﻿import { PackageDefinition } from '../types';
+import { PackageDefinition } from '../types';
 
 export const DHT11Package: PackageDefinition = {
+  id: 'dht11',
+  version: '1.0.0',
+
   metadata: {
     id: 'dht11',
     name: 'DHT Sensor',
     description: 'Temperature and humidity sensor (DHT11 / DHT22)',
     category: 'sensor',
-    icon: 'ðŸŒ¡',
+    icon: '🌡️',
     tags: ['temperature', 'humidity', 'dht11', 'dht22'],
   },
 
@@ -17,12 +20,12 @@ export const DHT11Package: PackageDefinition = {
   ],
 
   outputs: [
-    { id: 'temperature', label: 'Temperature', type: 'float', description: 'Temperature in Â°C' },
+    { id: 'temperature', label: 'Temperature', type: 'float', description: 'Temperature in °C' },
     { id: 'humidity',    label: 'Humidity',    type: 'float', description: 'Relative humidity in %' },
   ],
 
   properties: [
-    // No user-configurable properties â€” pin assignment is handled via SchemaCanvas wiring.
+    // No user-configurable properties — pin assignment is handled via SchemaCanvas wiring.
   ],
 
   dependencies: {
@@ -31,5 +34,5 @@ export const DHT11Package: PackageDefinition = {
     setup:    [],
   },
 
-  implementation: { type: 'builtin' },
+  implementation: { strategy: 'builtin', type: 'builtin' },
 };

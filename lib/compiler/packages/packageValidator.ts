@@ -13,6 +13,8 @@ import {
   DiagnosticSeverity,
 } from './packageContract';
 
+export type { ValidationResult, ValidationDiagnostic, DiagnosticSeverity };
+
 // ─────────────────────────────────────────────────────────────────
 //  Validation Constants & Regular Expressions
 // ─────────────────────────────────────────────────────────────────
@@ -601,7 +603,7 @@ export function validateComponentInstance(
   const explicitId = nodeData.params?.componentInstanceId || nodeData.params?.componentId || nodeData.componentId;
   let boundSchemaNodeId: string | undefined = undefined;
 
-  if (schemaContext?.schemaNodes && Array.isArray(schemaContext.schemaNodes)) {
+  if (schemaContext?.schemaNodes && Array.isArray(schemaContext.schemaNodes) && schemaContext.schemaNodes.length > 0) {
     if (explicitId) {
       const found = schemaContext.schemaNodes.find(n => n.id === explicitId);
       if (found) {
@@ -619,45 +621,102 @@ export function validateComponentInstance(
       if (direct) {
         boundSchemaNodeId = direct.id;
       } else {
-        diagnostics.push({
-          code: 'INSTANCE_NO_EXPLICIT_BINDING',
-          path: `nodes[${node.id}]`,
-          message: `Component instance "${node.id}" lacks explicit binding to a Schema Canvas component instance.`,
+        // Check if there is an unambiguous single component of this package
+        const matchingComps = schemaContext.schemaNodes.filter(n => {
+          const sData = (n.data || {}) as any;
+          const sPkgId = sData.params?.packageId || sData.packageId || sData.definition?.metadata?.id || sData.definition?.id || sData.componentType || sData.nodeType;
+          return sPkgId === pkg.id;
         });
+        if (matchingComps.length === 1) {
+          boundSchemaNodeId = matchingComps[0].id;
+        } else {
+          diagnostics.push({
+            code: 'INSTANCE_CORRELATION_FAILED',
+            path: `nodes[${node.id}]`,
+            message: `Component instance "${node.id}" cannot be correlated to an explicit Schema Canvas component instance.`,
+          });
+        }
       }
     }
   }
 
-  // 4. Required Pins Wiring Validation
+  // 4. Pin Connections Validation (Required, Duplicate, and Unknown Pins)
   if (boundSchemaNodeId && schemaContext?.schemaEdges && Array.isArray(schemaContext.schemaEdges)) {
     const connectedPinHandles = new Set<string>();
+    const declaredPinIds = new Set(Array.isArray(pkg.pins) ? pkg.pins.map(p => p.id.toLowerCase().trim()) : []);
 
     schemaContext.schemaEdges.forEach(e => {
-      if (e.source === boundSchemaNodeId && e.sourceHandle) {
-        connectedPinHandles.add(e.sourceHandle.toLowerCase().trim());
+      const isSource = e.source === boundSchemaNodeId;
+      const isTarget = e.target === boundSchemaNodeId;
+      if (!isSource && !isTarget) return;
+
+      const handle = isSource ? e.sourceHandle : e.targetHandle;
+      if (!handle) return;
+      const normHandle = handle.toLowerCase().trim();
+
+      // Check unknown pin
+      if (declaredPinIds.size > 0 && !declaredPinIds.has(normHandle)) {
+        diagnostics.push({
+          code: 'INSTANCE_UNKNOWN_PIN',
+          path: `nodes[${node.id}].pins.${handle}`,
+          message: `Schema connection references unknown pin "${handle}" not declared in package "${pkg.id}".`,
+        });
       }
-      if (e.target === boundSchemaNodeId && e.targetHandle) {
-        connectedPinHandles.add(e.targetHandle.toLowerCase().trim());
+
+      // Check duplicate pin connection
+      if (connectedPinHandles.has(normHandle)) {
+        diagnostics.push({
+          code: 'INSTANCE_DUPLICATE_PIN_BINDING',
+          path: `nodes[${node.id}].pins.${handle}`,
+          message: `Duplicate connection to pin "${handle}" on component instance "${node.id}".`,
+        });
       }
+      connectedPinHandles.add(normHandle);
     });
 
     if (Array.isArray(pkg.pins)) {
       pkg.pins.forEach(pin => {
-        if (pin.required) {
+        const isSignalPin = pin.signal !== 'power' && pin.signal !== 'ground';
+        if (pin.required && isSignalPin) {
           const pinKey = pin.id.toLowerCase().trim();
           const isConnected = connectedPinHandles.has(pinKey);
-          const hasParamOverride = nodeData.params?.[pin.id] !== undefined || nodeData.params?.[pinKey] !== undefined;
+          const hasParamOverride = 
+            nodeData.params?.[pin.id] !== undefined || 
+            nodeData.params?.[pinKey] !== undefined ||
+            nodeData.params?.[`${pin.id}Pin`] !== undefined ||
+            nodeData.params?.[`${pinKey}Pin`] !== undefined;
 
           if (!isConnected && !hasParamOverride) {
             diagnostics.push({
               code: 'INSTANCE_REQUIRED_PIN_UNCONNECTED',
               path: `nodes[${node.id}].pins.${pin.id}`,
-              message: `Required pin "${pin.id}" (${pin.label}) on component instance "${node.id}" is not connected in the schematic.`,
+              message: `Required pin "${pin.id}" (${pin.label}) on component instance "${node.id}" is not connected in the schematic and has no parameter override.`,
             });
           }
         }
       });
     }
+  } else if (!boundSchemaNodeId && Array.isArray(pkg.pins)) {
+    // When no schema node is bound, required signal pins must have parameter overrides
+    pkg.pins.forEach(pin => {
+      const isSignalPin = pin.signal !== 'power' && pin.signal !== 'ground';
+      if (pin.required && isSignalPin) {
+        const pinKey = pin.id.toLowerCase().trim();
+        const hasParamOverride = 
+          nodeData.params?.[pin.id] !== undefined || 
+          nodeData.params?.[pinKey] !== undefined ||
+          nodeData.params?.[`${pin.id}Pin`] !== undefined ||
+          nodeData.params?.[`${pinKey}Pin`] !== undefined;
+
+        if (!hasParamOverride) {
+          diagnostics.push({
+            code: 'INSTANCE_REQUIRED_PIN_UNCONNECTED',
+            path: `nodes[${node.id}].pins.${pin.id}`,
+            message: `Required pin "${pin.id}" (${pin.label}) on component instance "${node.id}" is not provided.`,
+          });
+        }
+      }
+    });
   }
 
   return createValidationResult(diagnostics);
@@ -732,9 +791,21 @@ export function validateExpandedGraph(
     }
   });
 
-  // 3. Edge Integrity: check dangling edge endpoints
+  // 3. Edge Integrity: check dangling edge endpoints and duplicates
+  const seenEdgeIds = new Set<string>();
   edges.forEach((e, idx) => {
     if (!e || typeof e !== 'object') return;
+
+    if (e.id) {
+      if (seenEdgeIds.has(e.id)) {
+        diagnostics.push({
+          code: 'EXPANDED_DUPLICATE_EDGE_ID',
+          path: `edges[${idx}].id`,
+          message: `Duplicate edge ID "${e.id}" encountered in expanded graph.`,
+        });
+      }
+      seenEdgeIds.add(e.id);
+    }
 
     if (!seenNodeIds.has(e.source)) {
       diagnostics.push({

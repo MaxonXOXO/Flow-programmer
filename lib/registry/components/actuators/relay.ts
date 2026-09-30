@@ -1,12 +1,15 @@
-﻿import { PackageDefinition } from '../types';
+import { PackageDefinition } from '../types';
 
 export const RelayPackage: PackageDefinition = {
+  id: 'relay',
+  version: '1.0.0',
+
   metadata: {
     id: 'relay',
     name: 'Relay',
-    description: 'Electromagnetic relay switch â€” controls high-voltage/high-current loads',
+    description: 'Electromagnetic relay switch — controls high-voltage/high-current loads',
     category: 'actuator',
-    icon: 'âš¡',
+    icon: '⚡',
     tags: ['relay', 'switch', 'high-voltage', 'actuator'],
   },
 
@@ -26,5 +29,5 @@ export const RelayPackage: PackageDefinition = {
     setup:    [],
   },
 
-  implementation: { type: 'builtin' },
+  implementation: { strategy: 'builtin', type: 'builtin' },
 };

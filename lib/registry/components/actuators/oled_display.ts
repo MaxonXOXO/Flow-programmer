@@ -1,12 +1,15 @@
-﻿import { PackageDefinition } from '../types';
+import { PackageDefinition } from '../types';
 
 export const OLEDDisplayPackage: PackageDefinition = {
+  id: 'oled_display',
+  version: '1.0.0',
+
   metadata: {
     id: 'oled_display',
     name: 'OLED Display',
-    description: '128Ã—64 monochrome OLED graphic display via I2C (SSD1306)',
+    description: '128×64 monochrome OLED graphic display via I2C (SSD1306)',
     category: 'display',
-    icon: 'ðŸ–¥',
+    icon: '🖥️',
     tags: ['oled', 'display', 'graphics', 'i2c', 'ssd1306'],
   },
 
@@ -53,5 +56,5 @@ export const OLEDDisplayPackage: PackageDefinition = {
     setup:    ['display.begin(SSD1306_SWITCHCAPVCC, $address)', 'display.clearDisplay()'],
   },
 
-  implementation: { type: 'builtin' },
+  implementation: { strategy: 'builtin', type: 'builtin' },
 };

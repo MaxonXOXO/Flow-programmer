@@ -1,12 +1,15 @@
-﻿import { PackageDefinition } from '../types';
+import { PackageDefinition } from '../types';
 
 export const ServoMotorPackage: PackageDefinition = {
+  id: 'servo_motor',
+  version: '1.0.0',
+
   metadata: {
     id: 'servo_motor',
     name: 'Servo Motor',
-    description: 'Angular position controlled motor (0Â°â€“180Â°)',
+    description: 'Angular position controlled motor (0°–180°)',
     category: 'actuator',
-    icon: 'ðŸ”§',
+    icon: '🔧',
     tags: ['servo', 'motor', 'angular', 'position'],
   },
 
@@ -34,5 +37,5 @@ export const ServoMotorPackage: PackageDefinition = {
     setup:    ['myServo.attach($signalPin)'],
   },
 
-  implementation: { type: 'builtin' },
+  implementation: { strategy: 'builtin', type: 'builtin' },
 };

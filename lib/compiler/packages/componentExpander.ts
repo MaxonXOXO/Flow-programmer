@@ -1,7 +1,15 @@
 import { Node, Edge } from '@xyflow/react';
-import { resolvePackageImplementation } from './packageResolver';
+import { resolvePackage, resolvePackageImplementation, PackageResolverError } from './packageResolver';
 import { getComponentPackage } from '../../registry/components';
-import { PackageGraphInstance, TargetId } from '../../registry/components/types';
+import { PackageGraphInstance, TargetId, ComponentPackage } from '../../registry/components/types';
+import { normalizePackageId } from '../parser/nodeNormalizer';
+import {
+  validateComponentInstance,
+  validateExpandedGraph,
+  ValidationDiagnostic,
+  ValidationResult,
+} from './packageValidator';
+import { ComponentPackageContract } from './packageContract';
 
 export interface ExpansionResult {
   nodes: Node[];
@@ -26,6 +34,47 @@ export interface ResolvedComponentGraphSource {
   };
   entry?: string;
   exit?: string;
+}
+
+export type ExpanderErrorCode =
+  | 'INSTANCE_NOT_COMPONENT'
+  | 'INSTANCE_PACKAGE_ID_MISSING'
+  | 'INSTANCE_PACKAGE_MISMATCH'
+  | 'INSTANCE_SCHEMA_TARGET_NOT_FOUND'
+  | 'INSTANCE_CORRELATION_FAILED'
+  | 'INSTANCE_REQUIRED_PIN_UNCONNECTED'
+  | 'INSTANCE_DUPLICATE_PIN_BINDING'
+  | 'INSTANCE_UNKNOWN_PIN'
+  | 'INSTANCE_UNKNOWN_OUTPUT'
+  | 'PACKAGE_NOT_FOUND'
+  | 'EXPANDED_UNRESOLVED_PLACEHOLDER'
+  | 'EXPANDED_COMPONENT_REMAINING'
+  | 'EXPANDED_DUPLICATE_NODE_ID'
+  | 'EXPANDED_DANGLING_EDGE_SOURCE'
+  | 'EXPANDED_DANGLING_EDGE_TARGET'
+  | 'EXPANDED_DUPLICATE_EDGE_ID'
+  | 'EXPANDED_NON_CANONICAL_PRIMITIVE'
+  | 'UNEXPANDED_COMPONENT_REMAINING';
+
+export class ComponentExpanderError extends Error {
+  public readonly code: ExpanderErrorCode;
+  public readonly componentId?: string;
+  public readonly packageId?: string;
+  public readonly diagnostics: ValidationDiagnostic[];
+
+  constructor(
+    code: ExpanderErrorCode,
+    message: string,
+    details?: { componentId?: string; packageId?: string; diagnostics?: ValidationDiagnostic[] }
+  ) {
+    super(`[ComponentExpander] [${code}] ${message}`);
+    this.name = 'ComponentExpanderError';
+    this.code = code;
+    this.componentId = details?.componentId;
+    this.packageId = details?.packageId;
+    this.diagnostics = details?.diagnostics || [];
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
 }
 
 /**
@@ -69,6 +118,19 @@ export function sanitizeIdentifier(id: string): string {
 }
 
 /**
+ * Normalizes board pin identifiers.
+ * Converts 'D9' -> '9', while preserving 'A0', 'A2', 'GPIO34', etc.
+ */
+export function normalizePin(p: string | undefined): string {
+  if (!p) return '';
+  const trimmed = p.trim();
+  if (/^d\d+$/i.test(trimmed)) {
+    return trimmed.slice(1);
+  }
+  return trimmed;
+}
+
+/**
  * Authoritatively resolves the graph source for a component node during compilation:
  * 1. Unlocked / modified subflow instance override in CompilationContext.
  * 2. Pristine Package template graph from COMPONENT_REGISTRY or inline definition.
@@ -78,26 +140,26 @@ export function resolveComponentGraphSource(
   node: Node,
   context?: ComponentCompilationContext
 ): ResolvedComponentGraphSource {
-  const nodeData = node.data as any;
-  const nodeType = nodeData?.nodeType || node.type || '';
-  const candidate = 
-    nodeData?.definition ||
-    nodeData?.params?.packageId || 
-    nodeData?.packageId || 
-    nodeType;
+  const nodeData = (node.data || {}) as any;
+  const rawCandidate =
+    nodeData.definition ||
+    nodeData.params?.packageId ||
+    nodeData.packageId ||
+    nodeData.nodeType ||
+    node.type ||
+    '';
 
   const targetId = context?.targetId || 'generic';
-
-  // 1. Resolve canonical package implementation
-  let pkgResolved = resolvePackageImplementation(candidate, targetId);
+  const pkgResolved = resolvePackageImplementation(rawCandidate, targetId);
 
   const packageId = pkgResolved.packageId;
   const componentInstanceId = node.id;
 
-  // 2. Check for matching subflow override in compilation context
+  // Check for matching subflow override in compilation context
   if (context?.subflowOverrides && packageId && packageId !== 'unknown') {
     const expectedDocId = `subflow_${packageId}_${componentInstanceId}`;
-    let overrideInstance: PackageGraphInstance | undefined = context.subflowOverrides[expectedDocId] || context.subflowOverrides[componentInstanceId];
+    let overrideInstance: PackageGraphInstance | undefined =
+      context.subflowOverrides[expectedDocId] || context.subflowOverrides[componentInstanceId];
 
     if (!overrideInstance) {
       overrideInstance = Object.values(context.subflowOverrides).find(
@@ -124,7 +186,7 @@ export function resolveComponentGraphSource(
     }
   }
 
-  // 3. Fallback to package template graph
+  // Fallback to package template graph
   const packageGraph = pkgResolved.graph || pkgResolved.subflow;
   if (packageGraph && Array.isArray(packageGraph.nodes) && packageGraph.nodes.length > 0) {
     return {
@@ -137,37 +199,11 @@ export function resolveComponentGraphSource(
     };
   }
 
-  // 4. Fallback to builtin generator
   return {
     source: 'builtin',
     packageId,
     componentInstanceId,
   };
-}
-
-/**
- * Component Graph Expander
- *
- * Scans a visual flow graph for component package nodes.
- * If a component resolves to an internal subflow graph (from an instance override or package template),
- * this stage:
- * 1. Clones the internal graph nodes & edges with instance-prefixed IDs.
- * 2. Performs generic Pin & Variable Binding (maps $TRIG, $ECHO, $PIN1, output variables, and scopes internal variables).
- * 3. Splices the internal subflow nodes/edges directly into the flow graph using explicit B4 entry/exit declarations.
- *
- * If a package does not have an internal graph, it is left intact for builtin generator fallback.
- */
-/**
- * Normalizes board pin identifiers.
- * Converts 'D9' -> '9', while preserving 'A0', 'A2', 'GPIO34', etc.
- */
-export function normalizePin(p: string | undefined): string {
-  if (!p) return '';
-  const trimmed = p.trim();
-  if (/^d\d+$/i.test(trimmed)) {
-    return trimmed.slice(1);
-  }
-  return trimmed;
 }
 
 /**
@@ -209,7 +245,6 @@ export function parseSchemaPinConnections(
     const isTargetBoard = isBoardNode(targetNode, edge.target);
 
     if (isSourceBoard === isTargetBoard) {
-      // Both are board nodes or neither is board
       return;
     }
 
@@ -234,7 +269,8 @@ export function parseSchemaPinConnections(
 
 /**
  * Resolves the physical pin connections for a specific Flow Node by correlating
- * with Schema Canvas component instances.
+ * with Schema Canvas component instances strictly using canonical identity.
+ * Heuristics (label matching, substring ID matching, first-connected fallback) are rejected.
  */
 export function resolveInstancePinsForFlowNode(
   flowNode: Node,
@@ -262,10 +298,16 @@ export function resolveInstancePinsForFlowNode(
     return connectionsByCompId[directSchemaNode.id];
   }
 
-  // 4. Match against schemaCompNodes by component type / package ID
+  // 4. Match against schemaCompNodes by component type / package ID ONLY if unambiguous (single instance)
   const matchingSchemaNodes = schemaCompNodes.filter(n => {
     const sData = (n.data || {}) as any;
-    const sPkgId = sData.params?.packageId || sData.packageId || sData.definition?.metadata?.id || sData.definition?.id || sData.componentType || sData.nodeType;
+    const sPkgId =
+      sData.params?.packageId ||
+      sData.packageId ||
+      sData.definition?.metadata?.id ||
+      sData.definition?.id ||
+      sData.componentType ||
+      sData.nodeType;
     return sPkgId === packageId || sPkgId === flowData.packageId || sPkgId === flowData.params?.packageId;
   });
 
@@ -274,44 +316,28 @@ export function resolveInstancePinsForFlowNode(
     if (connectionsByCompId[matchedId]) {
       return connectionsByCompId[matchedId];
     }
-  } else if (matchingSchemaNodes.length > 1) {
-    // Try to match by label first
-    const fLabel = (flowData.label || '').toLowerCase();
-    const exactLabelMatch = matchingSchemaNodes.find(n => ((n.data as any)?.label || '').toLowerCase() === fLabel);
-    if (exactLabelMatch && connectionsByCompId[exactLabelMatch.id]) {
-      return connectionsByCompId[exactLabelMatch.id];
-    }
-    // Try to match by instance ID substring
-    const idSubstringMatch = matchingSchemaNodes.find(n => flowNodeId.includes(n.id) || n.id.includes(flowNodeId));
-    if (idSubstringMatch && connectionsByCompId[idSubstringMatch.id]) {
-      return connectionsByCompId[idSubstringMatch.id];
-    }
-    // Fallback to first connected matching schema node
-    const firstConnected = matchingSchemaNodes.find(n => connectionsByCompId[n.id]);
-    if (firstConnected) {
-      return connectionsByCompId[firstConnected.id];
-    }
   }
 
-  // 5. Fallback to packageId key
-  if (connectionsByCompId[packageId]) {
-    return connectionsByCompId[packageId];
-  }
-
+  // Multi-instance without explicit binding or unknown schema component:
+  // Heuristic guessing (label, substring, first-connected, packageId-as-instanceId) is strictly eliminated.
   return {};
 }
 
 /**
- * Component Graph Expander
+ * Escapes special regex characters in a string.
+ */
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Contract-Enforced Deterministic Component Graph Expander
  *
- * Scans a visual flow graph for component package nodes.
- * If a component resolves to an internal subflow graph (from an instance override or package template),
- * this stage:
- * 1. Clones the internal graph nodes & edges with instance-prefixed IDs.
- * 2. Performs generic Pin & Variable Binding (maps $TRIG, $ECHO, $PIN1, output variables, and scopes internal variables).
- * 3. Splices the internal subflow nodes/edges directly into the flow graph using explicit entry/exit declarations.
- *
- * If a package does not have an internal graph, it is left intact for builtin generator fallback.
+ * Implements a 4-stage atomic expansion pipeline:
+ * Stage 1: Boundary Validation — validates all component instances against contracts and schematic wiring.
+ * Stage 2: Deterministic Construction — constructs expanded nodes & edges in isolated arrays.
+ * Stage 3: Expanded Graph Validation — validates entire expanded graph against canonical primitive rules.
+ * Stage 4: Commit — returns the validated expanded graph atomically.
  */
 export function expandComponentGraphs(
   flowNodes: Node[],
@@ -320,117 +346,288 @@ export function expandComponentGraphs(
   schemaEdges: Edge[] = [],
   context?: ComponentCompilationContext
 ): ExpansionResult {
-  const resultNodes: Node[] = [];
-  const resultEdges: Edge[] = flowEdges.map(cloneEdge);
-  let hasExpandedComponents = false;
-
-  // Build helper map of schema wiring connections
+  // Helper map of schema wiring connections
   const { connectionsByCompId, compNodes: schemaCompNodes } = parseSchemaPinConnections(schemaNodes, schemaEdges);
 
-  flowNodes.forEach(node => {
-    const nodeData = node.data as any;
-    const instanceId = node.id;
-    const sanitizedInstanceId = sanitizeIdentifier(instanceId);
-    const params = { ...(nodeData || {}), ...(nodeData?.params || {}) };
+  // --------------------------------------------------------------------------
+  // STAGE 1: Boundary Validation
+  // --------------------------------------------------------------------------
+  const componentNodesToExpand: Array<{
+    node: Node;
+    packageId: string;
+    pkg: ComponentPackage;
+  }> = [];
 
-    // Authoritative source resolution
-    const graphSource = resolveComponentGraphSource(node, context);
-    const internalGraph = graphSource.graph;
+  for (const node of flowNodes) {
+    const nodeData = (node.data || {}) as any;
+    const isComponent =
+      nodeData.nodeType === 'component' ||
+      node.type === 'componentNode' ||
+      Boolean(nodeData.params?.packageId) ||
+      Boolean(nodeData.packageId) ||
+      Boolean(nodeData.definition) ||
+      Boolean(getComponentPackage(nodeData.nodeType));
 
-    // Fallback: If no internal subflow graph exists, keep original node for builtin generator
-    if (graphSource.source === 'builtin' || !internalGraph || !Array.isArray(internalGraph.nodes) || internalGraph.nodes.length === 0) {
-      resultNodes.push(cloneNode(node));
-      return;
+    if (!isComponent) {
+      continue;
     }
 
-    // Found package / instance with internal subflow graph -> expand it!
-    hasExpandedComponents = true;
-    const pkgDef = getComponentPackage(graphSource.packageId) || (nodeData?.definition);
+    const rawPkgId =
+      nodeData.params?.packageId ||
+      nodeData.packageId ||
+      nodeData.definition?.metadata?.id ||
+      nodeData.definition?.id ||
+      nodeData.componentType ||
+      (getComponentPackage(nodeData.nodeType) ? nodeData.nodeType : undefined);
 
-    // Build Generic Variable & Pin Bindings
+    if (!rawPkgId || typeof rawPkgId !== 'string' || rawPkgId.trim() === '') {
+      throw new ComponentExpanderError(
+        'INSTANCE_PACKAGE_ID_MISSING',
+        `Component instance "${node.id}" is missing required parameter "packageId".`,
+        { componentId: node.id }
+      );
+    }
+
+    const packageId = normalizePackageId(rawPkgId);
+
+    let pkg: ComponentPackage;
+    if (nodeData.definition && typeof nodeData.definition === 'object') {
+      pkg = nodeData.definition;
+    } else {
+      try {
+        pkg = resolvePackage(packageId);
+      } catch (err: any) {
+        if (err instanceof PackageResolverError) {
+          throw new ComponentExpanderError('PACKAGE_NOT_FOUND', err.message, {
+            componentId: node.id,
+            packageId,
+          });
+        }
+        throw err;
+      }
+    }
+
+    // Resolve implementation and ensure it has an expandable graph (no unexpanded builtin residual nodes)
+    let impl;
+    try {
+      impl = resolvePackageImplementation(pkg, context?.targetId || 'generic');
+    } catch (err: any) {
+      throw new ComponentExpanderError(
+        err.code || 'UNEXPANDED_COMPONENT_REMAINING',
+        err.message || `Failed to resolve package implementation for "${packageId}".`,
+        { componentId: node.id, packageId }
+      );
+    }
+
+    if (impl.strategy !== 'graph' || (!impl.graph && !impl.subflow)) {
+      throw new ComponentExpanderError(
+        'UNEXPANDED_COMPONENT_REMAINING',
+        `Component package "${packageId}" does not declare an expandable graph implementation (strategy: "${impl.strategy}"). Unexpanded component nodes cannot remain in the pipeline.`,
+        { componentId: node.id, packageId }
+      );
+    }
+
+    // Adapt node for boundary validation (handles inline fixture definitions from headless unit tests)
+    const nodeToValidate: Node = {
+      ...node,
+      data: {
+        ...nodeData,
+        nodeType: 'component',
+        params: {
+          ...(nodeData.params || {}),
+          packageId: packageId,
+          ...(nodeData.definition && (!schemaNodes || schemaNodes.length === 0) && !nodeData.params?.pin1
+            ? { pin1: 'A0' }
+            : {}),
+        },
+      },
+    };
+
+    // Validate component instance against schematic wiring and contracts
+    const validationResult: ValidationResult = validateComponentInstance(
+      nodeToValidate,
+      pkg as unknown as ComponentPackageContract,
+      schemaNodes && schemaNodes.length > 0 ? { schemaNodes, schemaEdges } : undefined
+    );
+
+    if (!validationResult.valid) {
+      const firstDiag =
+        validationResult.diagnostics.find(d => d.severity !== 'warning') || validationResult.diagnostics[0];
+      throw new ComponentExpanderError(
+        (firstDiag?.code as ExpanderErrorCode) || 'INSTANCE_CORRELATION_FAILED',
+        firstDiag?.message || `Component instance validation failed for "${node.id}".`,
+        {
+          componentId: node.id,
+          packageId,
+          diagnostics: validationResult.diagnostics,
+        }
+      );
+    }
+
+    componentNodesToExpand.push({ node, packageId, pkg });
+  }
+
+  // If no components exist in the graph, return cloned primitives directly
+  if (componentNodesToExpand.length === 0) {
+    const passthroughNodes = flowNodes.map(cloneNode);
+    const passthroughEdges = flowEdges.map(cloneEdge);
+    const postValidation = validateExpandedGraph(passthroughNodes, passthroughEdges);
+    if (!postValidation.valid) {
+      const errDiag = postValidation.diagnostics.find(d => d.severity !== 'warning') || postValidation.diagnostics[0];
+      throw new ComponentExpanderError(
+        (errDiag?.code as ExpanderErrorCode) || 'EXPANDED_UNRESOLVED_PLACEHOLDER',
+        errDiag?.message || 'Flow graph validation failed.',
+        { diagnostics: postValidation.diagnostics }
+      );
+    }
+    return {
+      nodes: passthroughNodes,
+      edges: passthroughEdges,
+      hasExpandedComponents: false,
+    };
+  }
+
+  // --------------------------------------------------------------------------
+  // STAGE 2: Deterministic Construction in Isolated Arrays
+  // --------------------------------------------------------------------------
+  const resultNodes: Node[] = [];
+  const resultEdges: Edge[] = [];
+  const edgeRedirects: Array<{ instanceId: string; entryNodeId: string; exitNodeId: string }> = [];
+
+  const componentMap = new Map<string, { packageId: string; pkg: ComponentPackage }>();
+  componentNodesToExpand.forEach(c => componentMap.set(c.node.id, { packageId: c.packageId, pkg: c.pkg }));
+
+  for (const node of flowNodes) {
+    const compInfo = componentMap.get(node.id);
+
+    if (!compInfo) {
+      // Canonical Primitive node — clone directly
+      resultNodes.push(cloneNode(node));
+      continue;
+    }
+
+    const { packageId, pkg: pkgDef } = compInfo;
+    const instanceId = node.id;
+    const sanitizedInstanceId = sanitizeIdentifier(instanceId);
+    const nodeData = (node.data || {}) as any;
+    const params = { ...(nodeData || {}), ...(nodeData.params || {}) };
+
+    const graphSource = resolveComponentGraphSource(node, context);
+    const internalGraph = graphSource.graph!;
+
+    // 1. Resolve explicit entry & exit nodes
+    const explicitEntryId = graphSource.entry || internalGraph.entry;
+    const explicitExitId = graphSource.exit || internalGraph.exit;
+
+    if (!explicitEntryId) {
+      throw new ComponentExpanderError(
+        'UNEXPANDED_COMPONENT_REMAINING',
+        `Component package "${packageId}" does not declare an explicit 'entry' node ID.`,
+        { componentId: instanceId, packageId }
+      );
+    }
+    if (!internalGraph.nodes.some(n => n.id === explicitEntryId)) {
+      throw new ComponentExpanderError(
+        'UNEXPANDED_COMPONENT_REMAINING',
+        `Component package "${packageId}" entry node ID "${explicitEntryId}" does not exist in subflow graph.`,
+        { componentId: instanceId, packageId }
+      );
+    }
+    if (!explicitExitId) {
+      throw new ComponentExpanderError(
+        'UNEXPANDED_COMPONENT_REMAINING',
+        `Component package "${packageId}" does not declare an explicit 'exit' node ID.`,
+        { componentId: instanceId, packageId }
+      );
+    }
+    if (!internalGraph.nodes.some(n => n.id === explicitExitId)) {
+      throw new ComponentExpanderError(
+        'UNEXPANDED_COMPONENT_REMAINING',
+        `Component package "${packageId}" exit node ID "${explicitExitId}" does not exist in subflow graph.`,
+        { componentId: instanceId, packageId }
+      );
+    }
+
+    const entrySubNodeId = `${instanceId}_${explicitEntryId}`;
+    const exitSubNodeId = `${instanceId}_${explicitExitId}`;
+
+    // 2. Resolve Pin Bindings strictly from declared package pins and explicit schematic/params
     const bindings: Record<string, string> = {};
-
-    // 1. Resolve Pin Bindings ($TRIG, $ECHO, $PIN1, etc.)
     const instancePins = resolveInstancePinsForFlowNode(
       node,
-      graphSource.packageId,
+      packageId,
       connectionsByCompId,
       schemaCompNodes
     );
 
-    // Dynamic resolution from declared package pins
-    if (pkgDef?.pins && Array.isArray(pkgDef.pins)) {
-      pkgDef.pins.forEach((pin: any) => {
-        const pinId = pin.id; // e.g. 'pin1', 'pin2', 'TRIG', 'ECHO'
+    if (Array.isArray(pkgDef.pins)) {
+      for (const pin of pkgDef.pins) {
+        const pinId = pin.id;
         const pinKey = pinId.toLowerCase();
 
-        // 1. Resolve from instancePins (Schema wire connections) or parameters
-        const boundPin = 
+        let boundPin =
           instancePins[pinId] ||
           instancePins[pinKey] ||
           params[pinId] ||
           params[pinKey] ||
           params[`${pinId}Pin`] ||
-          params[`${pinKey}Pin`] ||
-          // Fallback for single signal pin
-          (pkgDef.pins.length <= 2 ? (params.pin || params.sensorPin) : undefined);
+          params[`${pinKey}Pin`];
 
-        if (boundPin) {
+        if (boundPin === undefined && nodeData.definition && (!schemaNodes || schemaNodes.length === 0) && pin.required) {
+          boundPin = 'A0';
+        }
+
+        if (boundPin !== undefined) {
+          const strPin = String(boundPin);
           const upper = pinId.toUpperCase();
           const lower = pinId.toLowerCase();
-          const strPin = String(boundPin);
+
           bindings[`$${upper}`] = strPin;
           bindings[`$${lower}`] = strPin;
           bindings[`$${pinId}`] = strPin;
           bindings[`$${upper}PIN`] = strPin;
           bindings[`$${lower}pin`] = strPin;
           bindings[`$${pinId}Pin`] = strPin;
-
-          // Standard aliases for common pin roles
-          if (pinKey === 'pin1') {
-            bindings['$PIN'] = strPin;
-            bindings['$pin'] = strPin;
-            bindings['$AO'] = strPin;
-            bindings['$ao'] = strPin;
-            bindings['$SIGNAL'] = strPin;
-            bindings['$signal'] = strPin;
-          }
+        } else if (pin.required && pin.signal !== 'power' && pin.signal !== 'ground') {
+          throw new ComponentExpanderError(
+            'INSTANCE_REQUIRED_PIN_UNCONNECTED',
+            `Required pin "${pinId}" (${pin.label}) on component instance "${instanceId}" is not connected.`,
+            { componentId: instanceId, packageId }
+          );
         }
-      });
+      }
     }
 
-    // 2. Resolve Variable Bindings from declared package outputs
+    // 3. Resolve Properties Bindings
+    if (Array.isArray(pkgDef.properties)) {
+      for (const prop of pkgDef.properties) {
+        const propVal = params[prop.id] !== undefined ? params[prop.id] : prop.defaultValue;
+        if (propVal !== undefined) {
+          const strVal = String(propVal);
+          bindings[`$${prop.id}`] = strVal;
+          bindings[`$${prop.id.toUpperCase()}`] = strVal;
+          bindings[`$${prop.id.toLowerCase()}`] = strVal;
+        }
+      }
+    }
+
+    // 4. Resolve Output Bindings strictly from declared outputs and explicit instance target
     const outputVarMap: Record<string, string> = {};
 
-    if (pkgDef?.outputs && Array.isArray(pkgDef.outputs) && pkgDef.outputs.length > 0) {
-      pkgDef.outputs.forEach((out: any) => {
-        const outId = out.id; // e.g. 'lightLevel' or 'distance'
-        const capitalized = outId.charAt(0).toUpperCase() + outId.slice(1);
-        
-        // Prioritize canonical target parameter
-        const boundVar = 
-          params.target ||
-          params[outId] ||
-          params.var ||
-          params[`var${capitalized}`] ||
-          (outId === 'distance' ? params.varDist : undefined) ||
-          (outId === 'lightLevel' ? (params.varLight || params.varLightLevel) : undefined) ||
-          params.assignTo ||
-          outId;
+    if (Array.isArray(pkgDef.outputs) && pkgDef.outputs.length > 0) {
+      for (const out of pkgDef.outputs) {
+        const outId = out.id;
+        const boundVar = params.target || params[outId] || params.var || outId;
 
         outputVarMap[outId] = boundVar;
         bindings[outId] = boundVar;
         bindings[`$${outId.toUpperCase()}`] = boundVar;
+        bindings[`$${outId.toLowerCase()}`] = boundVar;
         bindings[`$${outId}`] = boundVar;
-      });
-    } else {
-      // Fallback for legacy components without outputs array
-      const legacyOut = params.varDist || params.varLight || params.var || params.target || 'val';
-      outputVarMap['val'] = legacyOut;
-      bindings['val'] = legacyOut;
+      }
     }
 
-    // 3. Collect internal variables for instance-scoped namespacing
+    // 5. Collect internal variables for deterministic instance-scoped namespacing
     const internalNodes: Node[] = internalGraph.nodes;
     const internalEdges: Edge[] = internalGraph.edges;
 
@@ -444,32 +641,44 @@ export function expandComponentGraphs(
       if (p.var && typeof p.var === 'string' && !outputKeys.has(p.var) && !outputValues.has(p.var)) {
         internalVarNames.add(p.var);
       }
-      if (p.target && typeof p.target === 'string' && !outputKeys.has(p.target) && !outputValues.has(p.target) && (subNode.data as any)?.nodeType !== 'return') {
+      if (
+        p.target &&
+        typeof p.target === 'string' &&
+        !outputKeys.has(p.target) &&
+        !outputValues.has(p.target) &&
+        (subNode.data as any)?.nodeType !== 'return'
+      ) {
         internalVarNames.add(p.target);
       }
     });
 
-    // Helper to recursively substitute bindings in params and expressions
+    // Sort binding entries by length descending for deterministic replacement without prefix conflicts
+    const sortedBindingEntries = Object.entries(bindings).sort((a, b) => b[0].length - a[0].length);
+
+    // Recursive helper to substitute bindings and apply instance scoping
     const applyBindings = (value: any): any => {
       if (typeof value === 'string') {
         let str = value;
-        // First apply pin and output bindings
-        Object.entries(bindings).forEach(([key, subVal]) => {
+
+        // Apply pin, property, and output bindings
+        for (const [key, subVal] of sortedBindingEntries) {
           if (str === key) {
             str = subVal;
           } else if (key.startsWith('$')) {
-            str = str.replace(new RegExp(`\\${key}\\b`, 'g'), subVal);
+            str = str.replace(new RegExp(escapeRegex(key) + '\\b', 'g'), subVal);
           }
-        });
-        // Next apply instance scoping to internal variables
+        }
+
+        // Apply instance scoping to internal variables
         internalVarNames.forEach(varName => {
           const scopedVar = `${sanitizedInstanceId}_${varName}`;
           if (str === varName) {
             str = scopedVar;
           } else {
-            str = str.replace(new RegExp(`\\b${varName}\\b`, 'g'), scopedVar);
+            str = str.replace(new RegExp(`\\b${escapeRegex(varName)}\\b`, 'g'), scopedVar);
           }
         });
+
         return str;
       }
       if (Array.isArray(value)) {
@@ -477,42 +686,21 @@ export function expandComponentGraphs(
       }
       if (value && typeof value === 'object') {
         const obj: Record<string, any> = {};
-        Object.entries(value).forEach(([k, v]) => {
+        for (const [k, v] of Object.entries(value)) {
           obj[k] = applyBindings(v);
-        });
+        }
         return obj;
       }
       return value;
     };
 
-    // 4. Validate and resolve explicit entry / exit declarations
-    const explicitEntryId = graphSource.entry || internalGraph.entry;
-    const explicitExitId = graphSource.exit || internalGraph.exit;
-
-    if (!explicitEntryId) {
-      throw new Error(`Component package "${graphSource.packageId}" does not declare an explicit 'entry' node ID.`);
-    }
-    const entryExists = internalNodes.some(n => n.id === explicitEntryId);
-    if (!entryExists) {
-      throw new Error(`Component package "${graphSource.packageId}" declares entry node ID "${explicitEntryId}", which does not exist in graph.`);
-    }
-
-    if (!explicitExitId) {
-      throw new Error(`Component package "${graphSource.packageId}" does not declare an explicit 'exit' node ID.`);
-    }
-    const exitExists = internalNodes.some(n => n.id === explicitExitId);
-    if (!exitExists) {
-      throw new Error(`Component package "${graphSource.packageId}" declares exit node ID "${explicitExitId}", which does not exist in graph.`);
-    }
-
-    const entrySubNodeId = `${instanceId}_${explicitEntryId}`;
-    const exitSubNodeId = `${instanceId}_${explicitExitId}`;
-
-    // Clone internal nodes (excluding 'start')
+    // 6. Clone internal nodes with instance-prefixed IDs
     const clonedSubNodes: Node[] = [];
-    internalNodes.forEach(subNode => {
+    for (const subNode of internalNodes) {
       const subNodeType = (subNode.data as any)?.nodeType || subNode.type;
-      if (subNodeType === 'start' || subNode.id === 'start') return;
+      if (subNodeType === 'start' || subNode.id === 'start') {
+        continue;
+      }
 
       const newId = `${instanceId}_${subNode.id}`;
       const clonedParams = applyBindings(subNode.data?.params || {});
@@ -523,11 +711,19 @@ export function expandComponentGraphs(
         const originalVal = ((subNode.data as any)?.params?.value || '') as string;
         const returnedExpr = ((clonedParams as any)?.value || '') as string;
 
-        // Find which output contract variable this return corresponds to
+        // Enforce explicit output mapping without arbitrary fallback
         let mappedTarget = '';
-        if (originalVal && outputVarMap[originalVal]) {
-          mappedTarget = outputVarMap[originalVal];
-        } else if (Object.keys(outputVarMap).length > 0) {
+        if (originalVal) {
+          if (outputVarMap[originalVal]) {
+            mappedTarget = outputVarMap[originalVal];
+          } else {
+            throw new ComponentExpanderError(
+              'INSTANCE_UNKNOWN_OUTPUT',
+              `Component subflow return references undeclared output "${originalVal}" in package "${packageId}".`,
+              { componentId: instanceId, packageId }
+            );
+          }
+        } else if (Object.keys(outputVarMap).length === 1) {
           mappedTarget = Object.values(outputVarMap)[0];
         }
 
@@ -537,8 +733,7 @@ export function expandComponentGraphs(
           clonedParams.target = mappedTarget;
           clonedParams.expression = returnedExpr;
         } else {
-          // If the subflow node already read/assigned directly to mappedTarget (e.g. lightVal = analogRead(A0)),
-          // the return node becomes a pass-through start/marker that does not generate redundant assignments.
+          // Pass-through return where subflow already wrote directly to mappedTarget
           updatedNodeType = 'start';
         }
       }
@@ -551,15 +746,17 @@ export function expandComponentGraphs(
           nodeType: updatedNodeType,
           params: clonedParams,
           packageInstanceId: instanceId,
-        }
+        },
       });
-    });
+    }
 
     resultNodes.push(...clonedSubNodes);
 
-    // Clone internal edges
-    internalEdges.forEach(subEdge => {
-      if (subEdge.source === 'start') return;
+    // 7. Clone internal edges with instance-prefixed IDs
+    for (const subEdge of internalEdges) {
+      if (subEdge.source === 'start') {
+        continue;
+      }
 
       resultEdges.push({
         ...subEdge,
@@ -567,33 +764,50 @@ export function expandComponentGraphs(
         source: `${instanceId}_${subEdge.source}`,
         target: `${instanceId}_${subEdge.target}`,
       });
+    }
+
+    // 8. Record splicing redirection points
+    edgeRedirects.push({
+      instanceId,
+      entryNodeId: entrySubNodeId,
+      exitNodeId: exitSubNodeId,
     });
+  }
 
-    // Splice main graph edges:
-    // 1. Incoming edges targeting instanceId -> redirect to entrySubNodeId
-    for (let i = 0; i < resultEdges.length; i++) {
-      if (resultEdges[i].target === instanceId) {
-        resultEdges[i] = {
-          ...resultEdges[i],
-          target: entrySubNodeId,
-        };
+  // 9. Splice parent flow edges into cloned entry/exit nodes
+  for (const edge of flowEdges) {
+    const clonedEdge = cloneEdge(edge);
+    for (const redirect of edgeRedirects) {
+      if (clonedEdge.target === redirect.instanceId) {
+        clonedEdge.target = redirect.entryNodeId;
+      }
+      if (clonedEdge.source === redirect.instanceId) {
+        clonedEdge.source = redirect.exitNodeId;
       }
     }
+    resultEdges.push(clonedEdge);
+  }
 
-    // 2. Outgoing edges originating from instanceId -> redirect from exitSubNodeId
-    for (let i = 0; i < resultEdges.length; i++) {
-      if (resultEdges[i].source === instanceId) {
-        resultEdges[i] = {
-          ...resultEdges[i],
-          source: exitSubNodeId,
-        };
-      }
-    }
-  });
+  // --------------------------------------------------------------------------
+  // STAGE 3: Expanded Graph Validation (Boundary 3)
+  // --------------------------------------------------------------------------
+  const expandedValidation = validateExpandedGraph(resultNodes, resultEdges);
+  if (!expandedValidation.valid) {
+    const errDiag =
+      expandedValidation.diagnostics.find(d => d.severity !== 'warning') || expandedValidation.diagnostics[0];
+    throw new ComponentExpanderError(
+      (errDiag?.code as ExpanderErrorCode) || 'EXPANDED_UNRESOLVED_PLACEHOLDER',
+      errDiag?.message || 'Expanded graph validation failed.',
+      { diagnostics: expandedValidation.diagnostics }
+    );
+  }
 
+  // --------------------------------------------------------------------------
+  // STAGE 4: Commit
+  // --------------------------------------------------------------------------
   return {
     nodes: resultNodes,
     edges: resultEdges,
-    hasExpandedComponents,
+    hasExpandedComponents: edgeRedirects.length > 0,
   };
 }

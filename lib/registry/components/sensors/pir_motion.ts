@@ -1,12 +1,15 @@
-﻿import { PackageDefinition } from '../types';
+import { PackageDefinition } from '../types';
 
 export const PIRMotionPackage: PackageDefinition = {
+  id: 'pir_motion',
+  version: '1.0.0',
+
   metadata: {
     id: 'pir_motion',
     name: 'PIR Motion Sensor',
-    description: 'Passive infrared motion sensor â€” detects nearby movement',
+    description: 'Passive infrared motion sensor — detects nearby movement',
     category: 'sensor',
-    icon: 'ðŸ‘',
+    icon: '🏃',
     tags: ['motion', 'pir', 'security'],
   },
 
@@ -28,5 +31,5 @@ export const PIRMotionPackage: PackageDefinition = {
     setup:    [],
   },
 
-  implementation: { type: 'builtin' },
+  implementation: { strategy: 'builtin', type: 'builtin' },
 };

@@ -1,12 +1,15 @@
-﻿import { PackageDefinition } from '../types';
+import { PackageDefinition } from '../types';
 
 export const VibrationSensorPackage: PackageDefinition = {
+  id: 'vibration_sensor',
+  version: '1.0.0',
+
   metadata: {
     id: 'vibration_sensor',
     name: 'Vibration Sensor',
     description: 'Vibration and tilt detection sensor (SW-420 or similar)',
     category: 'sensor',
-    icon: 'ðŸ“³',
+    icon: '📳',
     tags: ['vibration', 'tilt', 'motion', 'sw420'],
   },
 
@@ -28,5 +31,5 @@ export const VibrationSensorPackage: PackageDefinition = {
     setup:    [],
   },
 
-  implementation: { type: 'builtin' },
+  implementation: { strategy: 'builtin', type: 'builtin' },
 };
