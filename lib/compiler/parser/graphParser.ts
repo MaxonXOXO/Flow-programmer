@@ -18,6 +18,16 @@ import {
 import { parseExpressionString } from './expressionParser';
 import { normalizeFlowGraph, normalizeFlowGraphNode } from './nodeNormalizer';
 import { expandComponentGraphs, cloneNode, cloneEdge, ComponentCompilationContext } from '../packages/componentExpander';
+import {
+  validateFlowControl,
+  FlowControlError,
+  findCommonConvergeNode,
+  findCommonConvergeNodeForTargets,
+  FlowControlDiagnostic,
+} from '../flow/flowControl';
+
+export { FlowControlError, validateFlowControl };
+export type { FlowControlDiagnostic };
 
 export class GraphToASTCompiler {
   private visited: Set<string> = new Set();
@@ -69,6 +79,29 @@ export class GraphToASTCompiler {
 
     const workingNodes = expanded.nodes;
     const workingEdges = expanded.edges;
+
+    // Validate control-flow primitives: enforce explicit flow_split / flow_converge and reject implicit fan-out/fan-in
+    const flowDiagnostics = validateFlowControl(workingNodes, workingEdges);
+    const flowErrors = flowDiagnostics.filter(d => d.severity === 'error');
+    if (flowErrors.length > 0) {
+      const firstErr = flowErrors[0];
+      throw new FlowControlError(firstErr.code, firstErr.message, {
+        nodeId: firstErr.nodeId,
+        diagnostics: flowDiagnostics,
+      });
+    }
+
+    Object.entries(normalizedSubFlows).forEach(([, sf]) => {
+      const sfDiagnostics = validateFlowControl(sf.nodes, sf.edges);
+      const sfErrors = sfDiagnostics.filter(d => d.severity === 'error');
+      if (sfErrors.length > 0) {
+        const firstErr = sfErrors[0];
+        throw new FlowControlError(firstErr.code, firstErr.message, {
+          nodeId: firstErr.nodeId,
+          diagnostics: sfDiagnostics,
+        });
+      }
+    });
 
     this.visited.clear();
     const body: ProgramStatementNode[] = [];
@@ -174,12 +207,17 @@ export class GraphToASTCompiler {
   public compileBlock(
     startNodeId: string | undefined,
     nodes: Node[] = [...this.flowNodes],
-    edges: Edge[] = [...this.flowEdges]
+    edges: Edge[] = [...this.flowEdges],
+    options?: { stopAtNodeId?: string }
   ): BlockStatementNode {
     const body: StatementNode[] = [];
     let currentId = startNodeId;
 
     while (currentId && !this.visited.has(currentId)) {
+      if (options?.stopAtNodeId && currentId === options.stopAtNodeId) {
+        break;
+      }
+
       const rawNode = nodes.find(n => n.id === currentId);
       if (!rawNode) break;
 
@@ -455,18 +493,27 @@ export class GraphToASTCompiler {
         const condExpr = parseExpressionString(data?.params?.condition || 'true', currentId);
         
         const trueEdge = edges.find(e => e.source === currentId && e.sourceHandle === 'true');
+        const falseEdge = edges.find(e => e.source === currentId && e.sourceHandle === 'false');
+
+        // Check if both branches converge at a downstream flow_converge node
+        const branchTargets = [trueEdge?.target, falseEdge?.target].filter(Boolean) as string[];
+        const convergeNodeId =
+          branchTargets.length > 0 ? findCommonConvergeNodeForTargets(branchTargets, nodes, edges) : undefined;
+
         const consequentCompiler = new GraphToASTCompiler(
           nodes, 
           edges, 
           this.subFlows, 
           this.functionSignatures, 
           [...this.schemaNodes], 
-          [...this.schemaEdges]
+          [...this.schemaEdges],
+          this.compilationContext
         );
         consequentCompiler.visited = new Set(this.visited);
-        const consequent = consequentCompiler.compileBlock(trueEdge?.target, nodes, edges);
+        const consequent = consequentCompiler.compileBlock(trueEdge?.target, nodes, edges, {
+          stopAtNodeId: convergeNodeId,
+        });
 
-        const falseEdge = edges.find(e => e.source === currentId && e.sourceHandle === 'false');
         let alternate: BlockStatementNode | undefined = undefined;
         if (falseEdge) {
           const alternateCompiler = new GraphToASTCompiler(
@@ -475,10 +522,13 @@ export class GraphToASTCompiler {
             this.subFlows, 
             this.functionSignatures, 
             [...this.schemaNodes], 
-            [...this.schemaEdges]
+            [...this.schemaEdges],
+            this.compilationContext
           );
           alternateCompiler.visited = new Set(this.visited);
-          alternate = alternateCompiler.compileBlock(falseEdge.target, nodes, edges);
+          alternate = alternateCompiler.compileBlock(falseEdge.target, nodes, edges, {
+            stopAtNodeId: convergeNodeId,
+          });
         }
 
         body.push({
@@ -489,8 +539,65 @@ export class GraphToASTCompiler {
           alternate
         } as IfStatementNode);
 
-        const doneEdge = edges.find(e => e.source === currentId && e.sourceHandle === 'flow');
-        currentId = doneEdge?.target;
+        consequentCompiler.visited.forEach(v => {
+          if (v !== convergeNodeId) this.visited.add(v);
+        });
+
+        if (convergeNodeId) {
+          currentId = convergeNodeId;
+        } else {
+          const doneEdge = edges.find(e => e.source === currentId && e.sourceHandle === 'flow');
+          currentId = doneEdge?.target;
+        }
+        continue;
+      } else if (type === 'flow_split') {
+        const rawCount = data?.params?.branchCount;
+        const parsed = Number(rawCount);
+        const branchCount = Number.isInteger(parsed) && parsed >= 1 ? parsed : 0;
+        const convergeNodeId = findCommonConvergeNode(currentId, nodes, edges);
+
+        for (let i = 0; i < branchCount; i++) {
+          const branchEdge = edges.find(
+            e =>
+              e.source === currentId &&
+              (e.sourceHandle === `branch_${i}` ||
+                e.sourceHandle === `branch${i}` ||
+                (i === 0 && (e.sourceHandle === 'flow' || !e.sourceHandle)))
+          );
+
+          if (branchEdge?.target) {
+            const branchCompiler = new GraphToASTCompiler(
+              nodes,
+              edges,
+              this.subFlows,
+              this.functionSignatures,
+              [...this.schemaNodes],
+              [...this.schemaEdges],
+              this.compilationContext
+            );
+            branchCompiler.visited = new Set(this.visited);
+            const branchBlock = branchCompiler.compileBlock(branchEdge.target, nodes, edges, {
+              stopAtNodeId: convergeNodeId,
+            });
+            body.push(...branchBlock.body);
+
+            branchCompiler.visited.forEach(v => {
+              if (v !== convergeNodeId) {
+                this.visited.add(v);
+              }
+            });
+          }
+        }
+
+        if (convergeNodeId) {
+          currentId = convergeNodeId;
+        } else {
+          currentId = undefined;
+        }
+        continue;
+      } else if (type === 'flow_converge') {
+        const outEdge = edges.find(e => e.source === currentId && (e.sourceHandle === 'flow' || !e.sourceHandle));
+        currentId = outEdge?.target;
         continue;
       } else if (type === 'loop') {
         const loopVar = data?.params?.var || 'i';
@@ -534,7 +641,8 @@ export class GraphToASTCompiler {
           this.subFlows, 
           this.functionSignatures, 
           [...this.schemaNodes], 
-          [...this.schemaEdges]
+          [...this.schemaEdges],
+          this.compilationContext
         );
         bodyCompiler.visited = new Set(this.visited);
         const loopBody = bodyCompiler.compileBlock(bodyEdge?.target, nodes, edges);

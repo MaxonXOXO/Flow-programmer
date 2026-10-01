@@ -28,6 +28,8 @@ export const CANONICAL_PRIMITIVE_TYPES = [
   'return',
   'condition',
   'loop',
+  'flow_split',
+  'flow_converge',
   'delay',
   'digital_read',
   'digital_write',
